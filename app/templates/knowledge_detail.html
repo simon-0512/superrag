@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}{{ knowledge_base.name }} - 知识库详情 - SuperRAG{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- 页面头部 -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-1">
+                            <li class="breadcrumb-item"><a href="{{ url_for('main.knowledge') }}">知识库</a></li>
+                            <li class="breadcrumb-item active">{{ knowledge_base.name }}</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">{{ knowledge_base.name }}</h1>
+                    <p class="text-muted">{{ knowledge_base.description or '暂无描述' }}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary" onclick="editKnowledgeBase()">
+                        <i class="fas fa-edit"></i> 编辑
+                    </button>
+                    <button class="btn btn-primary" onclick="uploadDocument()">
+                        <i class="fas fa-upload"></i> 上传文档
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 统计信息 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-alt text-primary fa-2x mb-2"></i>
+                    <h4 class="mb-0">{{ knowledge_base.document_count }}</h4>
+                    <small class="text-muted">文档数量</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-database text-success fa-2x mb-2"></i>
+                    <h4 class="mb-0">{{ "%.1f"|format(knowledge_base.total_size / 1024 / 1024) }}MB</h4>
+                    <small class="text-muted">存储大小</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-th-large text-info fa-2x mb-2"></i>
+                    <h4 class="mb-0">{{ knowledge_base.chunk_count }}</h4>
+                    <small class="text-muted">文档分块</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-calendar text-warning fa-2x mb-2"></i>
+                    <h4 class="mb-0">{{ knowledge_base.created_at.strftime('%m-%d') }}</h4>
+                    <small class="text-muted">创建日期</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 文档列表 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">文档列表</h5>
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control form-control-sm" placeholder="搜索文档..." 
+                               id="searchInput" style="width: 200px;">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="refreshDocuments()">
+                            <i class="fas fa-refresh"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    {% if documents %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>文档名称</th>
+                                        <th>大小</th>
+                                        <th>类型</th>
+                                        <th>分块数</th>
+                                        <th>上传时间</th>
+                                        <th>处理状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for doc in documents %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas {{ 'fa-file-pdf' if doc.file_type == 'pdf' else 'fa-file-word' if doc.file_type in ['doc', 'docx'] else 'fa-file-alt' }} me-2 text-muted"></i>
+                                                <div>
+                                                    <div class="fw-medium">{{ doc.title }}</div>
+                                                    {% if doc.summary %}
+                                                        <small class="text-muted">{{ doc.summary[:100] }}...</small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ "%.1f"|format(doc.file_size / 1024) }}KB</td>
+                                        <td><span class="badge bg-light text-dark">{{ doc.file_type.upper() }}</span></td>
+                                        <td>{{ doc.chunk_count }}</td>
+                                        <td>{{ doc.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>
+                                            {% if doc.processing_status == 'completed' %}
+                                                <span class="badge bg-success">已完成</span>
+                                            {% elif doc.processing_status == 'processing' %}
+                                                <span class="badge bg-warning">处理中</span>
+                                            {% elif doc.processing_status == 'failed' %}
+                                                <span class="badge bg-danger">失败</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">待处理</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" onclick="viewDocument('{{ doc.id }}')" title="查看">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-outline-success" onclick="downloadDocument('{{ doc.id }}')" title="下载">
+                                                    <i class="fas fa-download"></i>
+                                                </button>
+                                                <button class="btn btn-outline-info" onclick="reprocessDocument('{{ doc.id }}')" title="重新处理">
+                                                    <i class="fas fa-redo"></i>
+                                                </button>
+                                                <button class="btn btn-outline-danger" onclick="deleteDocument('{{ doc.id }}')" title="删除">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-file-upload text-muted fa-4x mb-3"></i>
+                            <h4>还没有文档</h4>
+                            <p class="text-muted mb-4">上传您的第一个文档，开始构建知识库</p>
+                            <button class="btn btn-primary" onclick="uploadDocument()">
+                                <i class="fas fa-upload"></i> 上传文档
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 上传文档模态框 -->
+<div class="modal fade" id="uploadDocumentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传文档到 "{{ knowledge_base.name }}"</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="uploadDocumentForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <input type="hidden" name="knowledge_base_id" value="{{ knowledge_base.id }}">
+                    
+                    <div class="mb-3">
+                        <label for="documentFiles" class="form-label">选择文件</label>
+                        <input type="file" class="form-control" id="documentFiles" name="files" multiple
+                               accept=".txt,.pdf,.doc,.docx,.md">
+                        <div class="form-text">支持 TXT、PDF、DOC、DOCX、MD 格式，单个文件不超过10MB</div>
+                    </div>
+                    
+                    <div id="uploadProgress" class="d-none">
+                        <div class="progress mb-2">
+                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div class="text-center">
+                            <small class="text-muted" id="uploadStatus">准备上传...</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">开始上传</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// 上传文档
+function uploadDocument() {
+    new bootstrap.Modal(document.getElementById('uploadDocumentModal')).show();
+}
+
+document.getElementById('uploadDocumentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const progressDiv = document.getElementById('uploadProgress');
+    const progressBar = progressDiv.querySelector('.progress-bar');
+    const statusText = document.getElementById('uploadStatus');
+    
+    progressDiv.classList.remove('d-none');
+    
+    fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            progressBar.style.width = '100%';
+            statusText.textContent = '上传完成！';
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('uploadDocumentModal')).hide();
+                location.reload();
+            }, 1000);
+        } else {
+            alert('上传失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('上传文档失败:', error);
+        alert('上传失败，请稍后重试');
+    });
+});
+
+// 查看文档
+function viewDocument(docId) {
+    // TODO: 实现文档预览功能
+    alert('文档预览功能即将开放！');
+}
+
+// 下载文档
+function downloadDocument(docId) {
+    window.open(`/api/documents/${docId}/download`, '_blank');
+}
+
+// 重新处理文档
+function reprocessDocument(docId) {
+    if (confirm('确定要重新处理这个文档吗？这将重新生成文档分块和向量索引。')) {
+        fetch(`/api/documents/${docId}/reprocess`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('文档已开始重新处理');
+                location.reload();
+            } else {
+                alert('重新处理失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('重新处理文档失败:', error);
+            alert('重新处理失败，请稍后重试');
+        });
+    }
+}
+
+// 删除文档
+function deleteDocument(docId) {
+    if (confirm('确定要删除这个文档吗？此操作无法撤销。')) {
+        fetch(`/api/documents/${docId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('删除失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('删除文档失败:', error);
+            alert('删除失败，请稍后重试');
+        });
+    }
+}
+
+// 编辑知识库
+function editKnowledgeBase() {
+    // TODO: 实现编辑功能
+    alert('编辑功能即将开放！');
+}
+
+// 刷新文档列表
+function refreshDocuments() {
+    location.reload();
+}
+
+// 搜索功能
+document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+        const documentName = row.querySelector('td .fw-medium').textContent.toLowerCase();
+        if (documentName.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %} 

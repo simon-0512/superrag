@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}知识留存 - SuperRAG{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">知识留存</h2>
+                <p class="lead text-muted">将您的对话和学习成果整理成结构化报告</p>
+            </div>
+
+            <!-- 功能说明 -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                             style="width: 60px; height: 60px;">
+                            <i class="bi bi-chat-dots fs-4"></i>
+                        </div>
+                        <h5>智能总结</h5>
+                        <p class="text-muted">AI自动分析对话内容，提取核心知识点和学习要点</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                             style="width: 60px; height: 60px;">
+                            <i class="bi bi-file-earmark-pdf fs-4"></i>
+                        </div>
+                        <h5>PDF生成</h5>
+                        <p class="text-muted">生成美观的PDF报告，包含问答记录、知识点整理和学习建议</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                             style="width: 60px; height: 60px;">
+                            <i class="bi bi-archive fs-4"></i>
+                        </div>
+                        <h5>知识归档</h5>
+                        <p class="text-muted">自动保存到个人知识库，建立完整的学习档案</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 导出选项 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">导出选项</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>提示：</strong>此功能需要先进行对话才能使用。请前往 
+                        <a href="/chat" class="alert-link">智能问答</a> 页面开始对话。
+                    </div>
+                    
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="card h-100 border-2" style="opacity: 0.6;">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-file-earmark-pdf fs-1 text-danger mb-3"></i>
+                                    <h5>当前对话报告</h5>
+                                    <p class="text-muted">导出当前对话的完整记录和AI总结</p>
+                                    <button class="btn btn-outline-danger" disabled>
+                                        <i class="bi bi-download me-2"></i>生成PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card h-100 border-2" style="opacity: 0.6;">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-collection fs-1 text-primary mb-3"></i>
+                                    <h5>历史对话合集</h5>
+                                    <p class="text-muted">将多个对话整理成主题合集</p>
+                                    <button class="btn btn-outline-primary" disabled>
+                                        <i class="bi bi-download me-2"></i>生成合集
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 历史报告 -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">历史报告</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center py-5">
+                        <i class="bi bi-file-earmark-text fs-1 text-muted mb-3"></i>
+                        <h5 class="text-muted">暂无历史报告</h5>
+                        <p class="text-muted">开始对话后，您的知识留存报告将显示在这里</p>
+                        <a href="/chat" class="btn btn-primary">
+                            <i class="bi bi-chat-dots me-2"></i>开始对话
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 这里将来会添加实际的导出功能
+    console.log('导出页面已加载');
+});
+</script>
+{% endblock %} 

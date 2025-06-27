@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}仪表板 - SuperRAG{% endblock %}
+
+{% block content %}
+<div class="homepage-content">
+    <div class="golden-ratio-container">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-12">
+                    <div class="dashboard-header">
+                        <div class="hero-section" style="min-height: 20vh; padding: 2rem 0;">
+                            <div class="text-center">
+                                <h1 class="hero-title" style="font-size: 2.5rem;">欢迎回来</h1>
+                                <div class="hero-slogan">{{ current_user.nickname or current_user.username }}</div>
+                                <p class="hero-subtitle">准备好开始新的知识探索之旅了吗？</p>
+                                <div class="d-flex gap-3 justify-content-center">
+                                    <a href="{{ url_for('main.chat') }}" class="btn btn-primary">
+                                        <i class="bi bi-chat-dots me-2"></i>开始对话
+                                    </a>
+                                    <a href="{{ url_for('main.knowledge') }}" class="btn btn-outline-primary">
+                                        <i class="bi bi-book me-2"></i>管理知识库
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            <!-- 统计卡片 -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-folder-fill"></i>
+                        </div>
+                        <h4>{{ stats.knowledge_bases_count }}</h4>
+                        <p>知识库</p>
+                    </div>
+                </div>
+        
+                <div class="col-md-3 mb-3">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-file-earmark-text-fill"></i>
+                        </div>
+                        <h4>{{ stats.total_documents }}</h4>
+                        <p>文档数量</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-chat-dots-fill"></i>
+                        </div>
+                        <h4>{{ stats.conversations_count }}</h4>
+                        <p>对话数量</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-chat-quote-fill"></i>
+                        </div>
+                        <h4>{{ stats.total_messages }}</h4>
+                        <p>消息总数</p>
+                    </div>
+                </div>
+            </div>
+    
+            <div class="row">
+                <!-- 知识库列表 -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">我的知识库</h5>
+                                <a href="{{ url_for('main.knowledge') }}" class="btn btn-outline-primary btn-sm">查看全部</a>
+                            </div>
+                        </div>
+                <div class="card-body">
+                    {% if knowledge_bases %}
+                        <div class="list-group list-group-flush">
+                            {% for kb in knowledge_bases[:5] %}
+                            <div class="list-group-item px-0 border-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">
+                                            <a href="{{ url_for('main.knowledge_detail', knowledge_base_id=kb.id) }}" 
+                                               class="text-decoration-none">{{ kb.name }}</a>
+                                        </h6>
+                                        <p class="mb-1 text-muted small">{{ kb.description or '暂无描述' }}</p>
+                                        <small class="text-muted">
+                                            {{ kb.document_count }} 个文档 • 
+                                            {{ kb.created_at.strftime('%Y-%m-%d') }}
+                                        </small>
+                                    </div>
+                                    {% if kb.is_public %}
+                                    <span class="badge bg-success ms-2">公开</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary ms-2">私有</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-folder-plus text-muted fa-3x mb-3"></i>
+                            <p class="text-muted">还没有知识库</p>
+                            <a href="{{ url_for('main.knowledge') }}" class="btn btn-primary">创建知识库</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+                <!-- 最近对话 -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">最近对话</h5>
+                                <a href="{{ url_for('main.chat') }}" class="btn btn-outline-primary btn-sm">开始对话</a>
+                            </div>
+                        </div>
+                <div class="card-body">
+                    {% if recent_conversations %}
+                        <div class="list-group list-group-flush">
+                            {% for conv in recent_conversations %}
+                            <div class="list-group-item px-0 border-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">{{ conv.title }}</h6>
+                                        <small class="text-muted">
+                                            {{ conv.message_count }} 条消息 • 
+                                            {{ conv.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                                        </small>
+                                    </div>
+                                    <div class="text-end">
+                                        <small class="text-muted">{{ conv.model_name }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-comment-alt text-muted fa-3x mb-3"></i>
+                            <p class="text-muted">还没有对话记录</p>
+                            <a href="{{ url_for('main.chat') }}" class="btn btn-primary">开始对话</a>
+                        </div>
+                    {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

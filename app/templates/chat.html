@@ -1,0 +1,2641 @@
+{% extends "base.html" %}
+
+{% block title %}智能问答 - SuperRAG{% endblock %}
+
+{% block extra_css %}
+<!-- Markdown解析库 -->
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+<!-- 代码高亮库 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/one-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+<!-- MathJax数学公式渲染库 -->
+<script>
+window.MathJax = {
+    tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        processEnvironments: true,
+        packages: {'[+]': ['ams', 'newcommand', 'autoload', 'configmacros', 'action']},
+        maxMacros: 1000,
+        maxBuffer: 5 * 1024
+    },
+    options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+    },
+    startup: {
+        ready: function () {
+            console.log('MathJax已准备就绪');
+            MathJax.startup.defaultReady();
+        }
+    }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+/* 聊天页面隐藏页脚，为对话区域释放更多空间 */
+footer {
+    display: none !important;
+}
+
+/* 调整主内容区域高度 */
+.main-content {
+    min-height: calc(100vh - 60px) !important; /* 减去导航栏高度 */
+    padding-bottom: 0 !important;
+}
+
+/* 聊天页面内容容器 */
+.chat-page-content {
+    padding: 0 !important;
+    margin: 0 !important;
+    height: calc(100vh - 60px); /* 减去导航栏高度 */
+    overflow: hidden;
+}
+
+/* 优化聊天容器高度 */
+.chat-container {
+    height: 100% !important;
+    max-height: none !important;
+    border-radius: 0 !important; /* 移除圆角，充分利用空间 */
+    box-shadow: none !important;
+}
+
+/* 调试面板样式 */
+.debug-panel {
+    position: fixed;
+    top: 60px;
+    right: 0;
+    width: 500px;
+    height: calc(100vh - 60px);
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(10px);
+    border-left: 1px solid #e5e5e5;
+    box-shadow: -2px 0 20px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.debug-header {
+    padding: 16px;
+    border-bottom: 1px solid #e5e5e5;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.debug-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.debug-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.debug-tabs {
+    display: flex;
+    border-bottom: 1px solid #e5e5e5;
+    background: #f8f9fa;
+}
+
+.debug-tab {
+    flex: 1;
+    padding: 12px 8px;
+    border: none;
+    background: none;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.debug-tab:hover {
+    background: #e9ecef;
+    color: #333;
+}
+
+.debug-tab.active {
+    background: #fff;
+    color: #0066cc;
+    border-bottom: 2px solid #0066cc;
+}
+
+.debug-tab-content {
+    flex: 1;
+    overflow: hidden;
+}
+
+.debug-tab-pane {
+    height: 100%;
+    overflow: auto;
+    padding: 16px;
+    display: none;
+}
+
+.debug-tab-pane.active {
+    display: block;
+}
+
+.debug-log {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.debug-info {
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.debug-entry {
+    margin-bottom: 12px;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #dee2e6;
+}
+
+.debug-entry.info {
+    border-left-color: #0066cc;
+}
+
+.debug-entry.success {
+    border-left-color: #28a745;
+}
+
+.debug-entry.warning {
+    border-left-color: #ffc107;
+}
+
+.debug-entry.error {
+    border-left-color: #dc3545;
+}
+
+.debug-entry-header {
+    font-weight: bold;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+}
+
+.debug-entry-content {
+    color: #666;
+}
+
+.debug-json {
+    background: #f1f3f4;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin-top: 8px;
+    white-space: pre-wrap;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+}
+
+/* 数据库操作样式 */
+.db-operations-section {
+    margin-top: 15px;
+}
+
+.db-operations-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px;
+}
+
+.db-operation {
+    padding: 6px 8px;
+    margin: 2px 0;
+    border-radius: 3px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.db-operation.success {
+    background: rgba(40, 167, 69, 0.1);
+    border-left: 3px solid #28a745;
+}
+
+.db-operation.warning {
+    background: rgba(255, 193, 7, 0.1);
+    border-left: 3px solid #ffc107;
+}
+
+.db-operation.error {
+    background: rgba(220, 53, 69, 0.1);
+    border-left: 3px solid #dc3545;
+}
+
+.db-operation.info {
+    background: rgba(0, 123, 255, 0.1);
+    border-left: 3px solid #007bff;
+}
+
+/* 调试模式下调整聊天区域 */
+.chat-main.debug-mode {
+    margin-right: 500px;
+}
+
+
+
+/* 🔥 新增：等待动画样式 */
+.waiting-animation {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #64748b;
+    font-size: 0.9rem;
+    padding: 0.5rem 0;
+}
+
+.waiting-text {
+    color: #64748b;
+}
+
+.waiting-dots {
+    display: flex;
+    gap: 0.1rem;
+}
+
+.waiting-dots span {
+    opacity: 0.4;
+    animation: waitingDots 1.5s infinite ease-in-out;
+}
+
+.waiting-dots span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.waiting-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.waiting-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes waitingDots {
+    0%, 80%, 100% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+    40% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+    .debug-panel {
+        width: 400px;
+    }
+    .chat-main.debug-mode {
+        margin-right: 400px;
+    }
+}
+
+@media (max-width: 992px) {
+    .debug-panel {
+        width: 100%;
+        position: fixed;
+        top: 60px;
+        left: 0;
+        right: 0;
+    }
+    .chat-main.debug-mode {
+        margin-right: 0;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-page-content">
+    <div class="chat-container" id="chatContainer">
+        <!-- 聊天侧边栏展开触发器 -->
+        <div class="sidebar-trigger-chat" id="sidebarTriggerChat" title="显示对话列表">
+            <i class="bi bi-chat-dots"></i>
+        </div>
+        
+        <!-- 左侧边栏 - 对话历史 -->
+        <div class="chat-sidebar" id="chatSidebar">
+            <div class="sidebar-header">
+                <button class="btn btn-primary w-100" id="newChatBtn">
+                    <i class="bi bi-plus"></i> 新建对话
+                </button>
+            </div>
+            
+            <div class="sidebar-search">
+                <div class="search-input-wrapper">
+                    <i class="bi bi-search search-icon"></i>
+                    <input type="text" class="form-control search-input" placeholder="搜索对话..." id="conversationSearch">
+                </div>
+            </div>
+            
+            <div class="sidebar-content">
+                <div class="conversation-list" id="conversationList">
+                    <!-- 对话列表将在这里动态加载 -->
+                    <div class="loading-conversations text-center py-3">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <small class="text-muted d-block mt-2">加载对话中...</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <button class="btn btn-outline-secondary btn-sm w-100" id="toggleSidebar">
+                    <i class="bi bi-chevron-left"></i> 收起
+                </button>
+            </div>
+        </div>
+        
+        <!-- 主聊天区域 -->
+        <div class="chat-main">
+            <!-- 聊天头部 -->
+            <div class="chat-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-outline-secondary btn-sm me-3" id="showSidebar">
+                            <i class="bi bi-list"></i>
+                        </button>
+                        <div>
+                            <h5 class="mb-0" id="currentChatTitle">智能问答</h5>
+                            <small class="text-muted">
+                                <i class="bi bi-robot"></i> 由 DeepSeek-V3 驱动
+                            </small>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-info btn-sm" id="debugBtn" title="调试模式">
+                            <i class="bi bi-bug me-1"></i>调试
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" id="settingsBtn">
+                            <i class="bi bi-gear me-1"></i>设置
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 调试面板 -->
+            <div class="debug-panel" id="debugPanel" style="display: none;">
+                <div class="debug-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-bug"></i> 调试信息
+                    </h6>
+                    <div class="debug-controls">
+                        <button class="btn btn-outline-secondary btn-sm" id="clearDebugBtn">
+                            <i class="bi bi-trash me-1"></i>清空
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" id="closeDebugBtn">
+                            <i class="bi bi-x me-1"></i>关闭
+                        </button>
+                    </div>
+                </div>
+                <div class="debug-content">
+                    <div class="debug-tabs">
+                        <button class="debug-tab active" data-tab="processing">处理过程</button>
+                        <button class="debug-tab" data-tab="context">上下文</button>
+                        <button class="debug-tab" data-tab="langchain">LangChain</button>
+                        <button class="debug-tab" data-tab="database">数据库</button>
+                        <button class="debug-tab" data-tab="system">系统</button>
+                    </div>
+                    <div class="debug-tab-content">
+                        <div class="debug-tab-pane active" id="debug-processing">
+                            <div class="debug-log" id="debugLog">
+                                <div class="text-muted text-center py-3">暂无调试信息</div>
+                            </div>
+                        </div>
+                        <div class="debug-tab-pane" id="debug-context">
+                            <div class="debug-info" id="debugContext">
+                                <div class="text-muted text-center py-3">选择一条消息查看上下文信息</div>
+                            </div>
+                        </div>
+                        <div class="debug-tab-pane" id="debug-langchain">
+                            <div class="debug-info" id="debugLangchain">
+                                <div class="text-muted text-center py-3">LangChain处理信息将在这里显示</div>
+                            </div>
+                        </div>
+                        <div class="debug-tab-pane" id="debug-database">
+                            <div class="debug-info" id="debugDatabase">
+                                <div class="text-muted text-center py-3">数据库信息将在这里显示</div>
+                            </div>
+                        </div>
+                        <div class="debug-tab-pane" id="debug-system">
+                            <div class="debug-info" id="debugSystem">
+                                <div class="text-muted text-center py-3">系统状态信息</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天消息区域 -->
+            <div class="chat-messages-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="welcome-message" id="welcomeMessage">
+                        <i class="bi bi-chat-dots welcome-icon"></i>
+                        <h4>开始新的对话</h4>
+                        <p>向我提问任何问题，我会基于您的知识库为您提供准确的答案。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="chat-input-container">
+                <!-- 知识库选择 -->
+                <div class="chat-controls">
+                    <div class="knowledge-base-selector">
+                        <small class="text-muted">知识库：</small>
+                        <select class="form-select form-select-sm" id="knowledgeBaseSelect">
+                            <option value="">选择知识库...</option>
+                        </select>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="insertQuickText('请帮我总结一下')">
+                            <i class="bi bi-lightning me-1"></i>总结
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="insertQuickText('请详细解释')">
+                            <i class="bi bi-question-circle me-1"></i>解释
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="insertQuickText('请举个例子')">
+                            <i class="bi bi-lightbulb me-1"></i>举例
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 输入框 -->
+                <form id="chatForm" class="chat-input-form">
+                    <div class="input-wrapper">
+                        <textarea class="chat-input" id="messageInput" placeholder="输入您的问题..." 
+                                 rows="1"></textarea>
+                        <button type="submit" class="send-btn" id="sendBtn" disabled>
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentConversationId = null;
+let isLoading = false;
+let conversations = [];
+
+// 调试功能相关变量
+let debugMode = false;
+let debugData = {};
+let currentDebugTab = 'processing';
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化Markdown解析器
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            sanitize: false,
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    try {
+                        return hljs.highlight(code, { language: lang }).value;
+                    } catch (err) {}
+                }
+                return hljs.highlightAuto(code).value;
+            }
+        });
+    }
+    
+    // 初始化各种事件监听器
+    setupEventListeners();
+    
+    // 加载对话列表
+    loadConversations();
+    
+    // 加载知识库列表
+    loadKnowledgeBases();
+    
+    // 检查LangChain状态
+    checkLangChainStatus();
+});
+
+// 检查LangChain状态
+async function checkLangChainStatus() {
+    try {
+        const response = await fetch('/api/langchain/config');
+        const data = await response.json();
+        
+        if (data.success && data.config.enabled) {
+            // LangChain标识已移除，只保留调试信息
+            addDebugEntry('system', 'LangChain已启用', 'success');
+        }
+    } catch (error) {
+        console.error('检查LangChain状态失败:', error);
+    }
+}
+
+// 初始化调试功能
+function initializeDebugFeatures() {
+    // 调试按钮事件
+    document.getElementById('debugBtn').addEventListener('click', toggleDebugMode);
+    document.getElementById('closeDebugBtn').addEventListener('click', closeDebugPanel);
+    document.getElementById('clearDebugBtn').addEventListener('click', clearDebugLog);
+    
+    // 调试标签切换
+    document.querySelectorAll('.debug-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            switchDebugTab(this.dataset.tab);
+        });
+    });
+}
+
+// 切换调试模式
+function toggleDebugMode() {
+    debugMode = !debugMode;
+    const debugPanel = document.getElementById('debugPanel');
+    const chatMain = document.querySelector('.chat-main');
+    const debugBtn = document.getElementById('debugBtn');
+    
+    if (debugMode) {
+        debugPanel.style.display = 'flex';
+        chatMain.classList.add('debug-mode');
+        debugBtn.classList.add('active');
+        addDebugEntry('system', '调试模式已开启', 'info');
+        loadSystemInfo();
+    } else {
+        debugPanel.style.display = 'none';
+        chatMain.classList.remove('debug-mode');
+        debugBtn.classList.remove('active');
+    }
+}
+
+// 关闭调试面板
+function closeDebugPanel() {
+    debugMode = false;
+    document.getElementById('debugPanel').style.display = 'none';
+    document.querySelector('.chat-main').classList.remove('debug-mode');
+    document.getElementById('debugBtn').classList.remove('active');
+}
+
+// 清空调试日志
+function clearDebugLog() {
+    document.getElementById('debugLog').innerHTML = '<div class="text-muted text-center py-3">调试日志已清空</div>';
+    document.getElementById('debugContext').innerHTML = '<div class="text-muted text-center py-3">选择一条消息查看上下文信息</div>';
+    document.getElementById('debugLangchain').innerHTML = '<div class="text-muted text-center py-3">LangChain处理信息将在这里显示</div>';
+    document.getElementById('debugDatabase').innerHTML = '<div class="text-muted text-center py-3">数据库信息将在这里显示</div>';
+    debugData = {};
+}
+
+// 切换调试标签
+function switchDebugTab(tabName) {
+    // 更新标签状态
+    document.querySelectorAll('.debug-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    
+    // 显示对应内容
+    document.querySelectorAll('.debug-tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    document.getElementById(`debug-${tabName}`).classList.add('active');
+    
+    currentDebugTab = tabName;
+    
+    // 如果切换到系统标签，加载系统信息
+    if (tabName === 'system') {
+        loadSystemInfo();
+    }
+    
+    // 如果切换到数据库标签，加载数据库信息
+    if (tabName === 'database') {
+        loadDatabaseInfo();
+    }
+}
+
+// 添加调试日志条目
+function addDebugEntry(type, message, level = 'info', data = null) {
+    if (!debugMode) return;
+    
+    const debugLog = document.getElementById('debugLog');
+    const timestamp = new Date().toLocaleTimeString();
+    
+    // 如果是第一个条目，清空默认消息
+    if (debugLog.innerHTML.includes('暂无调试信息')) {
+        debugLog.innerHTML = '';
+    }
+    
+    const entry = document.createElement('div');
+    entry.className = `debug-entry ${level}`;
+    
+    let content = `
+        <div class="debug-entry-header">
+            <span>[${timestamp}] ${type.toUpperCase()}</span>
+        </div>
+        <div class="debug-entry-content">${message}</div>
+    `;
+    
+    if (data) {
+        content += `<div class="debug-json">${JSON.stringify(data, null, 2)}</div>`;
+    }
+    
+    entry.innerHTML = content;
+    debugLog.appendChild(entry);
+    debugLog.scrollTop = debugLog.scrollHeight;
+}
+
+// 更新上下文调试信息
+function updateContextDebug(contextInfo) {
+    if (!debugMode) return;
+    
+    const debugContext = document.getElementById('debugContext');
+    debugContext.innerHTML = `
+        <div class="debug-entry info">
+            <div class="debug-entry-header">对话上下文信息</div>
+            <div class="debug-entry-content">
+                <p><strong>消息数量:</strong> ${contextInfo.message_count || 0}</p>
+                <p><strong>上下文长度:</strong> ${contextInfo.context_length || 0} 字符</p>
+                <p><strong>使用摘要:</strong> ${contextInfo.has_summary ? '是' : '否'}</p>
+                <p><strong>知识库:</strong> ${contextInfo.knowledge_base || '无'}</p>
+            </div>
+        </div>
+    `;
+    
+    if (contextInfo.history) {
+        debugContext.innerHTML += `
+            <div class="debug-entry">
+                <div class="debug-entry-header">对话历史</div>
+                <div class="debug-json">${JSON.stringify(contextInfo.history, null, 2)}</div>
+            </div>
+        `;
+    }
+}
+
+// 更新LangChain调试信息
+function updateLangChainDebug(langchainInfo) {
+    if (!debugMode) return;
+    
+    const debugLangchain = document.getElementById('debugLangchain');
+    debugLangchain.innerHTML = '';
+    
+    if (langchainInfo.enabled) {
+        debugLangchain.innerHTML += `
+            <div class="debug-entry success">
+                <div class="debug-entry-header">LangChain状态</div>
+                <div class="debug-entry-content">
+                    <p><strong>状态:</strong> 已启用</p>
+                    <p><strong>内存类型:</strong> ${langchainInfo.memory_type || '未知'}</p>
+                    <p><strong>处理时间:</strong> ${langchainInfo.processing_time || '未知'}ms</p>
+                </div>
+            </div>
+        `;
+        
+        if (langchainInfo.context_info) {
+            debugLangchain.innerHTML += `
+                <div class="debug-entry info">
+                    <div class="debug-entry-header">上下文管理</div>
+                    <div class="debug-json">${JSON.stringify(langchainInfo.context_info, null, 2)}</div>
+                </div>
+            `;
+        }
+        
+        if (langchainInfo.processing_steps) {
+            debugLangchain.innerHTML += `
+                <div class="debug-entry">
+                    <div class="debug-entry-header">处理步骤</div>
+                    <div class="debug-entry-content">
+                        ${langchainInfo.processing_steps.map(step => `<p>• ${step}</p>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+    } else {
+        debugLangchain.innerHTML = `
+            <div class="debug-entry warning">
+                <div class="debug-entry-header">LangChain状态</div>
+                <div class="debug-entry-content">LangChain未启用，使用传统上下文管理</div>
+            </div>
+        `;
+    }
+}
+
+// 更新数据库调试信息
+function updateDatabaseDebug(dbOperations) {
+    if (!debugMode) return;
+    
+    // 在处理过程标签页显示数据库操作
+    const debugProcess = document.getElementById('debug-process');
+    if (!debugProcess) return;
+    
+    // 查找或创建数据库操作部分
+    let dbSection = debugProcess.querySelector('.db-operations-section');
+    if (!dbSection) {
+        dbSection = document.createElement('div');
+        dbSection.className = 'db-operations-section';
+        dbSection.innerHTML = `
+            <div class="debug-entry info">
+                <div class="debug-entry-header">📊 数据库操作</div>
+                <div class="db-operations-list"></div>
+            </div>
+        `;
+        debugProcess.appendChild(dbSection);
+    }
+    
+    const operationsList = dbSection.querySelector('.db-operations-list');
+    
+    // 渲染数据库操作
+    dbOperations.forEach(op => {
+        const opDiv = document.createElement('div');
+        opDiv.className = `db-operation ${getOperationLevel(op.operation)}`;
+        
+        const timestamp = new Date(op.timestamp * 1000).toLocaleTimeString();
+        let content = `<strong>[${timestamp}]</strong> ${getOperationDescription(op)}`;
+        
+        if (op.duration) {
+            content += ` <span class="text-muted">(${op.duration.toFixed(3)}s)</span>`;
+        }
+        
+        if (op.error) {
+            content += `<br><span class="text-danger">错误: ${op.error}</span>`;
+        }
+        
+        opDiv.innerHTML = content;
+        operationsList.appendChild(opDiv);
+    });
+    
+    // 滚动到底部
+    operationsList.scrollTop = operationsList.scrollHeight;
+}
+
+// 获取操作级别样式
+function getOperationLevel(operation) {
+    const successOps = ['user_message_saved', 'save_ai_message_success', 'ai_message_queued_for_save'];
+    const warningOps = ['message_already_exists', 'retry_scheduled'];
+    const errorOps = ['save_ai_message_error', 'conversation_not_found', 'save_failed_final'];
+    
+    if (successOps.includes(operation)) return 'success';
+    if (warningOps.includes(operation)) return 'warning';
+    if (errorOps.includes(operation)) return 'error';
+    return 'info';
+}
+
+// 获取操作描述
+function getOperationDescription(op) {
+    const descriptions = {
+        'user_message_saved': '✅ 用户消息已保存',
+        'ai_message_queued_for_save': '⏳ AI消息已加入保存队列',
+        'save_ai_message_start': '🔄 开始保存AI消息',
+        'save_ai_message_success': '✅ AI消息保存成功',
+        'save_ai_message_error': '❌ AI消息保存失败',
+        'conversation_not_found': '⚠️ 对话不存在',
+        'message_already_exists': '⚠️ 消息已存在，跳过保存',
+        'retry_scheduled': '🔄 安排重试保存',
+        'save_failed_final': '💀 保存彻底失败',
+        'rollback_error': '⚠️ 回滚失败',
+        'stream_error': '❌ 流式处理错误'
+    };
+    
+    let desc = descriptions[op.operation] || `📝 ${op.operation}`;
+    
+    if (op.ai_msg_id) {
+        desc += ` (ID: ${op.ai_msg_id.substring(0, 8)}...)`;
+    }
+    
+    if (op.retry_count > 0) {
+        desc += ` [重试 ${op.retry_count}]`;
+    }
+    
+    if (op.queue_size !== undefined) {
+        desc += ` [队列: ${op.queue_size}]`;
+    }
+    
+    return desc;
+}
+
+// 加载系统信息
+async function loadSystemInfo() {
+    if (!debugMode || currentDebugTab !== 'system') return;
+    
+    const debugSystem = document.getElementById('debugSystem');
+    debugSystem.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> 加载中...</div>';
+    
+    try {
+        // 获取LangChain配置
+        const langchainResponse = await fetch('/api/langchain/config');
+        const langchainData = await langchainResponse.json();
+        
+        // 获取对话统计
+        const conversationsResponse = await fetch('/api/conversations');
+        const conversationsData = await conversationsResponse.json();
+        
+        // 🔥 获取消息保存队列状态
+        const messageSaveResponse = await fetch('/api/message_save_status');
+        const messageSaveData = await messageSaveResponse.json();
+        
+        debugSystem.innerHTML = `
+            <div class="debug-entry info">
+                <div class="debug-entry-header">系统状态</div>
+                <div class="debug-entry-content">
+                    <p><strong>当前时间:</strong> ${new Date().toLocaleString()}</p>
+                    <p><strong>对话数量:</strong> ${conversationsData.conversations?.length || 0}</p>
+                    <p><strong>当前对话ID:</strong> ${currentConversationId || '无'}</p>
+                    <p><strong>调试模式:</strong> 已开启</p>
+                </div>
+            </div>
+            
+            <div class="debug-entry ${messageSaveData.success ? 'success' : 'warning'}">
+                <div class="debug-entry-header">💾 消息保存队列</div>
+                <div class="debug-entry-content">
+                    <p><strong>队列大小:</strong> ${messageSaveData.status?.queue_size || 0}</p>
+                    <p><strong>工作线程:</strong> ${messageSaveData.status?.thread_status || '未知'}</p>
+                    <p><strong>队列状态:</strong> ${messageSaveData.status?.queue_empty ? '空闲' : '工作中'}</p>
+                    ${messageSaveData.status?.thread_id ? `<p><strong>线程ID:</strong> ${messageSaveData.status.thread_id}</p>` : ''}
+                </div>
+            </div>
+            
+            <div class="debug-entry ${langchainData.success ? 'success' : 'warning'}">
+                <div class="debug-entry-header">🔗 LangChain配置</div>
+                <div class="debug-json">${JSON.stringify(langchainData.config || {}, null, 2)}</div>
+            </div>
+        `;
+    } catch (error) {
+        debugSystem.innerHTML = `
+            <div class="debug-entry error">
+                <div class="debug-entry-header">加载失败</div>
+                <div class="debug-entry-content">无法加载系统信息: ${error.message}</div>
+            </div>
+        `;
+    }
+}
+
+// 加载数据库信息可视化
+async function loadDatabaseInfo() {
+    if (!debugMode || currentDebugTab !== 'database') return;
+    
+    const debugDatabase = document.getElementById('debugDatabase');
+    
+    // 创建搜索界面
+    debugDatabase.innerHTML = `
+        <div class="database-search-panel">
+            <div class="debug-entry info">
+                <div class="debug-entry-header">🔍 数据库搜索</div>
+                <div class="debug-entry-content">
+                    <div class="search-controls" style="margin-bottom: 12px;">
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control" id="dbSearchInput" placeholder="输入对话ID或关键词搜索..." />
+                            <select class="form-select" id="dbSearchType" style="max-width: 150px;">
+                                <option value="keyword">关键词搜索</option>
+                                <option value="conversation_id">对话ID</option>
+                                <option value="all">全部</option>
+                            </select>
+                            <button class="btn btn-primary" type="button" id="dbSearchBtn">搜索</button>
+                        </div>
+                    </div>
+                    <div class="search-quick-actions">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="quickSearchCurrentConv()">当前对话</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="quickSearchType('用户')">用户消息</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="quickSearchType('assistant')">AI回复</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="clearDatabaseSearch()">清空</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="databaseSearchResults"></div>
+        <div id="databaseCurrentInfo"></div>
+    `;
+    
+    // 绑定搜索事件
+    document.getElementById('dbSearchBtn').addEventListener('click', performDatabaseSearch);
+    document.getElementById('dbSearchInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performDatabaseSearch();
+        }
+    });
+    
+    // 自动加载当前对话信息
+    await loadCurrentDatabaseInfo();
+}
+
+// 执行数据库搜索
+async function performDatabaseSearch() {
+    const searchInput = document.getElementById('dbSearchInput');
+    const searchType = document.getElementById('dbSearchType');
+    const resultsDiv = document.getElementById('databaseSearchResults');
+    
+    const query = searchInput.value.trim();
+    if (!query) {
+        resultsDiv.innerHTML = `
+            <div class="debug-entry warning">
+                <div class="debug-entry-header">⚠️ 搜索提示</div>
+                <div class="debug-entry-content">请输入搜索关键词</div>
+            </div>
+        `;
+        return;
+    }
+    
+    resultsDiv.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> 搜索中...</div>';
+    
+    try {
+        const response = await fetch(`/api/database_search?q=${encodeURIComponent(query)}&type=${searchType.value}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || '搜索失败');
+        }
+        
+        renderSearchResults(data.results, query);
+        
+    } catch (error) {
+        resultsDiv.innerHTML = `
+            <div class="debug-entry error">
+                <div class="debug-entry-header">❌ 搜索失败</div>
+                <div class="debug-entry-content">${error.message}</div>
+            </div>
+        `;
+    }
+}
+
+// 渲染搜索结果
+function renderSearchResults(results, query) {
+    const resultsDiv = document.getElementById('databaseSearchResults');
+    
+    if (results.conversations.length === 0 && results.messages.length === 0) {
+        resultsDiv.innerHTML = `
+            <div class="debug-entry warning">
+                <div class="debug-entry-header">🔍 搜索结果</div>
+                <div class="debug-entry-content">未找到匹配的结果</div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="debug-entry success">
+            <div class="debug-entry-header">🔍 搜索结果</div>
+            <div class="debug-entry-content">
+                <p><strong>搜索关键词:</strong> "${query}"</p>
+                <p><strong>找到对话:</strong> ${results.search_stats.conversations_found} 个</p>
+                <p><strong>找到消息组:</strong> ${results.search_stats.message_groups_found} 个</p>
+                <p><strong>匹配消息数:</strong> ${results.search_stats.total_message_matches} 条</p>
+                <p><strong>搜索时间:</strong> ${results.search_stats.search_time}</p>
+            </div>
+        </div>
+    `;
+    
+    // 渲染对话结果
+    if (results.conversations.length > 0) {
+        html += `
+            <div class="debug-entry">
+                <div class="debug-entry-header">💬 匹配的对话 (${results.conversations.length})</div>
+                <div class="debug-entry-content">
+                    <div style="max-height: 300px; overflow-y: auto;">
+        `;
+        
+        results.conversations.forEach(conv => {
+            html += `
+                <div class="conversation-result" style="margin-bottom: 12px; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer;" onclick="loadSpecificConversation('${conv.id}')">
+                    <div style="font-weight: bold; color: #007bff;">${highlightText(conv.title, query)}</div>
+                    <div style="font-size: 11px; color: #666;">
+                        ID: <code>${conv.id}</code>
+                        ${conv.match_type ? `| ${conv.match_type}` : ''}
+                    </div>
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">
+                        消息数: ${conv.message_count} | 创建: ${conv.created_at_formatted}
+                        ${conv.matching_messages_count !== undefined ? `| 匹配消息: ${conv.matching_messages_count}` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // 渲染消息结果
+    if (results.messages.length > 0) {
+        html += `
+            <div class="debug-entry">
+                <div class="debug-entry-header">📝 匹配的消息</div>
+                <div class="debug-entry-content">
+                    <div style="max-height: 400px; overflow-y: auto;">
+        `;
+        
+        results.messages.forEach(group => {
+            html += `
+                <div class="message-group-result" style="margin-bottom: 15px; border-left: 3px solid #007bff; padding-left: 10px;">
+                    <div style="font-weight: bold; margin-bottom: 8px;">
+                        📁 ${group.conversation_title}
+                        <span style="font-size: 11px; color: #666;">(${group.messages.length} 条匹配)</span>
+                    </div>
+            `;
+            
+            group.messages.forEach(msg => {
+                const roleColor = msg.role === 'user' ? '#007bff' : '#28a745';
+                const roleIcon = msg.role === 'user' ? '👤' : '🤖';
+                
+                html += `
+                    <div style="margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 4px;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 4px;">
+                            ${roleIcon} <span style="color: ${roleColor};">${msg.role.toUpperCase()}</span> 
+                            | ${msg.created_at_formatted} 
+                            | ${msg.content_length} 字符
+                            | Token: ${msg.token_count || 0}
+                        </div>
+                        <div style="font-size: 12px; line-height: 1.4;">
+                            ${highlightText(msg.content_preview, query)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    resultsDiv.innerHTML = html;
+}
+
+// 高亮搜索关键词
+function highlightText(text, query) {
+    if (!query || !text) return text;
+    
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(regex, '<mark style="background-color: yellow; padding: 1px 2px;">$1</mark>');
+}
+
+// 快速搜索功能
+function quickSearchCurrentConv() {
+    if (currentConversationId) {
+        document.getElementById('dbSearchInput').value = currentConversationId;
+        document.getElementById('dbSearchType').value = 'conversation_id';
+        performDatabaseSearch();
+    }
+}
+
+function quickSearchType(type) {
+    document.getElementById('dbSearchInput').value = type;
+    document.getElementById('dbSearchType').value = 'keyword';
+    performDatabaseSearch();
+}
+
+function clearDatabaseSearch() {
+    document.getElementById('dbSearchInput').value = '';
+    document.getElementById('databaseSearchResults').innerHTML = '';
+}
+
+// 加载指定对话的详细信息
+async function loadSpecificConversation(conversationId) {
+    const currentInfoDiv = document.getElementById('databaseCurrentInfo');
+    currentInfoDiv.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> 加载对话详情中...</div>';
+    
+    try {
+        const response = await fetch(`/api/conversation_database_info/${conversationId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || '获取对话信息失败');
+        }
+        
+        renderConversationDetails(data);
+        
+    } catch (error) {
+        currentInfoDiv.innerHTML = `
+            <div class="debug-entry error">
+                <div class="debug-entry-header">❌ 加载失败</div>
+                <div class="debug-entry-content">${error.message}</div>
+            </div>
+        `;
+    }
+}
+
+// 加载当前对话信息
+async function loadCurrentDatabaseInfo() {
+    if (!currentConversationId) {
+        document.getElementById('databaseCurrentInfo').innerHTML = `
+            <div class="debug-entry warning">
+                <div class="debug-entry-header">⚠️ 无对话选中</div>
+                <div class="debug-entry-content">请先选择一个对话来查看数据库信息，或使用上方搜索功能</div>
+            </div>
+        `;
+        return;
+    }
+    
+    await loadSpecificConversation(currentConversationId);
+}
+
+// 渲染对话详细信息
+function renderConversationDetails(data) {
+    const currentInfoDiv = document.getElementById('databaseCurrentInfo');
+    const { conversation, messages, statistics, table_info, user_info, query_stats } = data;
+        
+    currentInfoDiv.innerHTML = `
+            <!-- 消息列表 -->
+            <div class="debug-entry">
+                <div class="debug-entry-header">💬 消息列表 (${messages.length})</div>
+                <div class="debug-entry-content">
+                    <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px;">
+                        ${messages.map(msg => `
+                            <div style="margin-bottom: 10px; padding: 8px; border-radius: 4px; background: ${msg.role === 'user' ? 'rgba(0,123,255,0.1)' : 'rgba(40,167,69,0.1)'};">
+                                <div style="font-size: 11px; color: #666; margin-bottom: 4px;">
+                                    <strong>#${msg.sequence}</strong> | 
+                                    <span style="color: ${msg.role === 'user' ? '#007bff' : '#28a745'};">${msg.role.toUpperCase()}</span> | 
+                                    ${msg.created_at_formatted}
+                                    ${msg.time_diff_formatted ? ` | ⏱️ ${msg.time_diff_formatted}` : ''}
+                                </div>
+                                <div style="font-size: 12px;">
+                                    <strong>ID:</strong> <code style="font-size: 10px;">${msg.id}</code><br>
+                                    <strong>长度:</strong> ${msg.content_length} 字符 | <strong>Token:</strong> ${msg.token_count || 0}<br>
+                                    <strong>内容:</strong> ${msg.content_preview}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 对话统计 -->
+            <div class="debug-entry success">
+                <div class="debug-entry-header">📊 对话统计</div>
+                <div class="debug-entry-content">
+                    <p><strong>对话ID:</strong> <code>${conversation.id}</code></p>
+                    <p><strong>标题:</strong> ${conversation.title}</p>
+                    <p><strong>总消息数:</strong> ${statistics.total_messages} (用户: ${statistics.user_messages}, AI: ${statistics.ai_messages})</p>
+                    <p><strong>总字符数:</strong> ${statistics.total_characters.toLocaleString()}</p>
+                    <p><strong>总Token数:</strong> ${statistics.total_tokens.toLocaleString()}</p>
+                    <p><strong>平均消息长度:</strong> ${statistics.avg_message_length} 字符</p>
+                    ${statistics.conversation_duration_formatted ? `<p><strong>对话持续时间:</strong> ${statistics.conversation_duration_formatted}</p>` : ''}
+                    <p><strong>创建时间:</strong> ${conversation.created_at_formatted}</p>
+                </div>
+            </div>
+            
+            <!-- 用户基本信息 -->
+            <div class="debug-entry info">
+                <div class="debug-entry-header">👤 用户信息</div>
+                <div class="debug-entry-content">
+                    <p><strong>用户名:</strong> ${user_info.username}</p>
+                    <p><strong>邮箱:</strong> ${user_info.email}</p>
+                    <p><strong>注册时间:</strong> ${user_info.created_at_formatted}</p>
+                </div>
+            </div>
+            
+            <!-- 用户统计 -->
+            <div class="debug-entry">
+                <div class="debug-entry-header">📈 用户统计</div>
+                <div class="debug-entry-content">
+                    <p><strong>用户对话数:</strong> ${query_stats.user_total_conversations}</p>
+                    <p><strong>用户消息数:</strong> ${query_stats.user_total_messages}</p>
+                    <p><strong>数据库总对话:</strong> ${query_stats.database_total_conversations}</p>
+                    <p><strong>数据库总消息:</strong> ${query_stats.database_total_messages}</p>
+                </div>
+            </div>
+        `;
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化Markdown解析器
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            sanitize: false,
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    try {
+                        return hljs.highlight(code, { language: lang }).value;
+                    } catch (err) {}
+                }
+                return hljs.highlightAuto(code).value;
+            }
+        });
+    }
+    
+    loadKnowledgeBases();
+    setupEventListeners();
+    loadConversationsAndInitialize();
+    
+    // 🔥 修复：初始化按钮状态
+    updateSendButtonState();
+    
+    // 初始化调试功能
+    initializeDebugFeatures();
+    
+    // 在聊天页面禁用全局侧边栏功能
+    disableGlobalSidebar();
+});
+
+// 设置事件监听器
+function setupEventListeners() {
+    const messageInput = document.getElementById('messageInput');
+    const chatForm = document.getElementById('chatForm');
+    const newChatBtn = document.getElementById('newChatBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const toggleSidebar = document.getElementById('toggleSidebar');
+    const showSidebar = document.getElementById('showSidebar');
+    const conversationSearch = document.getElementById('conversationSearch');
+    const sidebarOverlay = document.getElementById('sidebarOverlay'); // 使用base.html中的遮罩层
+    const sidebarTriggerChat = document.getElementById('sidebarTriggerChat');
+    
+    // 自动调整文本框高度
+    messageInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        
+        // 🔥 修复：实时更新发送按钮状态（立即检查，无延迟）
+        setTimeout(() => updateSendButtonState(), 0);
+    });
+    
+    // 🔥 新增：增强输入框事件监听，确保按钮状态正确
+    messageInput.addEventListener('focus', function() {
+        console.log('[输入框聚焦] 检查并更新按钮状态');
+        setTimeout(() => updateSendButtonState(), 0);
+    });
+    
+    messageInput.addEventListener('keyup', function() {
+        // 防抖处理，避免过于频繁的更新
+        clearTimeout(window.updateButtonTimeout);
+        window.updateButtonTimeout = setTimeout(() => updateSendButtonState(), 50);
+    });
+    
+    // 键盘快捷键
+    messageInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!isLoading && this.value.trim()) {
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        }
+    });
+    
+    // 表单提交
+    chatForm.addEventListener('submit', handleSendMessage);
+    
+    // 新对话按钮
+    newChatBtn.addEventListener('click', startNewConversation);
+    
+    // 侧边栏控制
+    toggleSidebar.addEventListener('click', hideSidebar);
+    showSidebar.addEventListener('click', showSidebarPanel);
+    if (sidebarTriggerChat) {
+        sidebarTriggerChat.addEventListener('click', showSidebarPanel);
+    }
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', hideSidebar); // 点击遮罩层关闭侧边栏
+    }
+    
+    // 对话搜索
+    conversationSearch.addEventListener('input', filterConversations);
+}
+
+// 禁用全局侧边栏功能
+function disableGlobalSidebar() {
+    // 隐藏全局侧边栏
+    const globalSidebar = document.getElementById('sidebar');
+    if (globalSidebar) {
+        globalSidebar.style.display = 'none';
+    }
+    
+    // 移除全局侧边栏触发器的事件监听
+    const globalTrigger = document.getElementById('sidebarTrigger');
+    if (globalTrigger) {
+        globalTrigger.style.display = 'none';
+        // 移除所有事件监听器
+        globalTrigger.replaceWith(globalTrigger.cloneNode(true));
+    }
+    
+    // 移除全局侧边栏的鼠标事件
+    const globalSidebarOverlay = document.getElementById('sidebarOverlay');
+    if (globalSidebarOverlay) {
+        // 只在聊天页面使用遮罩层，不让全局侧边栏使用
+        globalSidebarOverlay.removeAttribute('onclick');
+    }
+    
+    // 隐藏顶部导航栏的侧边栏按钮
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    if (sidebarToggle) {
+        sidebarToggle.style.display = 'none';
+    }
+    
+    console.log('全局侧边栏功能已在聊天页面禁用');
+}
+
+// 加载对话列表并初始化页面
+async function loadConversationsAndInitialize() {
+    try {
+        const response = await fetch('/api/conversations');
+        const data = await response.json();
+        
+        if (data.success) {
+            conversations = data.conversations;
+            renderConversationList(conversations);
+            
+            // 如果有对话历史，自动加载最近的对话
+            if (conversations.length > 0) {
+                const latestConversation = conversations[0]; // 已按更新时间倒序排列
+                await switchConversation(latestConversation.id);
+            } else {
+                // 没有历史对话，显示新对话页面
+                startNewConversation();
+            }
+        } else {
+            console.error('加载对话列表失败:', data.message);
+            startNewConversation();
+        }
+    } catch (error) {
+        console.error('加载对话列表异常:', error);
+        startNewConversation();
+    }
+}
+
+// 加载对话列表（不初始化页面）
+async function loadConversations() {
+    try {
+        // 添加时间戳参数避免缓存
+        const response = await fetch(`/api/conversations?t=${Date.now()}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            conversations = data.conversations;
+            renderConversationList(conversations);
+        } else {
+            console.error('加载对话列表失败:', data.message);
+        }
+    } catch (error) {
+        console.error('加载对话列表异常:', error);
+    }
+}
+
+// 渲染对话列表
+function renderConversationList(conversationList) {
+    const conversationListEl = document.getElementById('conversationList');
+    
+    if (conversationList.length === 0) {
+        conversationListEl.innerHTML = `
+            <div class="empty-conversations text-center py-4">
+                <i class="bi bi-chat-text text-muted" style="font-size: 2rem;"></i>
+                <p class="text-muted mt-2">还没有对话历史</p>
+                <small class="text-muted">点击上方"新建对话"开始</small>
+            </div>
+        `;
+        return;
+    }
+    
+    const conversationItems = conversationList.map(conv => {
+        const isActive = conv.id === currentConversationId;
+        
+        // 安全的日期处理
+        let lastUpdate = '未知时间';
+        try {
+            if (conv.last_message_time) {
+                const date = new Date(conv.last_message_time);
+                if (!isNaN(date.getTime())) {
+                    const now = new Date();
+                    const diffMs = now - date;
+                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                    const diffDays = Math.floor(diffHours / 24);
+                    
+                    if (diffDays > 0) {
+                        lastUpdate = `${diffDays}天前`;
+                    } else if (diffHours > 0) {
+                        lastUpdate = `${diffHours}小时前`;
+                    } else {
+                        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+                        lastUpdate = diffMinutes > 0 ? `${diffMinutes}分钟前` : '刚刚';
+                    }
+                }
+            } else if (conv.updated_at) {
+                const date = new Date(conv.updated_at);
+                if (!isNaN(date.getTime())) {
+                    lastUpdate = date.toLocaleDateString();
+                }
+            }
+        } catch (error) {
+            console.warn('日期解析失败:', conv.updated_at, error);
+        }
+        
+        // 消息预览
+        const messagePreview = conv.last_message_preview || '暂无消息';
+        
+        return `
+            <div class="conversation-item ${isActive ? 'active' : ''}" 
+                 data-conversation-id="${conv.id}"
+                 onclick="switchConversation('${conv.id}')">
+                <div class="conversation-content">
+                    <div class="conversation-title">${conv.title}</div>
+                    <div class="conversation-preview">
+                        <small class="text-muted">${messagePreview}</small>
+                    </div>
+                    <div class="conversation-meta">
+                        <small class="text-muted">
+                            <i class="bi bi-chat-dots"></i> ${conv.message_count} 条消息
+                        </small>
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i> ${lastUpdate}
+                        </small>
+                    </div>
+                </div>
+                <div class="conversation-actions">
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteConversation('${conv.id}', event)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    conversationListEl.innerHTML = conversationItems;
+}
+
+// 切换对话
+async function switchConversation(conversationId) {
+    if (conversationId === currentConversationId) {
+        console.log('切换到相同对话，跳过');
+        return;
+    }
+    
+    console.log(`[UI] 切换对话: ${conversationId}`);
+    currentConversationId = conversationId;
+    
+    // 更新UI状态
+    updateActiveConversation(conversationId);
+    
+    // 加载对话历史
+    await loadConversationHistory(conversationId);
+    
+    // 如果调试模式开启且当前在数据库标签，刷新数据库信息
+    if (debugMode && currentDebugTab === 'database') {
+        await loadDatabaseInfo();
+    }
+}
+
+// 更新活跃对话状态
+function updateActiveConversation(conversationId) {
+    // 更新对话列表中的活跃状态
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.conversationId === conversationId) {
+            item.classList.add('active');
+        }
+    });
+    
+    // 更新标题
+    const conversation = conversations.find(c => c.id === conversationId);
+    if (conversation) {
+        document.getElementById('currentChatTitle').textContent = conversation.title;
+    }
+}
+
+// 加载对话历史
+async function loadConversationHistory(conversationId) {
+    try {
+        // 添加时间戳参数避免缓存
+        const response = await fetch(`/api/conversations/${conversationId}/messages?t=${Date.now()}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log(`[数据库] 加载对话历史: ${data.messages ? data.messages.length : 0} 条消息`);
+            
+            // 清空当前聊天区域
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+            console.log('聊天区域已清空');
+            
+            // 渲染历史消息
+            if (data.messages && data.messages.length > 0) {
+                // console.log('开始渲染历史消息...');
+                
+                // 测试addMessage函数是否存在
+                if (typeof addMessage !== 'function') {
+                    console.error('addMessage 函数不存在!');
+                    return;
+                }
+                
+                data.messages.forEach((msg, index) => {
+                    // console.log(`渲染历史消息 ${index + 1}:`, {
+                    //     role: msg.role,
+                    //     content: msg.content.substring(0, 100) + '...',
+                    //     contentLength: msg.content.length
+                    // });
+                    
+                    try {
+                        addMessage(msg.role, msg.content);
+                        // console.log(`消息 ${index + 1} 渲染完成`);
+                    } catch (error) {
+                        console.error(`渲染消息 ${index + 1} 失败:`, error);
+                    }
+                });
+                console.log(`[UI] 已渲染 ${data.messages.length} 条历史消息`);
+                
+                // 检查渲染后的DOM
+                const messagesAfter = chatMessages.children.length;
+                // console.log('渲染后聊天区域的子元素数量:', messagesAfter);
+            } else {
+                console.log('该对话暂无历史消息');
+            }
+            
+            // 隐藏欢迎消息
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'none';
+            }
+            
+            // 滚动到底部
+            setTimeout(() => {
+                scrollToBottom();
+            }, 100);
+        } else {
+            console.error('加载对话历史失败:', data.message);
+        }
+    } catch (error) {
+        console.error('加载对话历史异常:', error);
+    }
+}
+
+// 开始新对话
+function startNewConversation() {
+    currentConversationId = null;
+    
+    // 清空聊天区域
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.innerHTML = `
+        <div class="welcome-message" id="welcomeMessage">
+            <i class="bi bi-chat-dots welcome-icon"></i>
+            <h4>开始新的对话</h4>
+            <p>向我提问任何问题，我会基于您的知识库为您提供准确的答案。</p>
+        </div>
+    `;
+    
+    // 更新标题
+    document.getElementById('currentChatTitle').textContent = '智能问答';
+    
+    // 清除活跃状态
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // 聚焦输入框
+    document.getElementById('messageInput').focus();
+}
+
+// 删除对话
+async function deleteConversation(conversationId, event) {
+    event.stopPropagation();
+    
+    if (!confirm('确定要删除这个对话吗？此操作不可撤销。')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/conversations/${conversationId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // 如果删除的是当前对话，开始新对话
+            if (conversationId === currentConversationId) {
+                startNewConversation();
+            }
+            
+            // 重新加载对话列表
+            await loadConversations();
+        } else {
+            alert('删除对话失败: ' + data.message);
+        }
+    } catch (error) {
+        console.error('删除对话异常:', error);
+        alert('删除对话失败，请稍后重试');
+    }
+}
+
+// 过滤对话
+function filterConversations() {
+    const searchTerm = document.getElementById('conversationSearch').value.toLowerCase();
+    const filteredConversations = conversations.filter(conv => 
+        conv.title.toLowerCase().includes(searchTerm)
+    );
+    renderConversationList(filteredConversations);
+}
+
+// 显示/隐藏侧边栏
+function showSidebarPanel() {
+    const sidebar = document.getElementById('chatSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const chatContainer = document.getElementById('chatContainer');
+    
+    sidebar.classList.remove('hidden');
+    sidebar.classList.add('show');
+    chatContainer.classList.remove('sidebar-hidden');
+    
+    // 移动端显示遮罩层
+    if (window.innerWidth <= 768 && overlay) {
+        overlay.classList.add('show');
+    }
+}
+
+function hideSidebar() {
+    const sidebar = document.getElementById('chatSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const chatContainer = document.getElementById('chatContainer');
+    
+    sidebar.classList.remove('show');
+    sidebar.classList.add('hidden');
+    chatContainer.classList.add('sidebar-hidden');
+    
+    if (overlay) {
+        overlay.classList.remove('show');
+    }
+}
+
+// 处理发送消息
+async function handleSendMessage(event) {
+    event.preventDefault();
+    
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const message = messageInput.value.trim();
+    
+    if (!message || isLoading) return;
+    
+    // 添加调试信息
+    addDebugEntry('user', `发送消息: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`, 'info');
+    
+    try {
+        // 保存发送前的状态
+        const previousState = {
+            message: message,
+            conversationId: currentConversationId
+        };
+        
+        // 设置加载状态
+        isLoading = true;
+        window.lastSendTime = Date.now(); // 记录发送时间，用于超时检测
+        // 🔥 修复：使用统一的状态管理函数
+        updateSendButtonState();
+        
+        // 添加用户消息到界面
+        addMessage('user', message);
+        messageInput.value = '';
+        messageInput.style.height = 'auto';
+        
+        addDebugEntry('system', '用户消息已添加到界面', 'info');
+        
+        // 设置恢复超时
+        const recoveryTimeout = setTimeout(() => {
+            if (isLoading) {
+                console.warn('[错误恢复] 检测到请求可能超时，尝试恢复状态');
+                addDebugEntry('error', '请求超时（30秒），尝试恢复状态', 'error');
+                recoverFromError(previousState);
+            }
+        }, 30000); // 30秒超时
+        
+        try {
+            // 使用流式响应
+            const url = new URL('/api/chat', window.location.origin);
+            url.searchParams.set('stream', 'true');
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    conversation_id: currentConversationId,
+                    knowledge_base_id: document.getElementById('knowledgeBaseSelect').value || null
+                })
+            });
+            
+            // 清除恢复超时
+            clearTimeout(recoveryTimeout);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+                    // 创建AI消息容器
+        const assistantMessageDiv = createMessageContainer('assistant');
+        const messageContent = assistantMessageDiv.querySelector('.message-content');
+        let aiResponse = '';
+        
+        // 🔥 新增：显示等待动画
+        messageContent.innerHTML = `
+            <div class="waiting-animation">
+                <span class="waiting-text">正在思考</span>
+                <span class="waiting-dots">
+                    <span>.</span><span>.</span><span>.</span>
+                </span>
+            </div>
+        `;
+        
+        // 🔥 新增：隐藏渲染按钮直到输出完成
+        const toggleBtn = assistantMessageDiv.querySelector('.message-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.style.display = 'none';
+        }
+            
+            // 处理流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            
+                            switch (data.type) {
+                                case 'start':
+                                    addDebugEntry('stream', '开始接收AI响应', 'info');
+                                    currentConversationId = data.conversation_id;
+                                    
+                                    // 保存调试信息
+                                    if (data.debug_info) {
+                                        addDebugEntry('debug', '收到调试信息', 'info', data.debug_info);
+                                    }
+                                    
+                                    // 更新对话标题（如果是新对话）
+                                    if (!conversations.find(c => c.id === currentConversationId)) {
+                                        const title = message.length > 30 ? message.substring(0, 30) + '...' : message;
+                                        document.getElementById('currentChatTitle').textContent = title;
+                                        
+                                        // 立即添加新对话到列表顶部
+                                        const newConversation = {
+                                            id: currentConversationId,
+                                            title: title,
+                                            created_at: new Date().toISOString(),
+                                            message_count: 1
+                                        };
+                                        conversations.unshift(newConversation);
+                                        renderConversationList(conversations);
+                                        
+                                        // 设置为活跃状态
+                                        setTimeout(() => {
+                                            const newItem = document.querySelector(`[data-conversation-id="${currentConversationId}"]`);
+                                            if (newItem) {
+                                                document.querySelectorAll('.conversation-item').forEach(item => {
+                                                    item.classList.remove('active');
+                                                });
+                                                newItem.classList.add('active');
+                                            }
+                                        }, 100);
+                                    }
+                                    break;
+                                case 'processing':
+                                    // 🔥 修复BUG2：处理处理状态消息，给用户即时反馈
+                                    console.log('[模型] 处理状态:', data.status);
+                                    addDebugEntry('stream', `处理状态: ${data.status}`, 'info');
+                                    break;
+                                case 'content':
+                                    aiResponse += data.content;
+                                    
+                                    // 🔥 新增：第一次收到内容时清除等待动画
+                                    if (aiResponse === data.content && messageContent.querySelector('.waiting-animation')) {
+                                        messageContent.innerHTML = '';
+                                    }
+                                    
+                                    // 更新原文内容
+                                    const messageRaw = assistantMessageDiv.querySelector('.message-raw');
+                                    if (messageRaw) {
+                                        messageRaw.textContent = aiResponse;
+                                    }
+                                    // 渲染Markdown
+                                    messageContent.innerHTML = renderMarkdown(aiResponse);
+                                    // 代码高亮和复制按钮
+                                    messageContent.querySelectorAll('pre code').forEach((block) => {
+                                        hljs.highlightElement(block);
+                                        addCopyButtonToCodeBlock(block.parentElement);
+                                    });
+                                    // 渲染数学公式
+                                    renderMath(messageContent);
+                                    scrollToBottom();
+                                    break;
+                                case 'done':
+                                    console.log('[模型] 流式响应完成');
+                                    addDebugEntry('stream', '流式响应完成', 'success');
+                                    try {
+                                        // 更新调试信息
+                                        if (data.debug_info) {
+                                            addDebugEntry('debug', '收到完整调试信息', 'success', data.debug_info);
+                                            
+                                            // 🔥 显示数据库操作信息
+                                            if (data.debug_info.db_operations && data.debug_info.db_operations.length > 0) {
+                                                updateDatabaseDebug(data.debug_info.db_operations);
+                                            }
+                                            
+                                            // 更新各调试面板的信息
+                                            if (data.debug_info.context_info) {
+                                                updateContextDebug(data.debug_info.context_info);
+                                            }
+                                            
+                                            if (data.debug_info.langchain_enabled) {
+                                                updateLangChainDebug({
+                                                    enabled: true,
+                                                    memory_type: data.debug_info.langchain_result?.context_info?.memory_type,
+                                                    processing_time: data.debug_info.timing?.total_time,
+                                                    context_info: data.debug_info.context_info,
+                                                    processing_steps: data.debug_info.processing_steps
+                                                });
+                                            } else {
+                                                updateLangChainDebug({
+                                                    enabled: false
+                                                });
+                                            }
+                                            
+                                            // 显示消息保存状态
+                                            if (data.debug_info.final_stats) {
+                                                const stats = data.debug_info.final_stats;
+                                                addDebugEntry('database', 
+                                                    `消息保存状态: ${stats.save_queued ? '已加入队列' : '未保存'}, 队列大小: ${stats.queue_size || 0}`, 
+                                                    stats.save_queued ? 'success' : 'warning'
+                                                );
+                                            }
+                                        }
+                                        
+                                        // 流式响应已完成，AI消息已在服务器端保存
+                                        console.log(`[数据库] AI消息已保存: ${data.message_id}`);
+                                        
+                                        // 刷新对话列表以显示更新
+                                        await loadConversations();
+                                        console.log('[UI] 对话列表已刷新');
+                                        
+                                        // 重置所有状态
+                                        isLoading = false;
+                                        window.lastSendTime = null; // 清除发送时间记录
+                                        
+                                        // 🔥 修复：使用统一的状态管理函数  
+                                        updateSendButtonState();
+                                        
+                                        // 🔥 新增：显示渲染按钮
+                                        const toggleBtn = assistantMessageDiv.querySelector('.message-toggle-btn');
+                                        if (toggleBtn) {
+                                            toggleBtn.style.display = 'inline-block';
+                                        }
+                                        
+                                        // 自动聚焦到输入框
+                                        const messageInput = document.getElementById('messageInput');
+                                        if (messageInput) {
+                                            messageInput.focus();
+                                        }
+                                        
+                                        addDebugEntry('system', '消息处理完成，状态已重置', 'success');
+                                        
+                                    } catch (error) {
+                                        console.error('done事件处理异常:', error);
+                                        addDebugEntry('error', `done事件处理异常: ${error.message}`, 'error');
+                                    }
+                                    break;
+                                case 'error':
+                                    console.error('AI响应错误:', data.error);
+                                    try {
+                                        const errorMessage = `抱歉，出现了错误：${data.error}`;
+                                        messageContent.innerHTML = renderMarkdown(errorMessage);
+                                        assistantMessageDiv.querySelector('.message-bubble').classList.add('error');
+                                        // 更新原文内容
+                                        const errorMessageRaw = assistantMessageDiv.querySelector('.message-raw');
+                                        if (errorMessageRaw) {
+                                            errorMessageRaw.textContent = errorMessage;
+                                        }
+                                        // 渲染数学公式
+                                        renderMath(messageContent);
+                                    } catch (error) {
+                                        console.error('error事件处理异常:', error);
+                                    } finally {
+                                        // 重置加载状态
+                                        isLoading = false;
+                                        window.lastSendTime = null; // 清除发送时间记录
+                                        
+                                        // 🔥 修复：使用统一的状态管理函数
+                                        updateSendButtonState();
+                                        
+                                        // 🔥 新增：错误时也要显示渲染按钮
+                                        const toggleBtn = assistantMessageDiv.querySelector('.message-toggle-btn');
+                                        if (toggleBtn) {
+                                            toggleBtn.style.display = 'inline-block';
+                                        }
+                                        
+                                        console.log('error事件处理完成，按钮状态已恢复，isLoading=', isLoading);
+                                    }
+                                    break;
+                            }
+                        } catch (e) {
+                            console.error('解析SSE数据失败:', e);
+                        }
+                    }
+                }
+            }
+            
+        } catch (error) {
+            console.error('发送消息失败:', error);
+            recoverFromError(previousState);
+            addMessage('assistant', '抱歉，发送消息时出现错误，请重试。', true);
+        }
+    } catch (error) {
+        console.error('处理消息失败:', error);
+        addMessage('assistant', '抱歉，处理消息时出现错误，请重试。', true);
+    }
+}
+
+// 添加错误恢复函数
+function recoverFromError(previousState) {
+    console.log('[错误恢复] 开始恢复状态');
+    
+    // 重置加载状态
+    isLoading = false;
+    window.lastSendTime = null; // 清除发送时间记录
+    
+    // 恢复UI元素
+    const messageInput = document.getElementById('messageInput');
+    
+    // 🔥 修复：恢复输入框内容并聚焦
+    if (messageInput) {
+        messageInput.value = previousState.message;
+        messageInput.focus();
+    }
+    
+    // 🔥 修复：使用统一的状态管理函数
+    updateSendButtonState();
+    
+    // 恢复对话ID
+    if (previousState.conversationId) {
+        currentConversationId = previousState.conversationId;
+    }
+    
+    console.log('[错误恢复] 状态已恢复');
+}
+
+// 创建消息容器（用于流式响应）
+function createMessageContainer(role, isError = false) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${role}`;
+    
+    const bubbleClass = isError ? 'message-bubble error' : 'message-bubble';
+    
+    // 根据角色决定头像和消息的顺序
+    if (role === 'user') {
+        // 用户消息：头像在右侧！ HTML结构要明确：气泡 + 头像
+        messageDiv.innerHTML = `
+            <div class="${bubbleClass}">
+                <div class="message-content"></div>
+            </div>
+            <div class="message-avatar">
+                <i class="bi bi-person-fill"></i>
+            </div>
+        `;
+    } else {
+        // AI消息：头像在左，消息气泡在右，包含切换按钮
+        const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <i class="bi bi-robot"></i>
+            </div>
+            <div class="${bubbleClass}">
+                <div class="message-header">
+                    <button class="btn btn-outline-secondary btn-sm message-toggle-btn" 
+                            onclick="toggleMessageFormat('${messageId}')" 
+                            title="切换原文/渲染视图">
+                        <i class="bi bi-eye"></i> 渲染
+                    </button>
+                </div>
+                <div class="message-content" id="${messageId}"></div>
+                <div class="message-raw" id="${messageId}_raw" style="display: none;"></div>
+            </div>
+        `;
+    }
+    
+    chatMessages.appendChild(messageDiv);
+    scrollToBottom();
+    return messageDiv;
+}
+
+// 添加消息到聊天区域
+function addMessage(role, content, isError = false) {
+    // console.log(`添加消息: role=${role}, contentLength=${content.length}, isError=${isError}`);
+    
+    // 🔥 修复BUG1：添加消息时立即隐藏欢迎消息
+    const welcomeMessage = document.getElementById('welcomeMessage');
+    if (welcomeMessage && welcomeMessage.style.display !== 'none') {
+        welcomeMessage.style.display = 'none';
+    }
+    
+    const messageDiv = createMessageContainer(role, isError);
+    const messageContent = messageDiv.querySelector('.message-content');
+    
+    if (!messageContent) {
+        console.error('无法找到 .message-content 元素!', messageDiv);
+        return;
+    }
+    
+    if (role === 'user') {
+        // 用户消息使用简单格式化
+        messageContent.innerHTML = formatMessage(content);
+        // console.log('用户消息已渲染');
+    } else {
+        // AI消息使用Markdown渲染
+        const messageRaw = messageDiv.querySelector('.message-raw');
+        if (messageRaw) {
+            messageRaw.textContent = content; // 保存原文
+        } else {
+            console.warn('未找到 .message-raw 元素，AI消息可能显示不完整');
+        }
+        
+        const renderedContent = renderMarkdown(content);
+        messageContent.innerHTML = renderedContent;
+        // console.log('AI消息已渲染，内容长度:', renderedContent.length);
+        
+        // 代码高亮和复制按钮
+        messageContent.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block);
+            addCopyButtonToCodeBlock(block.parentElement);
+        });
+        
+        // 渲染数学公式
+        renderMath(messageContent);
+    }
+    
+    scrollToBottom();
+}
+
+// 渲染Markdown内容
+function renderMarkdown(content) {
+    try {
+        // 预处理数学公式：处理方括号包围的公式
+        content = preprocessMathFormulas(content);
+        
+        // 配置marked选项
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            sanitize: false
+        });
+        
+        return marked.parse(content);
+    } catch (error) {
+        console.error('Markdown渲染失败:', error);
+        return formatMessage(content); // 降级到简单格式化
+    }
+}
+
+// 预处理数学公式
+function preprocessMathFormulas(content) {
+    // console.log('开始预处理数学公式，原始内容:', content.substring(0, 100) + '...');
+    
+    // 1. 处理每个独立的LaTeX块级公式 \[ ... \]
+    let processedContent = content;
+    let matches = [];
+    let regex = /\\\[\s*\n?\s*([\s\S]*?)\s*\n?\s*\\\]/g;
+    let match;
+    
+    // 收集所有匹配
+    while ((match = regex.exec(content)) !== null) {
+        matches.push({
+            fullMatch: match[0],
+            formula: match[1].trim(),
+            index: match.index
+        });
+    }
+    
+    // console.log('找到', matches.length, '个LaTeX块级公式');
+    
+    // 从后往前替换，避免索引偏移
+    for (let i = matches.length - 1; i >= 0; i--) {
+        const m = matches[i];
+        // console.log('处理公式', i + 1, ':', m.formula);
+        const replacement = '\n$$' + m.formula + '$$\n';
+        processedContent = processedContent.substring(0, m.index) + replacement + processedContent.substring(m.index + m.fullMatch.length);
+    }
+    
+    // 2. 处理LaTeX行内公式 \( ... \)
+    processedContent = processedContent.replace(/\\\(\s*(.*?)\s*\\\)/g, function(match, formula) {
+        formula = formula.trim();
+                    // console.log('发现LaTeX行内公式:', formula);
+        return '$' + formula + '$';
+    });
+    
+    // 3. 处理方括号包围的数学公式 [数学内容]
+    processedContent = processedContent.replace(/\[\s*([^[\]]*(?:\\[^[\]]*)*[^[\]]*)\s*\]/g, function(match, formula) {
+        formula = formula.trim();
+        
+        // 检查是否包含数学符号
+        const mathIndicators = ['\\frac', '\\partial', '\\hat', '\\text', '\\quad', 
+                              '\\alpha', '\\beta', '\\gamma', '\\delta', '\\theta', '\\lambda', 
+                              '^{', '_{', '\\sum', '\\int', '\\cdot', '\\times'];
+        
+        const isMathFormula = mathIndicators.some(indicator => formula.includes(indicator));
+        
+        if (isMathFormula) {
+            // console.log('发现方括号数学公式:', formula);
+            return '\n$$' + formula + '$$\n';
+        }
+        
+        return match;
+    });
+    
+    // 4. 清理重复的标记
+    processedContent = processedContent.replace(/\$\$\s*\$\$/g, '$$');
+    processedContent = processedContent.replace(/\$\s*\$/g, '$');
+    
+    // console.log('数学公式预处理完成，处理后内容:', processedContent.substring(0, 100) + '...');
+    return processedContent;
+}
+
+// 渲染数学公式
+function renderMath(element) {
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        // 清除之前的MathJax处理
+        window.MathJax.typesetClear([element]);
+        
+        // 重新渲染数学公式
+        window.MathJax.typesetPromise([element]).then(function() {
+            // console.log('MathJax渲染完成');
+        }).catch(function (err) {
+            // console.log('MathJax渲染错误:', err.message);
+        });
+    }
+}
+
+// 简单格式化消息内容（用于用户消息）
+function formatMessage(content) {
+    return content
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+        .replace(/\n/g, '<br>');
+}
+
+// 切换消息显示格式（渲染/原文）
+function toggleMessageFormat(messageId) {
+    const contentDiv = document.getElementById(messageId);
+    const rawDiv = document.getElementById(messageId + '_raw');
+    const toggleBtn = document.querySelector(`[onclick="toggleMessageFormat('${messageId}')"]`);
+    
+    if (contentDiv.style.display === 'none') {
+        // 切换到渲染视图
+        contentDiv.style.display = 'block';
+        rawDiv.style.display = 'none';
+        toggleBtn.innerHTML = '<i class="bi bi-eye"></i> 渲染';
+        toggleBtn.title = '切换到原文视图';
+    } else {
+        // 切换到原文视图
+        contentDiv.style.display = 'none';
+        rawDiv.style.display = 'block';
+        toggleBtn.innerHTML = '<i class="bi bi-code"></i> 原文';
+        toggleBtn.title = '切换到渲染视图';
+    }
+}
+
+// 打字指示器功能已移除
+
+// 滚动到底部
+function scrollToBottom() {
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// 插入快捷文本
+function insertQuickText(text) {
+    const messageInput = document.getElementById('messageInput');
+    messageInput.value = text;
+    messageInput.focus();
+    messageInput.style.height = 'auto';
+    messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+    document.getElementById('sendBtn').disabled = false;
+}
+
+// 保存消息到数据库
+async function saveMessage(conversationId, messageId, content, role = 'assistant') {
+    try {
+        const response = await fetch('/api/save_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                conversation_id: conversationId,
+                message_id: messageId,
+                content: content,
+                role: role
+            })
+        });
+        
+        const data = await response.json();
+        if (!data.success) {
+            console.error('保存消息失败:', data.message);
+        }
+    } catch (error) {
+        console.error('保存消息异常:', error);
+    }
+}
+
+// 加载知识库列表
+async function loadKnowledgeBases() {
+    try {
+        const response = await fetch('/api/knowledge_bases');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('knowledgeBaseSelect');
+            data.knowledge_bases.forEach(kb => {
+                const option = document.createElement('option');
+                option.value = kb.id;
+                option.textContent = kb.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('加载知识库失败:', error);
+    }
+}
+
+// 🔥 修复：统一的发送按钮状态管理函数
+function updateSendButtonState() {
+    const sendBtn = document.getElementById('sendBtn');
+    const messageInput = document.getElementById('messageInput');
+    
+    if (!sendBtn || !messageInput) return;
+    
+    const hasContent = messageInput.value.trim().length > 0;
+    
+    if (isLoading) {
+        // 加载状态：禁用按钮，显示加载图标
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>';
+    } else {
+        // 非加载状态：根据内容决定按钮状态
+        sendBtn.disabled = !hasContent;
+        sendBtn.innerHTML = '<i class="bi bi-send"></i>';
+    }
+    
+    console.log(`[按钮状态] isLoading=${isLoading}, hasContent=${hasContent}, disabled=${sendBtn.disabled}`);
+}
+
+// 🔥 新增：强制重置加载状态的函数
+function forceResetLoadingState() {
+    console.log('[强制重置] 检测到可能的状态异常，强制重置加载状态');
+    isLoading = false;
+    updateSendButtonState();
+    
+    // 确保输入框可用
+    const messageInput = document.getElementById('messageInput');
+    if (messageInput) {
+        messageInput.disabled = false;
+        messageInput.focus();
+    }
+    
+    console.log('[强制重置] 加载状态已强制重置为false');
+}
+
+// 🔥 修复：智能状态检查函数
+function checkAndResetState() {
+    // 检查是否存在状态异常
+    const sendBtn = document.getElementById('sendBtn');
+    const messageInput = document.getElementById('messageInput');
+    
+    if (sendBtn && messageInput) {
+        const hasContent = messageInput.value.trim().length > 0;
+        
+        // 🔥 核心修复：检测异常状态并强制重置
+        if (!isLoading && hasContent && sendBtn.disabled) {
+            console.warn('[状态检查] 检测到异常：isLoading=false但按钮被禁用，强制重置');
+            forceResetLoadingState();
+            return;
+        }
+        
+        // 如果超过10秒还在加载状态，强制重置
+        if (isLoading && window.lastSendTime && (Date.now() - window.lastSendTime > 10000)) {
+            console.warn('[状态检查] 检测到超时：加载状态超过10秒，强制重置');
+            forceResetLoadingState();
+            return;
+        }
+    }
+    
+    updateSendButtonState();
+}
+
+// 定期检查状态（减少频率）
+setInterval(checkAndResetState, 1000); // 改为1秒检查一次，更及时发现问题
+</script>
+
+<style>
+/* 聊天布局样式 */
+.chat-layout {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px);
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(37, 99, 235, 0.1);
+}
+
+.chat-header {
+    padding: 1rem; /* 🔥 缩小：从1.5rem改为1rem */
+    border-bottom: 1px solid rgba(37, 99, 235, 0.1);
+    background: #ffffff;
+}
+
+.chat-messages-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem; /* 🔥 缩小：从1.5rem改为1rem */
+    background: #fafafa;
+}
+
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(37, 99, 235, 0.2);
+    border-radius: 10px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(37, 99, 235, 0.3);
+}
+
+/* 欢迎消息样式 */
+.welcome-message {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #64748b;
+}
+
+.welcome-icon {
+    font-size: 3rem;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.welcome-message h4 {
+    margin-bottom: 0.5rem;
+    color: #334155;
+}
+
+/* 这些样式已在主CSS文件中定义，无需重复 */
+
+/* message-avatar 样式已在主CSS文件中定义 */
+
+/* message-bubble样式已在主CSS文件中定义 */
+
+/* 用户消息气泡样式已在主CSS文件中定义 */
+
+/* AI消息气泡样式已在主CSS文件中定义 */
+
+.message-bubble.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+}
+
+.message-content {
+    font-size: 14px; /* 🔥 字体缩小：从15px改为14px */
+}
+
+.message-content pre {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.6rem; /* 🔥 缩小：从0.75rem改为0.6rem */
+    border-radius: 0.4rem; /* 🔥 缩小：从0.5rem改为0.4rem */
+    margin: 0.4rem 0; /* 🔥 缩小：从0.5rem改为0.4rem */
+    overflow-x: auto;
+    font-size: 13px; /* 🔥 字体缩小：从14px改为13px */
+}
+
+.message-content code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.15rem 0.3rem; /* 🔥 缩小：从0.2rem 0.4rem改为0.15rem 0.3rem */
+    border-radius: 0.2rem; /* 🔥 缩小：从0.25rem改为0.2rem */
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 13px; /* 🔥 字体缩小：从14px改为13px */
+}
+
+.message-content strong {
+    font-weight: 600;
+}
+
+.message-content em {
+    font-style: italic;
+}
+
+/* 输入区域样式 */
+.chat-input-container {
+    background: #ffffff;
+    border-top: 1px solid rgba(37, 99, 235, 0.1);
+    padding: 1rem; /* 🔥 缩小：从1.5rem改为1rem */
+}
+
+.chat-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.knowledge-base-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.knowledge-base-selector select {
+    width: auto;
+    min-width: 150px;
+}
+
+.quick-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.chat-input-form {
+    margin: 0;
+}
+
+/* input-wrapper样式已在主CSS文件中定义 */
+
+/* input-wrapper:focus-within样式已在主CSS文件中定义 */
+
+/* chat-input样式已在主CSS文件中定义 */
+
+.chat-input::placeholder {
+    color: #94a3b8;
+}
+
+/* send-btn样式已在主CSS文件中定义 */
+
+/* send-btn hover和disabled样式已在主CSS文件中定义 */
+
+/* 打字指示器样式 */
+.typing-indicator {
+    display: none;
+    padding: 0 1.5rem 1rem;
+}
+
+.typing-dots {
+    display: inline-flex;
+    margin-left: 0.5rem;
+}
+
+.typing-dots span {
+    height: 4px;
+    width: 4px;
+    border-radius: 50%;
+    background-color: var(--accent);
+    margin: 0 1px;
+    animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing {
+    0%, 80%, 100% { 
+        transform: scale(0.8); 
+        opacity: 0.5; 
+    }
+    40% { 
+        transform: scale(1); 
+        opacity: 1; 
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .chat-layout {
+        height: calc(100vh - 80px);
+    }
+    
+    .chat-controls {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .quick-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .message-bubble {
+        max-width: 85%;
+    }
+}
+</style>
+
+<script>
+// 为代码块添加复制按钮
+function addCopyButtonToCodeBlock(preElement) {
+    // 如果已经有复制按钮，不重复添加
+    if (preElement.querySelector('.code-copy-btn')) {
+        return;
+    }
+    
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'code-copy-btn';
+    copyBtn.innerHTML = '复制';
+    copyBtn.title = '复制代码';
+    
+    copyBtn.addEventListener('click', async function() {
+        const codeElement = preElement.querySelector('code');
+        if (!codeElement) return;
+        
+        const text = codeElement.textContent;
+        
+        try {
+            await navigator.clipboard.writeText(text);
+            
+            // 显示复制成功状态
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '已复制';
+            copyBtn.classList.add('copied');
+            
+            // 2秒后恢复原状
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('copied');
+            }, 2000);
+            
+        } catch (err) {
+            console.error('复制失败:', err);
+            
+            // 降级到旧版本复制方法
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            // 显示复制成功状态
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '已复制';
+            copyBtn.classList.add('copied');
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('copied');
+            }, 2000);
+        }
+    });
+    
+    preElement.appendChild(copyBtn);
+}
+</script>
+
+{% endblock %} 

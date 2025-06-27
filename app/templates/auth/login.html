@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - SuperRAG{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <h1 class="h3 mb-3">登录 SuperRAG</h1>
+                        <p class="text-muted">欢迎回来！请登录您的账户</p>
+                    </div>
+                    
+                    <!-- 错误消息 -->
+                    {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form id="loginForm" method="POST">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">用户名或邮箱</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">密码</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
+                            <label class="form-check-label" for="remember_me">
+                                记住我
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100 mb-3">
+                            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                            登录
+                        </button>
+                        
+                        <div class="text-center">
+                            <p class="text-muted mb-0">
+                                还没有账户？ 
+                                <a href="{{ url_for('auth.register') }}" class="text-decoration-none">立即注册</a>
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const spinner = submitBtn.querySelector('.spinner-border');
+    
+    submitBtn.disabled = true;
+    spinner.classList.remove('d-none');
+});
+</script>
+{% endblock %} 
