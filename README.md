@@ -1,5 +1,10 @@
 # SuperRAG - 智能问答与知识管理平台
 
+[![GitHub Repo](https://img.shields.io/badge/GitHub-superrag-blue?logo=github)](https://github.com/simon-0512/superrag)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-2.0+-red.svg)](https://flask.palletsprojects.com)
+
 **Version 0.1.0** - 智能对话，深度学习，知识留存
 
 ## 🌟 项目简介
@@ -114,7 +119,7 @@ SuperRAG/
 
 ```bash
 # 克隆项目
-git clone <repository-url>
+git clone https://github.com/simon-0512/superrag.git
 cd SuperRAG
 
 # 创建虚拟环境
