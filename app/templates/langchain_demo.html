@@ -1,0 +1,722 @@
+{% extends "base.html" %}
+
+{% block title %}LangChain 上下文管理 - SuperRAG{% endblock %}
+
+{% block extra_head %}
+<style>
+.langchain-demo {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.feature-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border: 1px solid rgba(37, 99, 235, 0.1);
+}
+
+.feature-card h4 {
+    color: #2563eb;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-enabled {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-disabled {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.config-item {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.config-item label {
+    font-weight: 600;
+    color: #334155;
+    font-size: 0.9rem;
+}
+
+.config-item .value {
+    font-family: 'Monaco', 'Consolas', monospace;
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.conversation-selector {
+    margin-bottom: 2rem;
+}
+
+.conversation-analysis {
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+.context-info {
+    background: #fff7ed;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.summary-box {
+    background: #f0f9ff;
+    border: 1px solid #0ea5e9;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.test-section {
+    background: #fefce8;
+    border: 1px solid #facc15;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+
+.btn-langchain {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-langchain:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    color: white;
+}
+
+.loading-spinner {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+}
+
+.analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.metric-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #2563eb;
+}
+
+.metric-label {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+.error-message {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.success-message {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="langchain-demo">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>LangChain 上下文管理</h2>
+            <p class="text-muted">智能对话上下文管理与分析工具</p>
+        </div>
+        <button class="btn btn-langchain" onclick="refreshAll()">
+            <i class="bi bi-arrow-clockwise"></i> 刷新全部
+        </button>
+    </div>
+
+    <!-- 系统状态 -->
+    <div class="feature-card">
+        <h4>
+            <i class="bi bi-gear"></i>
+            系统状态
+            <span id="systemStatus" class="status-badge status-disabled">检查中...</span>
+        </h4>
+        
+        <div class="config-grid" id="configGrid">
+            <!-- 配置信息将在这里动态加载 -->
+        </div>
+    </div>
+
+    <!-- 对话选择器 -->
+    <div class="feature-card">
+        <h4>
+            <i class="bi bi-chat-square"></i>
+            选择对话进行分析
+        </h4>
+        
+        <div class="conversation-selector">
+            <select class="form-select" id="conversationSelect" onchange="onConversationChange()">
+                <option value="">请选择一个对话...</option>
+            </select>
+        </div>
+
+        <div id="conversationInfo" style="display: none;">
+            <div class="conversation-analysis">
+                <h5>对话基础信息</h5>
+                <div class="analysis-grid" id="basicAnalysis">
+                    <!-- 基础分析信息 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LangChain 上下文分析 -->
+    <div class="feature-card" id="contextAnalysisCard" style="display: none;">
+        <h4>
+            <i class="bi bi-diagram-3"></i>
+            LangChain 上下文分析
+        </h4>
+        
+        <div id="contextAnalysis">
+            <!-- 上下文分析结果 -->
+        </div>
+
+        <div class="mt-3">
+            <button class="btn btn-outline-primary" onclick="getContextInfo()">
+                <i class="bi bi-info-circle"></i> 获取上下文详情
+            </button>
+            <button class="btn btn-outline-secondary ms-2" onclick="getSummary()">
+                <i class="bi bi-file-text"></i> 获取对话摘要
+            </button>
+        </div>
+    </div>
+
+    <!-- 对话摘要 -->
+    <div id="summarySection" style="display: none;">
+        <div class="summary-box">
+            <h5><i class="bi bi-file-text"></i> 对话摘要</h5>
+            <div id="summaryContent"></div>
+        </div>
+    </div>
+
+    <!-- 上下文详情 -->
+    <div id="contextSection" style="display: none;">
+        <div class="context-info">
+            <h5><i class="bi bi-layers"></i> 上下文详情</h5>
+            <div id="contextContent"></div>
+        </div>
+    </div>
+
+    <!-- 测试功能 -->
+    <div class="test-section">
+        <h4>
+            <i class="bi bi-cpu"></i>
+            LangChain 功能测试
+        </h4>
+        <p class="text-muted">测试 LangChain 集成是否正常工作</p>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <input type="text" class="form-control" id="testMessage" 
+                       placeholder="输入测试消息..." value="你好，这是一个LangChain功能测试">
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-langchain w-100" onclick="testLangChain()">
+                    <i class="bi bi-play"></i> 运行测试
+                </button>
+            </div>
+        </div>
+        
+        <div id="testResult" style="display: none;">
+            <!-- 测试结果 -->
+        </div>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div class="loading-spinner" id="loadingSpinner">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">处理中...</p>
+    </div>
+</div>
+
+<script>
+let currentConversationId = null;
+let conversations = [];
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadConfig();
+    loadConversations();
+});
+
+// 加载配置信息
+async function loadConfig() {
+    try {
+        const response = await fetch('/api/langchain/config');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayConfig(data.config);
+        } else {
+            showError('获取配置失败: ' + data.message);
+        }
+    } catch (error) {
+        showError('获取配置异常: ' + error.message);
+    }
+}
+
+// 显示配置信息
+function displayConfig(config) {
+    const statusElement = document.getElementById('systemStatus');
+    const configGrid = document.getElementById('configGrid');
+    
+    // 更新状态
+    if (config.langchain_enabled) {
+        statusElement.textContent = '已启用';
+        statusElement.className = 'status-badge status-enabled';
+    } else {
+        statusElement.textContent = '已禁用';
+        statusElement.className = 'status-badge status-disabled';
+    }
+    
+    // 显示配置项
+    const configItems = [
+        { label: 'LangChain 状态', value: config.langchain_enabled ? '启用' : '禁用' },
+        { label: '记忆类型', value: config.memory_type },
+        { label: 'Token 限制', value: config.token_limit },
+        { label: '窗口大小', value: config.window_size },
+        { label: '总结轮数', value: config.conversation_summary_rounds },
+        { label: '最大上下文消息', value: config.max_context_messages },
+        { label: '摘要最大长度', value: config.summary_max_length },
+        { label: '详细日志', value: config.verbose ? '启用' : '禁用' }
+    ];
+    
+    configGrid.innerHTML = configItems.map(item => `
+        <div class="config-item">
+            <label>${item.label}</label>
+            <div class="value">${item.value}</div>
+        </div>
+    `).join('');
+}
+
+// 加载对话列表
+async function loadConversations() {
+    try {
+        const response = await fetch('/api/conversations');
+        const data = await response.json();
+        
+        if (data.success) {
+            conversations = data.conversations;
+            displayConversations();
+        } else {
+            showError('加载对话列表失败: ' + data.message);
+        }
+    } catch (error) {
+        showError('加载对话列表异常: ' + error.message);
+    }
+}
+
+// 显示对话列表
+function displayConversations() {
+    const select = document.getElementById('conversationSelect');
+    
+    select.innerHTML = '<option value="">请选择一个对话...</option>';
+    
+    conversations.forEach(conv => {
+        const option = document.createElement('option');
+        option.value = conv.id;
+        option.textContent = `${conv.title} (${conv.message_count} 条消息)`;
+        select.appendChild(option);
+    });
+}
+
+// 对话选择变化
+async function onConversationChange() {
+    const select = document.getElementById('conversationSelect');
+    currentConversationId = select.value;
+    
+    if (currentConversationId) {
+        await loadConversationStats();
+        await loadContextAnalysis();
+    } else {
+        hideConversationInfo();
+    }
+}
+
+// 加载对话统计
+async function loadConversationStats() {
+    try {
+        showLoading();
+        
+        const response = await fetch(`/api/conversation_stats?conversation_id=${currentConversationId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            displayBasicAnalysis(data.stats);
+            document.getElementById('conversationInfo').style.display = 'block';
+        } else {
+            showError('加载对话统计失败: ' + data.message);
+        }
+    } catch (error) {
+        showError('加载对话统计异常: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// 显示基础分析
+function displayBasicAnalysis(stats) {
+    const basicAnalysis = document.getElementById('basicAnalysis');
+    
+    const metrics = [
+        { label: '总消息数', value: stats.total_messages },
+        { label: '用户消息', value: stats.user_messages },
+        { label: 'AI 消息', value: stats.ai_messages },
+        { label: '优化后消息数', value: stats.optimized_message_count },
+        { label: '是否有摘要', value: stats.has_context_summary ? '是' : '否' },
+        { label: 'LangChain 状态', value: stats.langchain_enabled ? '启用' : '禁用' }
+    ];
+    
+    basicAnalysis.innerHTML = metrics.map(metric => `
+        <div class="metric-card">
+            <div class="metric-value">${metric.value}</div>
+            <div class="metric-label">${metric.label}</div>
+        </div>
+    `).join('');
+}
+
+// 加载上下文分析
+async function loadContextAnalysis() {
+    try {
+        const response = await fetch(`/api/langchain/analyze/${currentConversationId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            displayContextAnalysis(data.analysis);
+            document.getElementById('contextAnalysisCard').style.display = 'block';
+        } else {
+            showError('加载上下文分析失败: ' + data.message);
+        }
+    } catch (error) {
+        showError('加载上下文分析异常: ' + error.message);
+    }
+}
+
+// 显示上下文分析
+function displayContextAnalysis(analysis) {
+    const contextAnalysis = document.getElementById('contextAnalysis');
+    
+    let content = `
+        <div class="analysis-grid">
+            <div class="metric-card">
+                <div class="metric-value">${analysis.total_messages || 0}</div>
+                <div class="metric-label">总消息数</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${analysis.user_messages || 0}</div>
+                <div class="metric-label">用户消息</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${analysis.ai_messages || 0}</div>
+                <div class="metric-label">AI 消息</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${analysis.avg_message_length || 0}</div>
+                <div class="metric-label">平均消息长度</div>
+            </div>
+        </div>
+    `;
+    
+    if (analysis.memory_efficiency) {
+        content += `
+            <div class="mt-3">
+                <h6>记忆效率</h6>
+                <div class="alert alert-info">
+                    <strong>效率等级:</strong> ${analysis.memory_efficiency.level}<br>
+                    <strong>说明:</strong> ${analysis.memory_efficiency.reason}
+                </div>
+            </div>
+        `;
+    }
+    
+    if (analysis.recent_topics && analysis.recent_topics.length > 0) {
+        content += `
+            <div class="mt-3">
+                <h6>最近话题</h6>
+                <div class="list-group">
+                    ${analysis.recent_topics.map(topic => 
+                        `<div class="list-group-item">${topic}</div>`
+                    ).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    contextAnalysis.innerHTML = content;
+}
+
+// 获取上下文详情
+async function getContextInfo() {
+    if (!currentConversationId) {
+        showError('请先选择一个对话');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        const response = await fetch(`/api/langchain/context/${currentConversationId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            displayContextInfo(data.context_info);
+        } else {
+            showError('获取上下文信息失败: ' + data.message);
+        }
+    } catch (error) {
+        showError('获取上下文信息异常: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// 显示上下文信息
+function displayContextInfo(contextInfo) {
+    const contextSection = document.getElementById('contextSection');
+    const contextContent = document.getElementById('contextContent');
+    
+    let content = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>对话ID:</strong> ${contextInfo.conversation_id}<br>
+                <strong>消息数量:</strong> ${contextInfo.message_count}<br>
+                <strong>记忆类型:</strong> ${contextInfo.memory_type}<br>
+                <strong>是否有摘要:</strong> ${contextInfo.has_summary ? '是' : '否'}
+            </div>
+        </div>
+    `;
+    
+    if (contextInfo.messages && contextInfo.messages.length > 0) {
+        content += `
+            <div class="mt-3">
+                <h6>最近消息 (${contextInfo.messages.length} 条)</h6>
+                <div class="list-group">
+                    ${contextInfo.messages.slice(-5).map((msg, index) => `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <strong>${msg.role === 'user' ? '用户' : 'AI助手'}</strong>
+                                <small class="text-muted">${index + 1}</small>
+                            </div>
+                            <p class="mb-0">${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    contextContent.innerHTML = content;
+    contextSection.style.display = 'block';
+}
+
+// 获取对话摘要
+async function getSummary() {
+    if (!currentConversationId) {
+        showError('请先选择一个对话');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        const response = await fetch(`/api/langchain/summary/${currentConversationId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            displaySummary(data.summary);
+        } else {
+            showError('获取对话摘要失败: ' + data.message);
+        }
+    } catch (error) {
+        showError('获取对话摘要异常: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// 显示摘要
+function displaySummary(summary) {
+    const summarySection = document.getElementById('summarySection');
+    const summaryContent = document.getElementById('summaryContent');
+    
+    if (summary) {
+        summaryContent.innerHTML = `<p>${summary}</p>`;
+    } else {
+        summaryContent.innerHTML = '<p class="text-muted">该对话暂无摘要信息</p>';
+    }
+    
+    summarySection.style.display = 'block';
+}
+
+// 测试 LangChain
+async function testLangChain() {
+    if (!currentConversationId) {
+        showError('请先选择一个对话进行测试');
+        return;
+    }
+    
+    const testMessage = document.getElementById('testMessage').value.trim();
+    if (!testMessage) {
+        showError('请输入测试消息');
+        return;
+    }
+    
+    try {
+        showLoading();
+        
+        const response = await fetch('/api/langchain/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                conversation_id: currentConversationId,
+                message: testMessage
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayTestResult(data.test_result);
+        } else {
+            showError('LangChain 测试失败: ' + data.message);
+        }
+    } catch (error) {
+        showError('LangChain 测试异常: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// 显示测试结果
+function displayTestResult(result) {
+    const testResult = document.getElementById('testResult');
+    
+    let content = '';
+    if (result.success) {
+        content = `
+            <div class="success-message">
+                <h6><i class="bi bi-check-circle"></i> 测试成功</h6>
+                <p><strong>AI响应:</strong> ${result.response}</p>
+                <details>
+                    <summary>详细信息</summary>
+                    <pre>${JSON.stringify(result.context_info, null, 2)}</pre>
+                </details>
+            </div>
+        `;
+    } else {
+        content = `
+            <div class="error-message">
+                <h6><i class="bi bi-x-circle"></i> 测试失败</h6>
+                <p><strong>错误:</strong> ${result.error}</p>
+            </div>
+        `;
+    }
+    
+    testResult.innerHTML = content;
+    testResult.style.display = 'block';
+}
+
+// 刷新全部
+async function refreshAll() {
+    await loadConfig();
+    await loadConversations();
+    if (currentConversationId) {
+        await loadConversationStats();
+        await loadContextAnalysis();
+    }
+    showSuccess('所有数据已刷新');
+}
+
+// 隐藏对话信息
+function hideConversationInfo() {
+    document.getElementById('conversationInfo').style.display = 'none';
+    document.getElementById('contextAnalysisCard').style.display = 'none';
+    document.getElementById('summarySection').style.display = 'none';
+    document.getElementById('contextSection').style.display = 'none';
+    document.getElementById('testResult').style.display = 'none';
+}
+
+// 工具函数
+function showLoading() {
+    document.getElementById('loadingSpinner').style.display = 'block';
+}
+
+function hideLoading() {
+    document.getElementById('loadingSpinner').style.display = 'none';
+}
+
+function showError(message) {
+    // 可以使用 toast 或其他通知方式
+    console.error(message);
+    alert('错误: ' + message);
+}
+
+function showSuccess(message) {
+    console.log(message);
+    alert('成功: ' + message);
+}
+</script>
+{% endblock %} 

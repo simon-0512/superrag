@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}知识库管理 - SuperRAG{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">知识库管理</h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createKnowledgeBaseModal">
+                    <i class="fas fa-plus"></i> 创建知识库
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    {% if knowledge_bases %}
+        <div class="row">
+            {% for kb in knowledge_bases %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="card-title mb-0">{{ kb.name }}</h5>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" 
+                                        data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{{ url_for('main.knowledge_detail', knowledge_base_id=kb.id) }}">
+                                        <i class="fas fa-eye me-2"></i>查看详情
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="editKnowledgeBase('{{ kb.id }}')">
+                                        <i class="fas fa-edit me-2"></i>编辑
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="#" onclick="deleteKnowledgeBase('{{ kb.id }}')">
+                                        <i class="fas fa-trash me-2"></i>删除
+                                    </a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <p class="card-text text-muted">{{ kb.description or '暂无描述' }}</p>
+                        
+                        <div class="row text-center mb-3">
+                            <div class="col">
+                                <div class="h5 mb-0 text-primary">{{ kb.document_count }}</div>
+                                <small class="text-muted">文档</small>
+                            </div>
+                            <div class="col">
+                                <div class="h5 mb-0 text-success">{{ "%.1f"|format(kb.total_size / 1024 / 1024) }}MB</div>
+                                <small class="text-muted">大小</small>
+                            </div>
+                            <div class="col">
+                                <div class="h5 mb-0 text-info">{{ kb.chunk_count }}</div>
+                                <small class="text-muted">分块</small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                {% if kb.is_public %}
+                                <span class="badge bg-success">公开</span>
+                                {% else %}
+                                <span class="badge bg-secondary">私有</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">{{ kb.created_at.strftime('%Y-%m-%d') }}</small>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer bg-transparent border-0">
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('main.knowledge_detail', knowledge_base_id=kb.id) }}" 
+                               class="btn btn-outline-primary btn-sm flex-fill">
+                                <i class="fas fa-folder-open"></i> 管理文档
+                            </a>
+                            <button class="btn btn-outline-success btn-sm" onclick="uploadDocument('{{ kb.id }}')">
+                                <i class="fas fa-upload"></i> 上传
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-plus text-muted fa-5x mb-4"></i>
+                    <h3>还没有知识库</h3>
+                    <p class="text-muted mb-4">创建您的第一个知识库，开始上传文档并构建智能问答系统。</p>
+                    <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#createKnowledgeBaseModal">
+                        <i class="fas fa-plus"></i> 创建知识库
+                    </button>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- 创建知识库模态框 -->
+<div class="modal fade" id="createKnowledgeBaseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">创建知识库</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createKnowledgeBaseForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="kbName" class="form-label">知识库名称</label>
+                        <input type="text" class="form-control" id="kbName" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="kbDescription" class="form-label">描述（可选）</label>
+                        <textarea class="form-control" id="kbDescription" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="kbIsPublic" name="is_public">
+                            <label class="form-check-label" for="kbIsPublic">
+                                公开知识库（其他用户可以查看）
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 上传文档模态框 -->
+<div class="modal fade" id="uploadDocumentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传文档</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="uploadDocumentForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <input type="hidden" id="uploadKbId" name="knowledge_base_id">
+                    
+                    <div class="mb-3">
+                        <label for="documentFiles" class="form-label">选择文件</label>
+                        <input type="file" class="form-control" id="documentFiles" name="files" multiple
+                               accept=".txt,.pdf,.doc,.docx,.md">
+                        <div class="form-text">支持 TXT、PDF、DOC、DOCX、MD 格式，单个文件不超过10MB</div>
+                    </div>
+                    
+                    <div id="uploadProgress" class="d-none">
+                        <div class="progress mb-2">
+                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div class="text-center">
+                            <small class="text-muted" id="uploadStatus">准备上传...</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">开始上传</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// 创建知识库
+document.getElementById('createKnowledgeBaseForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('/api/knowledge_bases', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('createKnowledgeBaseModal')).hide();
+            location.reload();
+        } else {
+            alert('创建失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('创建知识库失败:', error);
+        alert('创建失败，请稍后重试');
+    });
+});
+
+// 上传文档
+function uploadDocument(kbId) {
+    document.getElementById('uploadKbId').value = kbId;
+    new bootstrap.Modal(document.getElementById('uploadDocumentModal')).show();
+}
+
+document.getElementById('uploadDocumentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const progressDiv = document.getElementById('uploadProgress');
+    const progressBar = progressDiv.querySelector('.progress-bar');
+    const statusText = document.getElementById('uploadStatus');
+    
+    progressDiv.classList.remove('d-none');
+    
+    fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            progressBar.style.width = '100%';
+            statusText.textContent = '上传完成！';
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('uploadDocumentModal')).hide();
+                location.reload();
+            }, 1000);
+        } else {
+            alert('上传失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('上传文档失败:', error);
+        alert('上传失败，请稍后重试');
+    });
+});
+
+// 编辑知识库
+function editKnowledgeBase(kbId) {
+    // TODO: 实现编辑功能
+    alert('编辑功能即将开放！');
+}
+
+// 删除知识库
+function deleteKnowledgeBase(kbId) {
+    if (confirm('确定要删除这个知识库吗？此操作无法撤销。')) {
+        fetch(`/api/knowledge_bases/${kbId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('删除失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('删除知识库失败:', error);
+            alert('删除失败，请稍后重试');
+        });
+    }
+}
+</script>
+{% endblock %} 

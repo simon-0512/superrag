@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}SuperRAG - 智能问答与知识管理平台{% endblock %}
+
+{% block content %}
+<div class="homepage-content">
+<div class="golden-ratio-container">
+<!-- Hero 区域 -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <h1 class="hero-title">SuperRAG</h1>
+                <div class="hero-slogan">
+                    <em>"Knowledge is Yourself"</em>
+                </div>
+                <p class="hero-subtitle">
+                    AI智能问答与知识管理，个人知识系统构建平台
+                </p>
+                <div class="d-flex gap-3 flex-wrap">
+                    {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('main.chat') }}" class="btn btn-primary">
+                            <i class="bi bi-chat-dots me-2"></i>开始问答
+                        </a>
+                        <a href="{{ url_for('main.knowledge') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-book me-2"></i>管理知识库
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>立即登录
+                        </a>
+                        <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-person-plus me-2"></i>免费注册
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-5 text-center">
+                <div class="hero-animation">
+                    <i class="bi bi-lightbulb" style="font-size: 4rem; color: var(--accent); opacity: 0.7;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 功能特性 -->
+<section class="homepage-features">
+    <div class="container">
+        <div class="text-center mb-4">
+            <h2>核心功能</h2>
+            <p class="lead">
+                基于DeepSeek-V3大模型，提供全方位的智能问答与知识管理解决方案
+            </p>
+        </div>
+        
+        <div class="row g-3">
+            <!-- 智能问答 -->
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card h-100">
+                    <div>
+                        <div class="feature-icon">
+                            <i class="bi bi-chat-dots-fill"></i>
+                        </div>
+                        <h4>智能问答</h4>
+                        <p>
+                            基于DeepSeek-V3模型的高质量问答，支持连续对话和上下文理解
+                        </p>
+                    </div>
+                    <a href="{{ url_for('main.chat') if current_user.is_authenticated else url_for('auth.login') }}" class="btn btn-outline-primary btn-sm">
+                        立即体验 <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- 知识库管理 -->
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card h-100">
+                    <div>
+                        <div class="feature-icon">
+                            <i class="bi bi-book-fill"></i>
+                        </div>
+                        <h4>知识库管理</h4>
+                        <p>
+                            上传文档构建个人知识库，支持RAG检索增强生成
+                        </p>
+                    </div>
+                    <a href="{{ url_for('main.knowledge') if current_user.is_authenticated else url_for('auth.login') }}" class="btn btn-outline-primary btn-sm">
+                        管理知识库 <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- 智能划线 -->
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card h-100">
+                    <div>
+                        <div class="feature-icon">
+                            <i class="bi bi-cursor-text"></i>
+                        </div>
+                        <h4>智能划线</h4>
+                        <p>
+                            网页中直接划线进行深度提问或质疑验证，即选即问
+                        </p>
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="showSelectionDemo()">
+                        查看演示 <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 知识留存 -->
+            <div class="col-md-6 col-lg-3">
+                <div class="feature-card h-100">
+                    <div>
+                        <div class="feature-icon">
+                            <i class="bi bi-file-earmark-pdf-fill"></i>
+                        </div>
+                        <h4>知识留存</h4>
+                        <p>
+                            自动总结对话主题，生成结构化PDF报告保存到知识库
+                        </p>
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="showAlert('功能开发中', 'info')">
+                        查看报告 <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+</div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showSelectionDemo() {
+    // 显示文本选择功能演示
+    const demoText = "这是一个演示文本。请选择这段文字中的任何部分，然后使用划线功能进行深度提问或质疑验证。";
+    
+    // 创建模态框显示演示
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">智能划线功能演示</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">选择下面文本的任何部分，体验智能划线功能：</p>
+                    <div class="border rounded p-3 bg-light demo-text" style="user-select: text; cursor: text;">
+                        ${demoText}
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            选择文本后会出现"刨根问底"和"质疑验证"按钮
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bootstrapModal = new bootstrap.Modal(modal);
+    bootstrapModal.show();
+    
+    // 清理模态框
+    modal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(modal);
+    });
+}
+
+// 页面加载动画
+document.addEventListener('DOMContentLoaded', function() {
+    // 添加淡入动画到功能卡片
+    const cards = document.querySelectorAll('.feature-card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 200);
+    });
+});
+</script>
+{% endblock %} 

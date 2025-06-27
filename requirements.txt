@@ -1,0 +1,125 @@
+# Flask 核心框架
+Flask==2.3.3
+Werkzeug==2.3.7
+
+# 数据库相关
+Flask-SQLAlchemy==3.0.5
+Flask-Migrate==4.0.5
+SQLAlchemy==2.0.21
+psycopg2-binary==2.9.7  # PostgreSQL 适配器
+
+# 用户认证
+Flask-Login==0.6.3
+Flask-WTF==1.1.1
+WTForms==3.0.1
+
+# HTTP 客户端
+requests==2.31.0
+httpx==0.24.1
+openai>=1.84.0
+
+# 数据处理
+numpy==1.24.3
+pandas==2.0.3
+
+# 文档处理
+PyPDF2==3.0.1
+python-docx==0.8.11
+markdown==3.4.4
+python-magic==0.4.27
+
+# 向量处理
+faiss-cpu==1.7.4
+sentence-transformers==2.2.2
+
+# 环境变量
+python-dotenv==1.0.0
+
+# 配置和验证
+pydantic==2.4.2
+marshmallow==3.20.1
+
+# JSON处理
+ujson==5.8.0
+
+# 时间处理
+arrow==1.2.3
+
+# 异步支持
+aiohttp==3.8.5
+asyncio==3.4.3
+
+# 缓存
+Flask-Caching==2.1.0
+redis==4.6.0
+
+# 日志
+loguru==0.7.0
+
+# 安全
+cryptography==41.0.4
+bcrypt==4.0.1
+
+# API文档
+Flask-RESTX==1.1.0
+
+# CORS支持
+Flask-CORS==4.0.0
+
+# 文件上传
+Pillow==10.0.0
+
+# 任务队列
+celery==5.3.1
+
+# 监控
+Flask-DebugToolbar==0.13.1
+
+# 测试
+pytest==7.4.2
+pytest-flask==1.2.0
+pytest-cov==4.1.0
+
+# 开发工具
+black==23.7.0
+flake8==6.0.0
+isort==5.12.0
+
+# 环境配置
+Flask-SocketIO==5.3.6
+
+# 文档处理∏
+python-pptx==0.6.21
+
+# PDF生成
+reportlab==4.0.4
+weasyprint==60.1
+
+# 文本处理
+jieba==0.42.1
+beautifulsoup4==4.12.2
+
+# 实时通信
+eventlet==0.33.3
+
+# 工具类
+click==8.1.7
+python-dateutil==2.8.2
+
+# 向量数据库
+chromadb==0.4.15
+
+# LangChain 框架相关
+langchain==0.1.0
+langchain-core==0.1.0
+langchain-community==0.0.10
+langchain-openai==0.0.2
+
+# LangChain 记忆和上下文管理
+langchain-experimental==0.0.47
+
+# 向量存储和检索
+chroma-hnswlib==0.7.0
+
+# LangChain 工具和代理
+langsmith==0.0.75

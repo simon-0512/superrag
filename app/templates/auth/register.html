@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}注册 - SuperRAG{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <h1 class="h3 mb-3">注册 SuperRAG</h1>
+                        <p class="text-muted">创建您的账户，开始智能问答之旅</p>
+                    </div>
+                    
+                    <!-- 错误消息 -->
+                    {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form id="registerForm" method="POST">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">用户名</label>
+                            <input type="text" class="form-control" id="username" name="username" required 
+                                   pattern="[a-zA-Z0-9_]{3,20}" title="3-20个字符，只能包含字母、数字和下划线">
+                            <div class="form-text">3-20个字符，只能包含字母、数字和下划线</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">邮箱地址</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="nickname" class="form-label">昵称（可选）</label>
+                            <input type="text" class="form-control" id="nickname" name="nickname" maxlength="100">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">密码</label>
+                            <input type="password" class="form-control" id="password" name="password" required 
+                                   minlength="6" maxlength="128">
+                            <div class="form-text">至少6个字符</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">确认密码</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100 mb-3">
+                            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                            注册
+                        </button>
+                        
+                        <div class="text-center">
+                            <p class="text-muted mb-0">
+                                已有账户？ 
+                                <a href="{{ url_for('auth.login') }}" class="text-decoration-none">立即登录</a>
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('registerForm').addEventListener('submit', function(e) {
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    
+    if (password !== confirmPassword) {
+        e.preventDefault();
+        alert('两次输入的密码不一致！');
+        return;
+    }
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const spinner = submitBtn.querySelector('.spinner-border');
+    
+    submitBtn.disabled = true;
+    spinner.classList.remove('d-none');
+});
+</script>
+{% endblock %} 
