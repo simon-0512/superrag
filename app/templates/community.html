@@ -1,0 +1,984 @@
+{% extends "base.html" %}
+
+{% block title %}SuperRAG 社区{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 社区专用样式 */
+.community-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+/* 导航栏样式 */
+.community-nav {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-tabs {
+    display: flex;
+    gap: 20px;
+}
+
+.nav-tabs .tab {
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: #666;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.nav-tabs .tab.active {
+    background: #007bff;
+    color: white;
+}
+
+.nav-tabs .tab:hover:not(.active) {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.create-post-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.create-post-btn:hover {
+    background: #0056b3;
+}
+
+/* 内容区域布局 */
+.community-content {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+}
+
+.feed-container {
+    background: white;
+    border-radius: 12px;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    overflow: hidden;
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sidebar-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.sidebar-card h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* 帖子卡片样式 */
+.post-card {
+    background: white;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 24px;
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+}
+
+.post-card:hover {
+    background: #f8f9fa;
+}
+
+.post-card:last-child {
+    border-bottom: none;
+}
+
+.post-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #007bff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 500;
+    margin-right: 12px;
+}
+
+.user-info {
+    flex: 1;
+}
+
+.username {
+    font-weight: 600;
+    color: #333;
+    margin-right: 8px;
+}
+
+.timestamp {
+    color: #666;
+    font-size: 14px;
+}
+
+.post-content {
+    margin: 16px 0;
+    line-height: 1.6;
+}
+
+.user-description {
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 12px;
+}
+
+.ai-content {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 12px 0;
+    border-left: 4px solid #007bff;
+}
+
+.ai-prompt {
+    background: #e3f2fd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 14px;
+    color: #1976d2;
+    border-left: 3px solid #2196f3;
+}
+
+.ai-prompt-label {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.post-tags {
+    margin: 12px 0;
+}
+
+.tag {
+    display: inline-block;
+    background: #e9ecef;
+    color: #495057;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    margin-right: 6px;
+    margin-bottom: 4px;
+}
+
+.post-actions {
+    display: flex;
+    gap: 24px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    font-size: 14px;
+}
+
+.action-btn:hover {
+    color: #007bff;
+}
+
+.action-btn.active {
+    color: #007bff;
+}
+
+.action-btn.liked {
+    color: #e74c3c;
+}
+
+.action-btn.bookmarked {
+    color: #f39c12;
+}
+
+/* 加载状态 */
+.loading-indicator {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+.skeleton-card {
+    background: white;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 24px;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-line {
+    background: #e9ecef;
+    height: 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.skeleton-line.short {
+    width: 60%;
+}
+
+.skeleton-line.medium {
+    width: 80%;
+}
+
+.skeleton-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #e9ecef;
+    margin-right: 12px;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* 创建帖子模态框 */
+.create-post-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+
+.create-post-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.create-post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.create-post-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s ease;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.char-counter {
+    text-align: right;
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.char-counter.warning {
+    color: #f39c12;
+}
+
+.char-counter.error {
+    color: #e74c3c;
+}
+
+.create-post-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #e9ecef;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.btn-primary:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .community-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .sidebar {
+        order: -1;
+    }
+    
+    .nav-tabs {
+        gap: 10px;
+    }
+    
+    .nav-tabs .tab {
+        padding: 6px 12px;
+        font-size: 14px;
+    }
+    
+    .community-nav {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .post-actions {
+        gap: 16px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="community-container">
+    <!-- 顶部导航 -->
+    <nav class="community-nav">
+        <div class="nav-tabs">
+            <button class="tab active" data-feed="recommended">推荐</button>
+            <button class="tab" data-feed="following">关注</button>
+            <button class="tab" data-feed="trending">热门</button>
+            <button class="tab" data-feed="featured">精选</button>
+        </div>
+        <button class="create-post-btn" onclick="openCreatePostModal()">
+            <i class="bi bi-plus"></i> 分享创作
+        </button>
+    </nav>
+    
+    <!-- 内容区域 -->
+    <div class="community-content">
+        <!-- 左侧时间流 -->
+        <div class="feed-container">
+            <div id="posts-container">
+                <!-- 帖子将通过JavaScript动态加载 -->
+            </div>
+            <div class="loading-indicator" id="loading-indicator">
+                <i class="bi bi-arrow-clockwise spin"></i> 加载中...
+            </div>
+        </div>
+        
+        <!-- 右侧信息栏 -->
+        <div class="sidebar">
+            <!-- 热门话题 -->
+            <div class="sidebar-card">
+                <h3><i class="bi bi-hash"></i> 热门话题</h3>
+                <div id="trending-tags">
+                    <!-- 热门标签将通过JavaScript加载 -->
+                </div>
+            </div>
+            
+            <!-- 社区统计 -->
+            <div class="sidebar-card">
+                <h3><i class="bi bi-bar-chart"></i> 社区统计</h3>
+                <div id="community-stats">
+                    <!-- 统计数据将通过JavaScript加载 -->
+                </div>
+            </div>
+            
+            <!-- 快捷操作 -->
+            <div class="sidebar-card">
+                <h3><i class="bi bi-lightning"></i> 快捷操作</h3>
+                <div class="quick-actions">
+                    <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="location.href='/chat'">
+                        <i class="bi bi-chat-dots me-1"></i> 新建对话
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm w-100 mb-2" onclick="showMyBookmarks()">
+                        <i class="bi bi-bookmark me-1"></i> 我的收藏
+                    </button>
+                    <button class="btn btn-outline-info btn-sm w-100" onclick="showMyPosts()">
+                        <i class="bi bi-file-text me-1"></i> 我的分享
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建帖子模态框 -->
+<div class="create-post-modal" id="createPostModal">
+    <div class="create-post-content">
+        <div class="create-post-header">
+            <h3>分享你的AI创作</h3>
+            <button class="close-modal" onclick="closeCreatePostModal()">&times;</button>
+        </div>
+        
+        <form id="createPostForm">
+            <div class="form-group">
+                <label for="postContent">分享内容 *</label>
+                <textarea class="form-control" id="postContent" rows="3" 
+                         placeholder="分享你的AI创作心得..." maxlength="140"></textarea>
+                <div class="char-counter" id="charCounter">0/140</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="aiPrompt">AI提示词 (可选)</label>
+                <textarea class="form-control" id="aiPrompt" rows="2" 
+                         placeholder="分享你使用的提示词..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="postTags">标签 (可选)</label>
+                <input type="text" class="form-control" id="postTags" 
+                       placeholder="输入标签，用逗号分隔，如：AI创作,提示词">
+            </div>
+            
+            <div class="create-post-actions">
+                <button type="button" class="btn-secondary" onclick="closeCreatePostModal()">取消</button>
+                <button type="submit" class="btn-primary" id="submitPostBtn">发布</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 社区功能JavaScript
+let currentFeed = 'recommended';
+let currentPage = 1;
+let isLoading = false;
+let hasMore = true;
+
+// 初始化社区页面
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCommunity();
+});
+
+function initializeCommunity() {
+    loadFeed();
+    loadTrendingTags();
+    loadCommunityStats();
+    setupInfiniteScroll();
+    setupCreatePostForm();
+}
+
+// 加载时间流
+async function loadFeed(reset = false) {
+    if (isLoading || (!hasMore && !reset)) return;
+    
+    isLoading = true;
+    const loadingIndicator = document.getElementById('loading-indicator');
+    loadingIndicator.style.display = 'block';
+    
+    try {
+        if (reset) {
+            currentPage = 1;
+            hasMore = true;
+        }
+        
+        const response = await fetch(`/api/community/feed?type=${currentFeed}&page=${currentPage}&limit=20`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const postsContainer = document.getElementById('posts-container');
+            
+            if (reset) {
+                postsContainer.innerHTML = '';
+            }
+            
+            if (data.posts.length === 0) {
+                if (reset) {
+                    postsContainer.innerHTML = '<div class="text-center py-5"><i class="bi bi-chat-square-text" style="font-size: 3rem; color: #ccc;"></i><p class="text-muted mt-2">还没有内容，成为第一个分享者吧！</p></div>';
+                }
+                hasMore = false;
+            } else {
+                data.posts.forEach(post => {
+                    postsContainer.appendChild(createPostCard(post));
+                });
+                currentPage++;
+                hasMore = data.posts.length === 20;
+            }
+        } else {
+            console.error('加载时间流失败:', data.message);
+            showToast('加载时间流失败', 'error');
+        }
+    } catch (error) {
+        console.error('加载时间流异常:', error);
+        showToast('加载时间流异常', 'error');
+    } finally {
+        isLoading = false;
+        loadingIndicator.style.display = hasMore ? 'none' : 'block';
+        if (!hasMore) {
+            loadingIndicator.innerHTML = '<i class="bi bi-check-circle"></i> 已加载全部内容';
+        }
+    }
+}
+
+// 创建帖子卡片
+function createPostCard(post) {
+    const card = document.createElement('div');
+    card.className = 'post-card';
+    card.dataset.postId = post.id;
+    
+    // 格式化时间
+    const timeStr = formatTime(post.created_at);
+    
+    // 渲染标签
+    const tagsHtml = post.tags.map(tag => `<span class="tag">#${tag}</span>`).join('');
+    
+    // 渲染AI内容
+    let aiContentHtml = '';
+    if (post.ai_prompt) {
+        aiContentHtml += `<div class="ai-prompt"><div class="ai-prompt-label">🤖 AI提示词：</div>${escapeHtml(post.ai_prompt)}</div>`;
+    }
+    
+    if (post.ai_content_data) {
+        aiContentHtml += '<div class="ai-content"><i class="bi bi-robot"></i> AI创作内容 (点击查看详情)</div>';
+    }
+    
+    card.innerHTML = `
+        <div class="post-header">
+            <div class="user-avatar">${getAvatarText(post.user.username)}</div>
+            <div class="user-info">
+                <span class="username">${escapeHtml(post.user.nickname || post.user.username)}</span>
+                <span class="timestamp">${timeStr}</span>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p class="user-description">${escapeHtml(post.content)}</p>
+            ${aiContentHtml}
+            <div class="post-tags">${tagsHtml}</div>
+        </div>
+        
+        <div class="post-actions">
+            <button class="action-btn like-btn ${post.user_interactions?.like ? 'active liked' : ''}" 
+                    onclick="toggleLike(${post.id}, this)" data-count="${post.like_count}">
+                <i class="bi bi-heart${post.user_interactions?.like ? '-fill' : ''}"></i> 
+                <span>${post.like_count}</span>
+            </button>
+            <button class="action-btn comment-btn" onclick="showComments(${post.id})" data-count="${post.comment_count}">
+                <i class="bi bi-chat"></i> <span>${post.comment_count}</span>
+            </button>
+            <button class="action-btn share-btn" onclick="sharePost(${post.id})" data-count="${post.share_count}">
+                <i class="bi bi-share"></i> <span>${post.share_count}</span>
+            </button>
+            <button class="action-btn bookmark-btn ${post.user_interactions?.bookmark ? 'active bookmarked' : ''}" 
+                    onclick="toggleBookmark(${post.id}, this)">
+                <i class="bi bi-bookmark${post.user_interactions?.bookmark ? '-fill' : ''}"></i>
+            </button>
+        </div>
+    `;
+    
+    return card;
+}
+
+// 切换feed类型
+function switchFeed(feedType) {
+    // 更新按钮状态
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.feed === feedType) {
+            tab.classList.add('active');
+        }
+    });
+    
+    currentFeed = feedType;
+    loadFeed(true);
+}
+
+// 设置tab事件监听
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        switchFeed(tab.dataset.feed);
+    });
+});
+
+// 点赞/取消点赞
+async function toggleLike(postId, button) {
+    try {
+        const response = await fetch(`/api/community/posts/${postId}/like`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const icon = button.querySelector('i');
+            const countSpan = button.querySelector('span');
+            
+            if (data.action === 'liked') {
+                button.classList.add('active', 'liked');
+                icon.className = 'bi bi-heart-fill';
+            } else {
+                button.classList.remove('active', 'liked');
+                icon.className = 'bi bi-heart';
+            }
+            
+            countSpan.textContent = data.like_count;
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (error) {
+        console.error('点赞操作失败:', error);
+        showToast('点赞操作失败', 'error');
+    }
+}
+
+// 收藏/取消收藏
+async function toggleBookmark(postId, button) {
+    try {
+        const response = await fetch(`/api/community/posts/${postId}/bookmark`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const icon = button.querySelector('i');
+            
+            if (data.action === 'bookmarked') {
+                button.classList.add('active', 'bookmarked');
+                icon.className = 'bi bi-bookmark-fill';
+                showToast('已收藏', 'success');
+            } else {
+                button.classList.remove('active', 'bookmarked');
+                icon.className = 'bi bi-bookmark';
+                showToast('已取消收藏', 'success');
+            }
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (error) {
+        console.error('收藏操作失败:', error);
+        showToast('收藏操作失败', 'error');
+    }
+}
+
+// 加载热门标签
+async function loadTrendingTags() {
+    try {
+        const response = await fetch('/api/community/trending/tags?limit=8');
+        const data = await response.json();
+        
+        const container = document.getElementById('trending-tags');
+        
+        if (data.success && data.tags.length > 0) {
+            container.innerHTML = data.tags.map(tag => 
+                `<span class="tag" style="cursor: pointer; margin: 2px;" onclick="searchByTag('${tag.name}')">#${tag.name} (${tag.count})</span>`
+            ).join('');
+        } else {
+            container.innerHTML = '<p class="text-muted small">暂无热门话题</p>';
+        }
+    } catch (error) {
+        console.error('加载热门标签失败:', error);
+    }
+}
+
+// 加载社区统计
+async function loadCommunityStats() {
+    try {
+        const response = await fetch('/api/community/stats');
+        const data = await response.json();
+        
+        const container = document.getElementById('community-stats');
+        
+        if (data.success) {
+            const stats = data.stats;
+            container.innerHTML = `
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted small">今日帖子</span>
+                    <span class="fw-bold">${stats.today_posts}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted small">总帖子数</span>
+                    <span class="fw-bold">${stats.total_posts}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted small">总用户数</span>
+                    <span class="fw-bold">${stats.total_users}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted small">今日活跃</span>
+                    <span class="fw-bold">${stats.today_active_users}</span>
+                </div>
+            `;
+        } else {
+            container.innerHTML = '<p class="text-muted small">统计数据加载失败</p>';
+        }
+    } catch (error) {
+        console.error('加载统计数据失败:', error);
+    }
+}
+
+// 无限滚动
+function setupInfiniteScroll() {
+    window.addEventListener('scroll', () => {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
+            loadFeed();
+        }
+    });
+}
+
+// 创建帖子模态框
+function openCreatePostModal() {
+    document.getElementById('createPostModal').style.display = 'block';
+    document.getElementById('postContent').focus();
+}
+
+function closeCreatePostModal() {
+    document.getElementById('createPostModal').style.display = 'none';
+    document.getElementById('createPostForm').reset();
+    updateCharCounter();
+}
+
+// 设置创建帖子表单
+function setupCreatePostForm() {
+    const contentTextarea = document.getElementById('postContent');
+    const charCounter = document.getElementById('charCounter');
+    const form = document.getElementById('createPostForm');
+    
+    // 字符计数
+    contentTextarea.addEventListener('input', updateCharCounter);
+    
+    function updateCharCounter() {
+        const length = contentTextarea.value.length;
+        charCounter.textContent = `${length}/140`;
+        
+        charCounter.className = 'char-counter';
+        if (length > 120) {
+            charCounter.classList.add('warning');
+        }
+        if (length > 140) {
+            charCounter.classList.add('error');
+        }
+    }
+    
+    // 表单提交
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const content = contentTextarea.value.trim();
+        if (!content) {
+            showToast('内容不能为空', 'error');
+            return;
+        }
+        
+        if (content.length > 140) {
+            showToast('内容不能超过140字', 'error');
+            return;
+        }
+        
+        const submitBtn = document.getElementById('submitPostBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '发布中...';
+        
+        try {
+            const postData = {
+                content: content,
+                ai_prompt: document.getElementById('aiPrompt').value.trim() || null,
+                tags: document.getElementById('postTags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
+            };
+            
+            const response = await fetch('/api/community/posts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(postData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast('发布成功！', 'success');
+                closeCreatePostModal();
+                loadFeed(true); // 重新加载时间流
+                loadCommunityStats(); // 更新统计数据
+            } else {
+                showToast(data.message, 'error');
+            }
+        } catch (error) {
+            console.error('发布失败:', error);
+            showToast('发布失败', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '发布';
+        }
+    });
+}
+
+// 工具函数
+function formatTime(timeStr) {
+    const date = new Date(timeStr);
+    const now = new Date();
+    const diff = now - date;
+    
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return '刚刚';
+    if (minutes < 60) return `${minutes}分钟前`;
+    if (hours < 24) return `${hours}小时前`;
+    if (days < 7) return `${days}天前`;
+    
+    return date.toLocaleDateString();
+}
+
+function getAvatarText(username) {
+    return username ? username.charAt(0).toUpperCase() : 'U';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showToast(message, type = 'info') {
+    // 简单的toast提示，可以后续改为更好的UI组件
+    const alertClass = type === 'error' ? 'alert-danger' : 
+                      type === 'success' ? 'alert-success' : 'alert-info';
+    
+    const toast = document.createElement('div');
+    toast.className = `alert ${alertClass} position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// 占位函数，待实现
+function showComments(postId) {
+    showToast('评论功能开发中...', 'info');
+}
+
+function sharePost(postId) {
+    showToast('转发功能开发中...', 'info');
+}
+
+function searchByTag(tag) {
+    showToast(`搜索标签 #${tag} 功能开发中...`, 'info');
+}
+
+function showMyBookmarks() {
+    showToast('我的收藏功能开发中...', 'info');
+}
+
+function showMyPosts() {
+    showToast('我的分享功能开发中...', 'info');
+}
+</script>
+{% endblock %} 
