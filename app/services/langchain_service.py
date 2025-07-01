@@ -47,7 +47,7 @@ except ImportError as e:
 from app.models import Conversation, Message
 from app.database import db
 from app.services.deepseek_service import DeepSeekService
-from config.settings import BaseConfig
+from config.settings import Config
 
 logger = logging.getLogger(__name__)
 

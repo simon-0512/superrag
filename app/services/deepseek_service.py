@@ -5,7 +5,7 @@ DeepSeek API 服务
 import logging
 from typing import Dict, List, Optional, Any, Iterator
 from openai import OpenAI
-from config.settings import BaseConfig
+from config.settings import Config
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +13,9 @@ class DeepSeekService:
     """DeepSeek API 服务类"""
     
     def __init__(self):
-        self.api_key = BaseConfig.DEEPSEEK_API_KEY
-        self.api_base = BaseConfig.DEEPSEEK_API_BASE
-        self.model = BaseConfig.DEEPSEEK_MODEL
+        self.api_key = Config.DEEPSEEK_API_KEY
+        self.api_base = Config.DEEPSEEK_API_BASE
+        self.model = Config.DEEPSEEK_MODEL
         
         # 初始化OpenAI客户端
         self.client = OpenAI(

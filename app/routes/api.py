@@ -1258,7 +1258,7 @@ def analyze_langchain_context(conversation_id):
 def get_langchain_config():
     """获取 LangChain 配置信息"""
     try:
-        from config.settings import BaseConfig
+        from config.settings import Config
         
         config_info = {
             'enabled': BaseConfig.LANGCHAIN_ENABLED,

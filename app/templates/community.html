@@ -426,17 +426,17 @@
     
     .nav-tabs .tab {
         padding: 6px 12px;
-        font-size: 14px;
+    font-size: 14px;
     }
     
     .community-nav {
-        flex-direction: column;
+    flex-direction: column;
         gap: 16px;
     }
     
     .post-actions {
-        gap: 16px;
-    }
+    gap: 16px;
+}
 }
 </style>
 {% endblock %}
@@ -475,9 +475,9 @@
                 <h3><i class="bi bi-hash"></i> 热门话题</h3>
                 <div id="trending-tags">
                     <!-- 热门标签将通过JavaScript加载 -->
-                </div>
-            </div>
-            
+                        </div>
+                    </div>
+                    
             <!-- 社区统计 -->
             <div class="sidebar-card">
                 <h3><i class="bi bi-bar-chart"></i> 社区统计</h3>
@@ -500,8 +500,8 @@
                         <i class="bi bi-file-text me-1"></i> 我的分享
                     </button>
                 </div>
-            </div>
-        </div>
+                                </div>
+                            </div>
     </div>
 </div>
 
@@ -514,17 +514,17 @@
         </div>
         
         <form id="createPostForm">
-            <div class="form-group">
-                <label for="postContent">分享内容 *</label>
-                <textarea class="form-control" id="postContent" rows="3" 
-                         placeholder="分享你的AI创作心得..." maxlength="140"></textarea>
-                <div class="char-counter" id="charCounter">0/140</div>
-            </div>
-            
-            <div class="form-group">
-                <label for="aiPrompt">AI提示词 (可选)</label>
-                <textarea class="form-control" id="aiPrompt" rows="2" 
-                         placeholder="分享你使用的提示词..."></textarea>
+                <div class="form-group">
+                    <label for="postContent">分享内容 *</label>
+                    <textarea class="form-control" id="postContent" rows="3" 
+                             placeholder="分享你的AI创作心得..." maxlength="140"></textarea>
+                    <div class="char-counter" id="charCounter">0/140</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="aiPrompt">AI提示词 (可选)</label>
+                    <textarea class="form-control" id="aiPrompt" rows="2" 
+                             placeholder="分享你使用的提示词..."></textarea>
             </div>
             
             <div class="form-group">
@@ -640,7 +640,7 @@ function createPostCard(post) {
     card.innerHTML = `
         <div class="post-header">
             <div class="user-avatar">${getAvatarText(post.user.username)}</div>
-            <div class="user-info">
+                <div class="user-info">
                 <span class="username">${escapeHtml(post.user.nickname || post.user.username)}</span>
                 <span class="timestamp">${timeStr}</span>
             </div>
@@ -692,8 +692,8 @@ function switchFeed(feedType) {
 document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
         switchFeed(tab.dataset.feed);
+        });
     });
-});
 
 // 点赞/取消点赞
 async function toggleLike(postId, button) {
@@ -850,10 +850,10 @@ function setupCreatePostForm() {
     
     function updateCharCounter() {
         const length = contentTextarea.value.length;
-        charCounter.textContent = `${length}/140`;
+            charCounter.textContent = `${length}/140`;
         
         charCounter.className = 'char-counter';
-        if (length > 120) {
+            if (length > 120) {
             charCounter.classList.add('warning');
         }
         if (length > 140) {
@@ -863,19 +863,19 @@ function setupCreatePostForm() {
     
     // 表单提交
     form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
+    e.preventDefault();
+    
         const content = contentTextarea.value.trim();
-        if (!content) {
+            if (!content) {
             showToast('内容不能为空', 'error');
-            return;
-        }
-        
+                return;
+            }
+            
         if (content.length > 140) {
             showToast('内容不能超过140字', 'error');
-            return;
-        }
-        
+                return;
+            }
+            
         const submitBtn = document.getElementById('submitPostBtn');
         submitBtn.disabled = true;
         submitBtn.textContent = '发布中...';
@@ -886,32 +886,32 @@ function setupCreatePostForm() {
                 ai_prompt: document.getElementById('aiPrompt').value.trim() || null,
                 tags: document.getElementById('postTags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
             };
-            
-            const response = await fetch('/api/community/posts', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(postData)
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                showToast('发布成功！', 'success');
-                closeCreatePostModal();
+        
+        const response = await fetch('/api/community/posts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(postData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('发布成功！', 'success');
+            closeCreatePostModal();
                 loadFeed(true); // 重新加载时间流
                 loadCommunityStats(); // 更新统计数据
-            } else {
+        } else {
                 showToast(data.message, 'error');
-            }
-        } catch (error) {
+        }
+    } catch (error) {
             console.error('发布失败:', error);
             showToast('发布失败', 'error');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = '发布';
-        }
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '发布';
+    }
     });
 }
 
