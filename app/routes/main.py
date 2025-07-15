@@ -5,7 +5,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from app.models import User, KnowledgeBase, Conversation
-from app.database import db
 
 # 创建主蓝图
 main_bp = Blueprint('main', __name__)
@@ -48,7 +47,7 @@ def chat():
 @main_bp.route('/knowledge')
 @login_required
 def knowledge():
-    """知识库管理页面"""
+    """知识库页面"""
     knowledge_bases = current_user.knowledge_bases.filter_by(is_active=True).all()
     return render_template('knowledge.html', knowledge_bases=knowledge_bases)
 
@@ -56,23 +55,21 @@ def knowledge():
 @login_required
 def knowledge_detail(knowledge_base_id):
     """知识库详情页面"""
-    kb = KnowledgeBase.query.filter_by(
-        id=knowledge_base_id,
-        user_id=current_user.id
-    ).first_or_404()
+    knowledge_base = KnowledgeBase.query.get_or_404(knowledge_base_id)
+    if knowledge_base.user_id != current_user.id:
+        flash('您没有权限访问该知识库', 'error')
+        return redirect(url_for('main.knowledge'))
     
-    # 获取文档列表
-    documents = kb.documents.filter_by(is_active=True).all()
-    
+    documents = knowledge_base.documents.filter_by(is_active=True).all()
     return render_template('knowledge_detail.html', 
-                         knowledge_base=kb,
+                         knowledge_base=knowledge_base,
                          documents=documents)
 
-@main_bp.route('/langchain')
+@main_bp.route('/community')
 @login_required
-def langchain_demo():
-    """LangChain 上下文管理演示页面"""
-    return render_template('langchain_demo.html')
+def community():
+    """社区页面"""
+    return render_template('community.html')
 
 @main_bp.route('/about')
 def about():
@@ -93,15 +90,14 @@ def contact():
 @main_bp.route('/api/stats')
 @login_required
 def api_stats():
-    """获取用户统计信息API"""
+    """获取统计数据"""
     knowledge_bases = current_user.knowledge_bases.filter_by(is_active=True).all()
     
     stats = {
         'knowledge_bases_count': len(knowledge_bases),
         'conversations_count': current_user.conversations.filter_by(is_active=True).count(),
         'total_documents': sum(kb.document_count for kb in knowledge_bases),
-        'total_messages': sum(conv.message_count for conv in current_user.conversations),
-        'total_storage_size': sum(kb.total_size for kb in knowledge_bases)
+        'total_messages': sum(conv.message_count for conv in current_user.conversations)
     }
     
     return jsonify({'success': True, 'stats': stats})
@@ -109,35 +105,38 @@ def api_stats():
 @main_bp.route('/api/knowledge_bases')
 @login_required  
 def api_knowledge_bases():
-    """获取用户知识库列表API"""
+    """获取知识库列表"""
     knowledge_bases = current_user.knowledge_bases.filter_by(is_active=True).all()
     return jsonify({
         'success': True,
-        'knowledge_bases': [kb.to_dict() for kb in knowledge_bases]
+        'knowledge_bases': [
+            {
+                'id': kb.id,
+                'name': kb.name,
+                'document_count': kb.document_count,
+                'created_at': kb.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for kb in knowledge_bases
+        ]
     })
 
 @main_bp.route('/api/conversations')
 @login_required
 def api_conversations():
-    """获取用户对话列表API"""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-    
+    """获取对话列表"""
     conversations = current_user.conversations.filter_by(is_active=True)\
-                   .order_by(Conversation.updated_at.desc())\
-                   .paginate(page=page, per_page=per_page, error_out=False)
-    
+                   .order_by(Conversation.updated_at.desc()).all()
     return jsonify({
         'success': True,
-        'conversations': [conv.to_dict() for conv in conversations.items],
-        'pagination': {
-            'page': page,
-            'pages': conversations.pages,
-            'per_page': per_page,
-            'total': conversations.total,
-            'has_next': conversations.has_next,
-            'has_prev': conversations.has_prev
-        }
+        'conversations': [
+            {
+                'id': conv.id,
+                'title': conv.title,
+                'message_count': conv.message_count,
+                'updated_at': conv.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for conv in conversations
+        ]
     })
 
 # 错误处理
@@ -149,5 +148,4 @@ def not_found_error(error):
 @main_bp.app_errorhandler(500)
 def internal_error(error):
     """500错误处理"""
-    db.session.rollback()
     return render_template('errors/500.html'), 500 

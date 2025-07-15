@@ -1,0 +1,286 @@
+{% extends "admin/base.html" %}
+
+{% block title %}对话详情 - Agorix 管理后台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('admin.conversations') }}">
+                        <i class="fas fa-comments me-1"></i>对话管理
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">对话详情</li>
+            </ol>
+        </nav>
+        <h1 class="h3 mb-0">对话详情</h1>
+    </div>
+    <div>
+        <a href="{{ url_for('admin.conversations') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>返回列表
+        </a>
+    </div>
+</div>
+
+<!-- 对话基本信息 -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>基本信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="text-muted" width="120">对话标题:</td>
+                                <td><strong>{{ conversation.title }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">对话ID:</td>
+                                <td><code>{{ conversation.id }}</code></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">用户:</td>
+                                <td>
+                                    {% if conversation.user %}
+                                        <a href="{{ url_for('admin.user_detail', user_id=conversation.user.id) }}" 
+                                           class="text-decoration-none">
+                                            <i class="fas fa-user me-1"></i>{{ conversation.user.username }}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">未知用户</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">知识库:</td>
+                                <td>
+                                    {% if conversation.knowledge_base %}
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-book me-1"></i>{{ conversation.knowledge_base.name }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">无关联知识库</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-sm-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="text-muted" width="120">消息数量:</td>
+                                <td><span class="badge bg-primary">{{ conversation.message_count }}</span></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">总token数:</td>
+                                <td>{{ conversation.total_tokens if conversation.total_tokens else 0 }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">创建时间:</td>
+                                <td>{{ conversation.created_at.strftime('%Y-%m-%d %H:%M:%S') if conversation.created_at else '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">更新时间:</td>
+                                <td>{{ conversation.updated_at.strftime('%Y-%m-%d %H:%M:%S') if conversation.updated_at else '-' }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cogs me-2"></i>操作
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if conversation.is_active %}
+                        <button class="btn btn-outline-danger" 
+                                onclick="deleteConversation('{{ conversation.id }}', '{{ conversation.title[:20] }}')">
+                            <i class="fas fa-trash me-1"></i>删除对话
+                        </button>
+                    {% else %}
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            此对话已被删除
+                        </div>
+                    {% endif %}
+                    <a href="{{ url_for('admin.conversations') }}" class="btn btn-secondary">
+                        <i class="fas fa-list me-1"></i>返回列表
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 消息记录 -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-comments me-2"></i>消息记录 ({{ messages.total }} 条消息)
+        </h5>
+        {% if messages.total > 0 %}
+            <small class="text-muted">第 {{ (messages.page - 1) * messages.per_page + 1 }} - {{ min(messages.page * messages.per_page, messages.total) }} 条</small>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        {% if messages.items %}
+            <div class="messages-container">
+                {% for message in messages.items %}
+                    <div class="message-item mb-4 p-3 {% if message.is_user %}bg-light{% else %}bg-primary bg-opacity-10{% endif %} rounded">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm {% if message.is_user %}bg-secondary{% else %}bg-primary{% endif %} rounded-circle d-flex align-items-center justify-content-center me-2">
+                                    <i class="fas {% if message.is_user %}fa-user{% else %}fa-robot{% endif %} text-white"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0">
+                                        {% if message.is_user %}
+                                            用户消息
+                                        {% else %}
+                                            AI 回复
+                                        {% endif %}
+                                    </h6>
+                                    <small class="text-muted">{{ message.created_at.strftime('%Y-%m-%d %H:%M:%S') if message.created_at else '-' }}</small>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                {% if message.tokens %}
+                                    <small class="text-muted">{{ message.tokens }} tokens</small>
+                                {% endif %}
+                                <div><small class="text-muted">ID: {{ message.id[:8] }}...</small></div>
+                            </div>
+                        </div>
+                        <div class="message-content">
+                            <div class="content-text">{{ message.content }}</div>
+                            {% if message.metadata %}
+                                <details class="mt-2">
+                                    <summary class="text-muted small" style="cursor: pointer;">
+                                        <i class="fas fa-info-circle me-1"></i>元数据
+                                    </summary>
+                                    <pre class="bg-light p-2 rounded mt-2 small"><code>{{ message.metadata | tojson(indent=2) }}</code></pre>
+                                </details>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <!-- 分页 -->
+            {% if messages.pages > 1 %}
+                <nav aria-label="消息记录分页" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if messages.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin.conversation_detail', conversation_id=conversation.id, page=messages.prev_num) }}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for page_num in messages.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != messages.page %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('admin.conversation_detail', conversation_id=conversation.id, page=page_num) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">…</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if messages.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin.conversation_detail', conversation_id=conversation.id, page=messages.next_num) }}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">暂无消息记录</h5>
+                <p class="text-muted">此对话还没有任何消息</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.message-content {
+    line-height: 1.6;
+}
+
+.content-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.messages-container {
+    max-height: 800px;
+    overflow-y: auto;
+}
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+details summary {
+    outline: none;
+}
+
+details[open] summary {
+    margin-bottom: 8px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteConversation(conversationId, title) {
+    confirmDelete(`确定要删除对话 "${title}" 吗？`, function() {
+        makeRequest(`/admin/conversations/${conversationId}/delete`, 'POST')
+            .then(response => {
+                if (response.success) {
+                    showNotification(response.message, 'success');
+                    // 跳转回列表页
+                    setTimeout(() => {
+                        window.location.href = "{{ url_for('admin.conversations') }}";
+                    }, 1500);
+                } else {
+                    showNotification(response.message, 'danger');
+                }
+            })
+            .catch(error => {
+                showNotification('删除失败：网络错误', 'danger');
+            });
+    });
+}
+</script>
+{% endblock %} 

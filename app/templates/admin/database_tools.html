@@ -1,0 +1,1005 @@
+{% extends "admin/base.html" %}
+
+{% block title %}数据库工具 - Agorix 管理后台{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="admin-title">
+            <h2 class="admin-title-text">
+                <i class="bi bi-database me-2"></i>数据库工具
+            </h2>
+            <p class="admin-subtitle">执行SQL查询和数据库管理操作</p>
+        </div>
+        <div class="admin-permission-badge">
+            <i class="bi bi-shield-check me-1"></i>完整SQL权限
+        </div>
+    </div>
+</div>
+
+<div class="database-tools-layout">
+    <!-- SQL查询区域 -->
+    <div class="sql-query-section">
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <div class="admin-card-title">
+                    <h3 class="admin-card-title-text">
+                        <i class="bi bi-code-slash me-2"></i>SQL 查询编辑器
+                    </h3>
+                </div>
+                <div class="sql-editor-actions">
+                    <button class="admin-btn admin-btn-secondary admin-btn-sm" onclick="clearQuery()">
+                        <i class="bi bi-eraser me-1"></i>清空
+                    </button>
+                    <button class="admin-btn admin-btn-primary admin-btn-sm" onclick="executeQuery()">
+                        <i class="bi bi-play me-1"></i>执行 <kbd>Ctrl+Enter</kbd>
+                    </button>
+                </div>
+            </div>
+            <div class="admin-card-body">
+                <div class="sql-editor-container">
+                    <textarea id="sqlQuery" class="sql-editor" rows="12" 
+                              placeholder="输入您的 SQL 查询语句...
+
+示例查询：
+SELECT username, email, role, created_at FROM users LIMIT 10;
+UPDATE users SET role = 'admin' WHERE id = 1;
+INSERT INTO users (username, email) VALUES ('test', 'test@example.com');"></textarea>
+                </div>
+                
+                <div class="sql-warning">
+                    <div class="warning-icon">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                    <div class="warning-content">
+                        <strong>管理员权限</strong>
+                        <p>您拥有完整的数据库操作权限，请谨慎使用 DELETE、UPDATE 等修改操作</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 查询结果 -->
+        <div class="admin-card" id="resultCard" style="display: none;">
+            <div class="admin-card-header">
+                <div class="admin-card-title">
+                    <h3 class="admin-card-title-text">
+                        <i class="bi bi-table me-2"></i>查询结果
+                    </h3>
+                    <span class="result-count" id="resultCount"></span>
+                </div>
+                <button class="admin-btn admin-btn-secondary admin-btn-sm" onclick="exportResults()">
+                    <i class="bi bi-download me-1"></i>导出 CSV
+                </button>
+            </div>
+            <div class="admin-card-body result-container">
+                <div class="result-table-wrapper" id="resultTable">
+                    <!-- 动态加载结果 -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 侧边栏：查询示例和表结构 -->
+    <div class="database-sidebar">
+        <!-- 查询示例 -->
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <div class="admin-card-title">
+                    <h3 class="admin-card-title-text">
+                        <i class="bi bi-lightbulb me-2"></i>查询示例
+                    </h3>
+                </div>
+            </div>
+            <div class="admin-card-body query-examples-container">
+                <div class="query-examples">
+                    <div class="example-query" onclick="setQuery(this.dataset.query)" 
+                         data-query="SELECT username, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 10;">
+                        <div class="example-title">最新用户</div>
+                        <div class="example-code">SELECT username, email, role...</div>
+                        <div class="example-desc">获取最新注册的10个用户</div>
+                    </div>
+                    
+                    <div class="example-query" onclick="setQuery(this.dataset.query)" 
+                         data-query="SELECT role, COUNT(*) as count FROM users GROUP BY role ORDER BY count DESC;">
+                        <div class="example-title">用户角色统计</div>
+                        <div class="example-code">SELECT role, COUNT(*)...</div>
+                        <div class="example-desc">按角色统计用户数量</div>
+                    </div>
+                    
+                    <div class="example-query" onclick="setQuery(this.dataset.query)" 
+                         data-query="SELECT c.title, c.message_count, u.username, c.created_at FROM conversations c JOIN users u ON c.user_id = u.id ORDER BY c.created_at DESC LIMIT 10;">
+                        <div class="example-title">最新对话</div>
+                        <div class="example-code">SELECT c.title, c.message_count...</div>
+                        <div class="example-desc">获取最新的对话记录</div>
+                    </div>
+                    
+                    <div class="example-query" onclick="setQuery(this.dataset.query)" 
+                         data-query="SELECT DATE(created_at) as date, COUNT(*) as count FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) GROUP BY DATE(created_at) ORDER BY date;">
+                        <div class="example-title">7天用户增长</div>
+                        <div class="example-code">SELECT DATE(created_at)...</div>
+                        <div class="example-desc">过去7天每日新增用户</div>
+                    </div>
+                    
+                    <div class="example-query" onclick="setQuery(this.dataset.query)" 
+                         data-query="SELECT cp.content, cp.like_count, cp.comment_count, u.username, cp.created_at FROM community_posts cp JOIN users u ON cp.user_id = u.id ORDER BY cp.like_count DESC LIMIT 10;">
+                        <div class="example-title">热门帖子</div>
+                        <div class="example-code">SELECT cp.content, cp.like_count...</div>
+                        <div class="example-desc">获取点赞最多的帖子</div>
+                    </div>
+                    
+                    <div class="example-query" onclick="setQuery(this.dataset.query)" 
+                         data-query="SELECT COUNT(*) as total_messages, AVG(token_count) as avg_tokens FROM messages WHERE token_count IS NOT NULL;">
+                        <div class="example-title">消息统计</div>
+                        <div class="example-code">SELECT COUNT(*), AVG(token_count)...</div>
+                        <div class="example-desc">消息总数和平均token数</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 数据表结构 -->
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <div class="admin-card-title">
+                    <h3 class="admin-card-title-text">
+                        <i class="bi bi-diagram-3 me-2"></i>数据表结构
+                    </h3>
+                </div>
+            </div>
+            <div class="admin-card-body tables-container">
+                <div class="database-tables">
+                    <div class="table-item">
+                        <div class="table-header" onclick="toggleTable('usersTable')">
+                            <i class="bi bi-people me-2"></i>
+                            <span class="table-name">users</span>
+                            <span class="table-desc">用户表</span>
+                            <i class="bi bi-chevron-down toggle-icon"></i>
+                        </div>
+                        <div class="table-fields" id="usersTable">
+                            <div class="field-item">
+                                <span class="field-name">id</span>
+                                <span class="field-type">INT</span>
+                                <span class="field-desc">用户ID</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">username</span>
+                                <span class="field-type">VARCHAR</span>
+                                <span class="field-desc">用户名</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">email</span>
+                                <span class="field-type">VARCHAR</span>
+                                <span class="field-desc">邮箱</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">role</span>
+                                <span class="field-type">ENUM</span>
+                                <span class="field-desc">角色 (admin/tester/vip/user)</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">is_active</span>
+                                <span class="field-type">BOOLEAN</span>
+                                <span class="field-desc">是否活跃</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">created_at</span>
+                                <span class="field-type">DATETIME</span>
+                                <span class="field-desc">创建时间</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">last_login_at</span>
+                                <span class="field-type">DATETIME</span>
+                                <span class="field-desc">最后登录时间</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-item">
+                        <div class="table-header" onclick="toggleTable('conversationsTable')">
+                            <i class="bi bi-chat-dots me-2"></i>
+                            <span class="table-name">conversations</span>
+                            <span class="table-desc">对话表</span>
+                            <i class="bi bi-chevron-down toggle-icon"></i>
+                        </div>
+                        <div class="table-fields" id="conversationsTable">
+                            <div class="field-item">
+                                <span class="field-name">id</span>
+                                <span class="field-type">VARCHAR</span>
+                                <span class="field-desc">对话ID</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">title</span>
+                                <span class="field-type">VARCHAR</span>
+                                <span class="field-desc">对话标题</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">user_id</span>
+                                <span class="field-type">INT</span>
+                                <span class="field-desc">用户ID</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">message_count</span>
+                                <span class="field-type">INT</span>
+                                <span class="field-desc">消息数量</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">total_tokens</span>
+                                <span class="field-type">INT</span>
+                                <span class="field-desc">总token数</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">is_active</span>
+                                <span class="field-type">BOOLEAN</span>
+                                <span class="field-desc">是否活跃</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">created_at</span>
+                                <span class="field-type">DATETIME</span>
+                                <span class="field-desc">创建时间</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-item">
+                        <div class="table-header" onclick="toggleTable('messagesTable')">
+                            <i class="bi bi-chat-square-text me-2"></i>
+                            <span class="table-name">messages</span>
+                            <span class="table-desc">消息表</span>
+                            <i class="bi bi-chevron-down toggle-icon"></i>
+                        </div>
+                        <div class="table-fields" id="messagesTable">
+                            <div class="field-item">
+                                <span class="field-name">id</span>
+                                <span class="field-type">VARCHAR</span>
+                                <span class="field-desc">消息ID</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">conversation_id</span>
+                                <span class="field-type">VARCHAR</span>
+                                <span class="field-desc">对话ID</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">role</span>
+                                <span class="field-type">ENUM</span>
+                                <span class="field-desc">角色 (user/assistant/system)</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">content</span>
+                                <span class="field-type">TEXT</span>
+                                <span class="field-desc">消息内容</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">token_count</span>
+                                <span class="field-type">INT</span>
+                                <span class="field-desc">token数量</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">created_at</span>
+                                <span class="field-type">DATETIME</span>
+                                <span class="field-desc">创建时间</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-item">
+                        <div class="table-header" onclick="toggleTable('communityTable')">
+                            <i class="bi bi-people me-2"></i>
+                            <span class="table-name">community_posts</span>
+                            <span class="table-desc">社区帖子</span>
+                            <i class="bi bi-chevron-down toggle-icon"></i>
+                        </div>
+                        <div class="table-fields" id="communityTable">
+                            <div class="field-item">
+                                <span class="field-name">id</span>
+                                <span class="field-type">VARCHAR</span>
+                                <span class="field-desc">帖子ID</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">user_id</span>
+                                <span class="field-type">INT</span>
+                                <span class="field-desc">用户ID</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">content</span>
+                                <span class="field-type">TEXT</span>
+                                <span class="field-desc">帖子内容</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">like_count</span>
+                                <span class="field-type">INT</span>
+                                <span class="field-desc">点赞数</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">comment_count</span>
+                                <span class="field-type">INT</span>
+                                <span class="field-desc">评论数</span>
+                            </div>
+                            <div class="field-item">
+                                <span class="field-name">created_at</span>
+                                <span class="field-type">DATETIME</span>
+                                <span class="field-desc">创建时间</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentResults = null;
+
+function setQuery(query) {
+    const editor = document.getElementById('sqlQuery');
+    editor.value = query;
+    editor.focus();
+}
+
+function clearQuery() {
+    document.getElementById('sqlQuery').value = '';
+    hideResults();
+}
+
+function executeQuery() {
+    const query = document.getElementById('sqlQuery').value.trim();
+    
+    if (!query) {
+        showAdminToast('请输入 SQL 查询语句', 'warning');
+        return;
+    }
+    
+    // 显示加载状态
+    const executeBtn = document.querySelector('[onclick="executeQuery()"]');
+    const originalHTML = executeBtn.innerHTML;
+    executeBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>执行中...';
+    executeBtn.disabled = true;
+    
+    fetch('{{ url_for("admin.execute_sql") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sql: query })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+            showAdminToast(`查询成功，返回 ${data.count} 条记录`, 'success');
+        } else {
+            showAdminToast(data.message || '查询失败', 'danger');
+            hideResults();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAdminToast('查询失败：网络错误', 'danger');
+        hideResults();
+    })
+    .finally(() => {
+        executeBtn.innerHTML = originalHTML;
+        executeBtn.disabled = false;
+    });
+}
+
+function displayResults(data) {
+    currentResults = data;
+    
+    const resultCard = document.getElementById('resultCard');
+    const resultTable = document.getElementById('resultTable');
+    const resultCount = document.getElementById('resultCount');
+    
+    resultCount.textContent = `${data.count} 条记录`;
+    
+    if (data.rows.length === 0) {
+        resultTable.innerHTML = `
+            <div class="empty-result">
+                <div class="empty-result-icon">
+                    <i class="bi bi-database"></i>
+                </div>
+                <h4 class="empty-result-title">查询无结果</h4>
+                <p class="empty-result-text">查询执行成功，但没有返回任何数据</p>
+            </div>
+        `;
+    } else {
+        let html = '<div class="result-table"><table class="result-data-table">';
+        
+        // 表头
+        html += '<thead><tr>';
+        data.columns.forEach(col => {
+            html += `<th>${col}</th>`;
+        });
+        html += '</tr></thead>';
+        
+        // 数据行
+        html += '<tbody>';
+        data.rows.forEach((row, index) => {
+            html += `<tr class="result-row ${index % 2 === 0 ? 'even' : 'odd'}">`;
+            row.forEach(cell => {
+                html += `<td>${cell || '<span class="null-value">NULL</span>'}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        
+        resultTable.innerHTML = html;
+    }
+    
+    resultCard.style.display = 'block';
+    resultCard.scrollIntoView({ behavior: 'smooth' });
+}
+
+function hideResults() {
+    document.getElementById('resultCard').style.display = 'none';
+    currentResults = null;
+}
+
+function exportResults() {
+    if (!currentResults || !currentResults.rows.length) {
+        showAdminToast('没有数据可以导出', 'warning');
+        return;
+    }
+    
+    // 创建 CSV 内容
+    let csv = currentResults.columns.join(',') + '\n';
+    currentResults.rows.forEach(row => {
+        csv += row.map(cell => `"${cell || ''}"`).join(',') + '\n';
+    });
+    
+    // 创建下载链接
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `query_results_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+    link.click();
+    
+    showAdminToast('CSV 文件已开始下载', 'success');
+}
+
+function toggleTable(tableId) {
+    const table = document.getElementById(tableId);
+    const header = table.previousElementSibling;
+    const icon = header.querySelector('.toggle-icon');
+    
+    if (table.classList.contains('expanded')) {
+        table.classList.remove('expanded');
+        icon.style.transform = 'rotate(0deg)';
+    } else {
+        // 收起其他表
+        document.querySelectorAll('.table-fields.expanded').forEach(t => {
+            t.classList.remove('expanded');
+            t.parentElement.querySelector('.toggle-icon').style.transform = 'rotate(0deg)';
+        });
+        
+        table.classList.add('expanded');
+        icon.style.transform = 'rotate(180deg)';
+    }
+}
+
+// 键盘快捷键
+document.getElementById('sqlQuery').addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        executeQuery();
+    }
+    
+    // Tab键缩进
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        
+        this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 4;
+    }
+});
+
+// Toast通知系统
+function showAdminToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `admin-toast admin-toast-${type}`;
+    toast.innerHTML = `
+        <div class="admin-toast-content">
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'x-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        </div>
+        <button class="admin-toast-close" onclick="this.parentElement.remove()">
+            <i class="bi bi-x"></i>
+        </button>
+    `;
+    
+    document.body.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 5000);
+}
+</script>
+
+<!-- 数据库工具页面特定样式 -->
+<style>
+/* 页面布局 */
+.database-tools-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+}
+
+.sql-query-section {
+    min-width: 0;
+}
+
+.database-sidebar {
+    min-width: 0;
+}
+
+/* 权限徽章 */
+.admin-permission-badge {
+    background: #e7f3ff;
+    border: 1px solid #b6e3ff;
+    color: #0969da;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+}
+
+/* SQL编辑器 */
+.sql-editor-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.admin-btn-sm {
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+.sql-editor-container {
+    margin-bottom: 16px;
+}
+
+.sql-editor {
+    width: 100%;
+    border: 1px solid #d1d9e0;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    background: #f6f8fa;
+    color: #24292f;
+    resize: vertical;
+    transition: all 0.15s ease;
+}
+
+.sql-editor:focus {
+    border-color: #0969da;
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.12);
+    outline: none;
+    background: white;
+}
+
+.sql-editor::placeholder {
+    color: #656d76;
+    font-style: normal;
+}
+
+/* 警告提示 */
+.sql-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #fff8c5;
+    border: 1px solid #d4ac0d;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.warning-icon {
+    color: #bf8700;
+    font-size: 16px;
+    margin-top: 2px;
+}
+
+.warning-content {
+    flex: 1;
+}
+
+.warning-content strong {
+    color: #24292f;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.warning-content p {
+    color: #656d76;
+    font-size: 12px;
+    margin: 4px 0 0 0;
+    line-height: 1.4;
+}
+
+/* 结果显示 */
+.result-count {
+    background: #e7f3ff;
+    color: #0969da;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.result-container {
+    padding: 0;
+}
+
+.result-table-wrapper {
+    max-height: 500px;
+    overflow: auto;
+    border-radius: 6px;
+}
+
+.result-table {
+    border: 1px solid #d1d9e0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.result-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 0;
+}
+
+.result-data-table thead th {
+    background: #f6f8fa;
+    border-bottom: 1px solid #d1d9e0;
+    border-right: 1px solid #eaeef2;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 500;
+    color: #24292f;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.result-data-table thead th:last-child {
+    border-right: none;
+}
+
+.result-data-table tbody td {
+    border-bottom: 1px solid #eaeef2;
+    border-right: 1px solid #eaeef2;
+    padding: 8px 12px;
+    vertical-align: top;
+    max-width: 300px;
+    word-break: break-word;
+}
+
+.result-data-table tbody td:last-child {
+    border-right: none;
+}
+
+.result-row.even {
+    background: #f6f8fa;
+}
+
+.result-row:hover {
+    background: #e7f3ff;
+}
+
+.null-value {
+    color: #8c959f;
+    font-style: italic;
+    font-size: 11px;
+}
+
+.empty-result {
+    text-align: center;
+    padding: 48px 24px;
+}
+
+.empty-result-icon {
+    font-size: 48px;
+    color: #8c959f;
+    margin-bottom: 16px;
+}
+
+.empty-result-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: #24292f;
+    margin-bottom: 8px;
+}
+
+.empty-result-text {
+    font-size: 14px;
+    color: #656d76;
+    margin: 0;
+}
+
+/* 查询示例 */
+.query-examples-container {
+    padding: 0;
+}
+
+.query-examples {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.example-query {
+    padding: 12px;
+    border-bottom: 1px solid #eaeef2;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.example-query:last-child {
+    border-bottom: none;
+}
+
+.example-query:hover {
+    background: #f6f8fa;
+    transform: translateX(2px);
+}
+
+.example-query:active {
+    transform: translateX(1px);
+}
+
+.example-title {
+    font-weight: 500;
+    color: #24292f;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.example-code {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 12px;
+    color: #0969da;
+    background: #e7f3ff;
+    padding: 4px 6px;
+    border-radius: 3px;
+    margin-bottom: 4px;
+    display: inline-block;
+}
+
+.example-desc {
+    font-size: 12px;
+    color: #656d76;
+    line-height: 1.4;
+}
+
+/* 数据表结构 */
+.tables-container {
+    padding: 0;
+}
+
+.database-tables {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.table-item {
+    border-bottom: 1px solid #eaeef2;
+}
+
+.table-item:last-child {
+    border-bottom: none;
+}
+
+.table-header {
+    padding: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+    background: white;
+}
+
+.table-header:hover {
+    background: #f6f8fa;
+}
+
+.table-name {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: #24292f;
+}
+
+.table-desc {
+    font-size: 12px;
+    color: #656d76;
+    flex: 1;
+}
+
+.toggle-icon {
+    font-size: 12px;
+    color: #656d76;
+    transition: transform 0.15s ease;
+}
+
+.table-fields {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    background: #f6f8fa;
+}
+
+.table-fields.expanded {
+    max-height: 500px;
+}
+
+.field-item {
+    padding: 8px 12px 8px 32px;
+    border-bottom: 1px solid #eaeef2;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+    align-items: center;
+    font-size: 12px;
+}
+
+.field-item:last-child {
+    border-bottom: none;
+}
+
+.field-name {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-weight: 500;
+    color: #24292f;
+}
+
+.field-type {
+    background: #e7f3ff;
+    color: #0969da;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: center;
+}
+
+.field-desc {
+    color: #656d76;
+    text-align: right;
+}
+
+/* Toast样式 */
+.admin-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    border: 1px solid #d1d9e0;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+    min-width: 320px;
+    max-width: 480px;
+    z-index: 1100;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    gap: 12px;
+}
+
+.admin-toast.show {
+    transform: translateX(0);
+}
+
+.admin-toast-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.admin-toast-success { border-left: 3px solid #1f883d; }
+.admin-toast-success .admin-toast-content { color: #1f883d; }
+
+.admin-toast-danger { border-left: 3px solid #da3633; }
+.admin-toast-danger .admin-toast-content { color: #da3633; }
+
+.admin-toast-warning { border-left: 3px solid #bf8700; }
+.admin-toast-warning .admin-toast-content { color: #bf8700; }
+
+.admin-toast-close {
+    background: none;
+    border: none;
+    color: #8c959f;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.admin-toast-close:hover {
+    background: #f6f8fa;
+    color: #656d76;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+    .database-tools-layout {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .database-sidebar {
+        order: -1;
+    }
+    
+    .sql-editor-actions {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-header {
+        margin-bottom: 16px;
+    }
+    
+    .admin-permission-badge {
+        font-size: 12px;
+        padding: 4px 8px;
+    }
+    
+    .sql-editor {
+        font-size: 13px;
+        padding: 8px;
+    }
+    
+    .result-data-table {
+        font-size: 12px;
+    }
+    
+    .result-data-table th,
+    .result-data-table td {
+        padding: 6px 8px;
+    }
+    
+    .query-examples,
+    .database-tables {
+        max-height: 300px;
+    }
+}
+
+/* 键盘提示 */
+kbd {
+    background: #f6f8fa;
+    border: 1px solid #d1d9e0;
+    border-radius: 3px;
+    padding: 2px 4px;
+    font-size: 11px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    color: #656d76;
+}
+</style>
+{% endblock %} 

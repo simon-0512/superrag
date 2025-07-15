@@ -1,164 +1,347 @@
 {% extends "base.html" %}
 
-{% block title %}仪表板 - SuperRAG{% endblock %}
-
 {% block content %}
-<div class="homepage-content">
-    <div class="golden-ratio-container">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-12">
-                    <div class="dashboard-header">
-                        <div class="hero-section" style="min-height: 20vh; padding: 2rem 0;">
-                            <div class="text-center">
-                                <h1 class="hero-title" style="font-size: 2.5rem;">欢迎回来</h1>
-                                <div class="hero-slogan">{{ current_user.nickname or current_user.username }}</div>
-                                <p class="hero-subtitle">准备好开始新的知识探索之旅了吗？</p>
-                                <div class="d-flex gap-3 justify-content-center">
-                                    <a href="{{ url_for('main.chat') }}" class="btn btn-primary">
-                                        <i class="bi bi-chat-dots me-2"></i>开始对话
-                                    </a>
-                                    <a href="{{ url_for('main.knowledge') }}" class="btn btn-outline-primary">
-                                        <i class="bi bi-book me-2"></i>管理知识库
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+<div class="dashboard-container">
+    <!-- 用户信息卡片 -->
+    <div class="user-profile-card mb-4">
+        <div class="d-flex align-items-center">
+            <img src="{{ current_user.avatar_url or url_for('static', filename='images/default-avatar.png') }}" 
+                 alt="Avatar" 
+                 class="avatar-img">
+            <div class="ms-3">
+                <h4 class="mb-1">{{ current_user.username }}</h4>
+                <p class="text-secondary mb-2">{{ current_user.email }}</p>
+                <div class="user-stats">
+                    <span class="stat-item">
+                        <i class="fas fa-comments text-primary"></i>
+                        {{ stats.conversations_count }} 对话
+                    </span>
+                    <span class="stat-item">
+                        <i class="fas fa-file-alt text-success"></i>
+                        {{ stats.total_documents }} 文档
+                    </span>
+                    <span class="stat-item">
+                        <i class="fas fa-comment-dots text-info"></i>
+                        {{ stats.total_messages }} 消息
+                    </span>
                 </div>
             </div>
-    
-            <!-- 统计卡片 -->
-            <div class="row g-3 mb-4">
-                <div class="col-md-3 mb-3">
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="bi bi-folder-fill"></i>
-                        </div>
-                        <h4>{{ stats.knowledge_bases_count }}</h4>
-                        <p>知识库</p>
                     </div>
                 </div>
         
-                <div class="col-md-3 mb-3">
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="bi bi-file-earmark-text-fill"></i>
+    <!-- 贡献日历 -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0">
+            <h6 class="card-subtitle mb-0 text-secondary">
+                <i class="fas fa-calendar-alt me-2"></i>活跃度
+            </h6>
                         </div>
-                        <h4>{{ stats.total_documents }}</h4>
-                        <p>文档数量</p>
+        <div class="card-body pt-0">
+            <div id="contributionCalendar" class="contribution-calendar"></div>
                     </div>
                 </div>
                 
-                <div class="col-md-3 mb-3">
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="bi bi-chat-dots-fill"></i>
-                        </div>
-                        <h4>{{ stats.conversations_count }}</h4>
-                        <p>对话数量</p>
-                    </div>
+    <div class="row g-4">
+        <!-- 最近对话 -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="card-subtitle mb-0 text-secondary">
+                        <i class="fas fa-comments me-2"></i>最近对话
+                    </h6>
                 </div>
-                
-                <div class="col-md-3 mb-3">
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="bi bi-chat-quote-fill"></i>
-                        </div>
-                        <h4>{{ stats.total_messages }}</h4>
-                        <p>消息总数</p>
-                    </div>
-                </div>
-            </div>
-    
-            <div class="row">
-                <!-- 知识库列表 -->
-                <div class="col-lg-6 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">我的知识库</h5>
-                                <a href="{{ url_for('main.knowledge') }}" class="btn btn-outline-primary btn-sm">查看全部</a>
-                            </div>
-                        </div>
-                <div class="card-body">
-                    {% if knowledge_bases %}
+                <div class="card-body pt-0">
+                    {% if recent_conversations %}
                         <div class="list-group list-group-flush">
-                            {% for kb in knowledge_bases[:5] %}
-                            <div class="list-group-item px-0 border-0">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-1">
-                                            <a href="{{ url_for('main.knowledge_detail', knowledge_base_id=kb.id) }}" 
-                                               class="text-decoration-none">{{ kb.name }}</a>
-                                        </h6>
-                                        <p class="mb-1 text-muted small">{{ kb.description or '暂无描述' }}</p>
-                                        <small class="text-muted">
-                                            {{ kb.document_count }} 个文档 • 
-                                            {{ kb.created_at.strftime('%Y-%m-%d') }}
+                            {% for conv in recent_conversations %}
+                            <a href="{{ url_for('main.chat', conversation_id=conv.id) }}" 
+                               class="list-group-item list-group-item-action border-0 py-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1 text-truncate" style="max-width: 300px;">{{ conv.title or '未命名对话' }}</h6>
+                                        <small class="text-secondary">
+                                            <i class="far fa-clock me-1"></i>
+                                            {{ conv.updated_at.strftime('%Y-%m-%d %H:%M') }}
                                         </small>
                                     </div>
-                                    {% if kb.is_public %}
-                                    <span class="badge bg-success ms-2">公开</span>
-                                    {% else %}
-                                    <span class="badge bg-secondary ms-2">私有</span>
-                                    {% endif %}
+                                    <span class="badge bg-light text-secondary rounded-pill">
+                                        {{ conv.message_count }} 条消息
+                                    </span>
                                 </div>
-                            </div>
+                            </a>
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="text-center py-4">
-                            <i class="fas fa-folder-plus text-muted fa-3x mb-3"></i>
-                            <p class="text-muted">还没有知识库</p>
-                            <a href="{{ url_for('main.knowledge') }}" class="btn btn-primary">创建知识库</a>
+                        <div class="text-center text-secondary py-4">
+                            <i class="fas fa-comments fa-2x mb-2"></i>
+                            <p>暂无对话记录</p>
                         </div>
                     {% endif %}
                 </div>
             </div>
         </div>
         
-                <!-- 最近对话 -->
-                <div class="col-lg-6 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">最近对话</h5>
-                                <a href="{{ url_for('main.chat') }}" class="btn btn-outline-primary btn-sm">开始对话</a>
+        <!-- 知识库列表 -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="card-subtitle mb-0 text-secondary">
+                        <i class="fas fa-book me-2"></i>我的知识库
+                    </h6>
                             </div>
-                        </div>
-                <div class="card-body">
-                    {% if recent_conversations %}
+                <div class="card-body pt-0">
+                    {% if knowledge_bases %}
                         <div class="list-group list-group-flush">
-                            {% for conv in recent_conversations %}
-                            <div class="list-group-item px-0 border-0">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-1">{{ conv.title }}</h6>
-                                        <small class="text-muted">
-                                            {{ conv.message_count }} 条消息 • 
-                                            {{ conv.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                            {% for kb in knowledge_bases %}
+                            <a href="{{ url_for('main.knowledge_detail', knowledge_base_id=kb.id) }}" 
+                               class="list-group-item list-group-item-action border-0 py-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ kb.name }}</h6>
+                                        <small class="text-secondary">
+                                            <i class="far fa-file-alt me-1"></i>
+                                            {{ kb.document_count }} 个文档
                                         </small>
                                     </div>
-                                    <div class="text-end">
-                                        <small class="text-muted">{{ conv.model_name }}</small>
-                                    </div>
+                                    <span class="badge bg-light text-secondary rounded-pill">
+                                        {{ kb.total_tokens }} tokens
+                                    </span>
                                 </div>
-                            </div>
+                            </a>
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="text-center py-4">
-                            <i class="fas fa-comment-alt text-muted fa-3x mb-3"></i>
-                            <p class="text-muted">还没有对话记录</p>
-                            <a href="{{ url_for('main.chat') }}" class="btn btn-primary">开始对话</a>
+                        <div class="text-center text-secondary py-4">
+                            <i class="fas fa-book fa-2x mb-2"></i>
+                            <p>暂无知识库</p>
                         </div>
                     {% endif %}
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --github-bg-muted: #f6f8fa;
+    --github-border-muted: #d0d7de;
+    --github-fg-muted: #656d76;
+    --github-fg-default: #1F2328;
+    --github-accent-fg: #0969da;
+    --github-accent-emphasis: #0969da;
+    --github-success-fg: #1a7f37;
+    --github-attention-fg: #9a6700;
+    --github-done-fg: #8250df;
+}
+
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+.user-profile-card {
+    background: var(--github-bg-muted);
+    border: 1px solid var(--github-border-muted);
+    border-radius: 6px;
+    padding: 1.5rem;
+}
+
+.avatar-img {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--github-border-muted);
+}
+
+.user-stats {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--github-fg-muted);
+    font-size: 0.875rem;
+}
+
+.card {
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 8px 24px rgba(140,149,159,0.2) !important;
+}
+
+.card-header {
+    padding: 1rem 1rem 0.5rem;
+}
+
+.card-subtitle {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--github-fg-default);
+}
+
+.list-group-item {
+    transition: all 0.2s ease;
+}
+
+.list-group-item:hover {
+    background-color: var(--github-bg-muted);
+}
+
+.badge {
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+.contribution-calendar {
+    min-height: 120px;
+    margin-top: 1rem;
+}
+
+/* GitHub风格的贡献日历 */
+.contribution-box {
+    width: 10px;
+    height: 10px;
+    margin: 2px;
+    border-radius: 2px;
+    background-color: #ebedf0;
+}
+
+.contribution-box[data-level="1"] { background-color: #9be9a8; }
+.contribution-box[data-level="2"] { background-color: #40c463; }
+.contribution-box[data-level="3"] { background-color: #30a14e; }
+.contribution-box[data-level="4"] { background-color: #216e39; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script>
+// 生成贡献日历数据
+function generateContributionData() {
+    const today = new Date();
+    const data = [];
+    for (let i = 364; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        data.push({
+            date: date,
+            count: Math.floor(Math.random() * 5) // 示例数据，实际应该从后端获取
+        });
+    }
+    return data;
+}
+
+// 渲染贡献日历
+function renderContributionCalendar() {
+    const data = generateContributionData();
+    const width = document.getElementById('contributionCalendar').offsetWidth;
+    const cellSize = 10;
+    const cellPadding = 2;
+    const totalSize = cellSize + cellPadding;
+
+    const svg = d3.select('#contributionCalendar')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', 7 * totalSize + 20);
+
+    const colorScale = d3.scaleThreshold()
+        .domain([1, 3, 5, 7])
+        .range(['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39']);
+
+    // 计算每周的位置
+    const weeks = d3.timeWeeks(
+        d3.timeWeek.offset(new Date(), -51),
+        new Date()
+    );
+
+    // 创建每天的方块
+    weeks.forEach((week, weekIndex) => {
+        const days = d3.timeDays(week, d3.timeDay.offset(week, 7));
+        days.forEach((day, dayIndex) => {
+            const dayData = data.find(d => 
+                d.date.getFullYear() === day.getFullYear() &&
+                d.date.getMonth() === day.getMonth() &&
+                d.date.getDate() === day.getDate()
+            );
+
+            svg.append('rect')
+                .attr('x', weekIndex * totalSize)
+                .attr('y', dayIndex * totalSize)
+                .attr('width', cellSize)
+                .attr('height', cellSize)
+                .attr('rx', 2)
+                .attr('ry', 2)
+                .attr('fill', colorScale(dayData ? dayData.count : 0))
+                .attr('data-date', day.toISOString().split('T')[0])
+                .attr('data-count', dayData ? dayData.count : 0)
+                .on('mouseover', function(event) {
+                    const rect = d3.select(this);
+                    const date = new Date(rect.attr('data-date'));
+                    const count = rect.attr('data-count');
+                    
+                    // 显示tooltip
+                    d3.select('#contributionTooltip')
+                        .style('display', 'block')
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 28) + 'px')
+                        .html(`${date.toLocaleDateString()} - ${count} 次贡献`);
+                })
+                .on('mouseout', function() {
+                    d3.select('#contributionTooltip').style('display', 'none');
+                });
+        });
+    });
+
+    // 添加月份标签
+    const months = d3.timeMonths(
+        d3.timeMonth.offset(new Date(), -11),
+        new Date()
+    );
+
+    svg.selectAll('.month')
+        .data(months)
+        .enter()
+        .append('text')
+        .attr('class', 'month-label')
+        .attr('x', (d, i) => Math.floor(i * 4.3) * totalSize)
+        .attr('y', -5)
+        .text(d => d.toLocaleDateString('zh-CN', { month: 'short' }))
+        .attr('font-size', '10px')
+        .attr('fill', '#656d76');
+}
+
+// 页面加载完成后渲染贡献日历
+document.addEventListener('DOMContentLoaded', renderContributionCalendar);
+
+// 添加响应式支持
+window.addEventListener('resize', () => {
+    document.getElementById('contributionCalendar').innerHTML = '';
+    renderContributionCalendar();
+});
+</script>
+
+<!-- 贡献日历tooltip -->
+<div id="contributionTooltip" style="
+    display: none;
+    position: absolute;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+"></div>
 {% endblock %} 

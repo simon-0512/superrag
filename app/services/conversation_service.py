@@ -11,7 +11,7 @@ from app.models import Conversation, Message
 from app.services.deepseek_service import DeepSeekService
 from app.prompts.conversation_prompts import ConversationPrompts
 from app.prompts.system_prompts import SystemPrompts
-from config.settings import Config
+from config.settings import BaseConfig
 
 logger = logging.getLogger(__name__)
 

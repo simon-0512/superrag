@@ -1,0 +1,520 @@
+{% extends "admin/base.html" %}
+
+{% block title %}反馈管理 - Agorix 管理后台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-comment-dots text-primary me-2"></i>
+        <span class="text-secondary">反馈管理</span>
+    </div>
+</div>
+
+<!-- 快速统计 -->
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-primary-light rounded-3 p-3">
+                            <i class="fas fa-comments text-primary"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="text-muted text-uppercase small mb-2">总反馈数</div>
+                        <h3 class="mb-0" id="totalFeedbacks">{{ total_feedbacks }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-warning-light rounded-3 p-3">
+                            <i class="fas fa-clock text-warning"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="text-muted text-uppercase small mb-2">待处理</div>
+                        <h3 class="mb-0" id="pendingFeedbacks">{{ pending_feedbacks }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-info-light rounded-3 p-3">
+                            <i class="fas fa-cog text-info"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="text-muted text-uppercase small mb-2">处理中</div>
+                        <h3 class="mb-0" id="processingFeedbacks">{{ processing_feedbacks }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="bg-success-light rounded-3 p-3">
+                            <i class="fas fa-check-circle text-success"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <div class="text-muted text-uppercase small mb-2">已解决</div>
+                        <h3 class="mb-0" id="resolvedFeedbacks">{{ resolved_feedbacks }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选和搜索 -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <select class="form-select" id="statusFilter" onchange="filterFeedbacks()">
+                    <option value="">全部状态</option>
+                    <option value="pending">待处理</option>
+                    <option value="processing">处理中</option>
+                    <option value="resolved">已解决</option>
+                    <option value="closed">已关闭</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="form-control" id="searchInput" 
+                           placeholder="搜索标题、内容或用户" onkeypress="handleSearchEnter(event)">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" onclick="searchFeedbacks()">
+                    <i class="fas fa-search me-1"></i>搜索
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 反馈列表 -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0">
+        <div class="d-flex align-items-center">
+            <span class="text-secondary">反馈列表</span>
+            <span class="badge bg-primary-light text-primary ms-2" id="feedbackCount"></span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="feedbacksTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>反馈信息</th>
+                        <th>分类</th>
+                        <th>用户</th>
+                        <th>状态</th>
+                        <th>优先级</th>
+                        <th>创建时间</th>
+                        <th width="100">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 动态加载内容 -->
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页 -->
+        <div class="card-footer border-0 bg-transparent" id="paginationContainer" style="display: none;">
+            <nav aria-label="反馈分页">
+                <ul class="pagination justify-content-center mb-0" id="paginationNav">
+                    <!-- 动态加载分页 -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-primary-light { background-color: var(--primary-light) !important; }
+.bg-success-light { background-color: var(--success-light) !important; }
+.bg-warning-light { background-color: var(--warning-light) !important; }
+.bg-danger-light { background-color: var(--danger-light) !important; }
+.bg-info-light { background-color: var(--info-light) !important; }
+
+.text-primary { color: var(--primary) !important; }
+.text-success { color: var(--success) !important; }
+.text-warning { color: var(--warning) !important; }
+.text-danger { color: var(--danger) !important; }
+.text-info { color: var(--info) !important; }
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+.table > :not(caption) > * > * {
+    padding: var(--spacing-md);
+}
+
+.table th {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-sm {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 12px;
+    height: 28px;
+}
+
+.badge {
+    font-weight: 500;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.text-body {
+    color: var(--text-primary) !important;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.card {
+    transition: var(--transition);
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+h3 {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+const pageSize = 10;
+let currentFeedbackId = null;
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadFeedbacks();
+});
+
+// 加载反馈列表
+function loadFeedbacks(page = 1) {
+    currentPage = page;
+    const searchTerm = document.getElementById('searchInput').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    
+    fetch(`/admin/api/feedbacks?page=${page}&per_page=${pageSize}&search=${encodeURIComponent(searchTerm)}&status=${statusFilter}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderFeedbacksTable(data.feedbacks);
+            renderPagination(data.pagination);
+            updateStats(data.stats);
+            document.getElementById('feedbackCount').textContent = data.pagination.total;
+        } else {
+            Swal.fire('错误', '加载反馈列表失败', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('错误', '网络错误，请稍后重试', 'error');
+    });
+}
+
+// 渲染反馈列表
+function renderFeedbacksTable(feedbacks) {
+    const tbody = document.querySelector('#feedbacksTable tbody');
+    tbody.innerHTML = '';
+    
+    if (feedbacks.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8">
+                    <div class="text-center py-5">
+                        <i class="fas fa-comment-slash text-muted fa-3x mb-3"></i>
+                        <h5 class="text-muted">暂无反馈</h5>
+                        <p class="text-muted">没有找到符合条件的反馈记录</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    feedbacks.forEach(feedback => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><small class="text-muted">${feedback.id}</small></td>
+            <td>
+                <div>
+                    <div class="text-body mb-1">${feedback.title}</div>
+                    <small class="text-muted">${feedback.content.substring(0, 50)}${feedback.content.length > 50 ? '...' : ''}</small>
+                </div>
+            </td>
+            <td>
+                <span class="badge bg-primary-light text-primary">${feedback.category}</span>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm bg-primary-light rounded-circle d-flex align-items-center justify-content-center me-2">
+                        <i class="fas fa-user text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="text-body">${feedback.user.username}</div>
+                        <small class="text-muted">${feedback.user.email}</small>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="badge ${getStatusBadgeClass(feedback.status)}">${getStatusText(feedback.status)}</span>
+            </td>
+            <td>
+                <span class="badge ${getPriorityBadgeClass(feedback.priority)}">${getPriorityText(feedback.priority)}</span>
+            </td>
+            <td>
+                <div class="text-body">${formatDate(feedback.created_at)}</div>
+            </td>
+            <td>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewFeedback('${feedback.id}')" title="查看详情">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteFeedback('${feedback.id}')" title="删除">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// 获取状态样式类
+function getStatusBadgeClass(status) {
+    const classes = {
+        'pending': 'bg-warning-light text-warning',
+        'processing': 'bg-info-light text-info',
+        'resolved': 'bg-success-light text-success',
+        'closed': 'bg-secondary-light text-secondary'
+    };
+    return classes[status] || 'bg-secondary-light text-secondary';
+}
+
+// 获取优先级样式类
+function getPriorityBadgeClass(priority) {
+    const classes = {
+        'high': 'bg-danger-light text-danger',
+        'medium': 'bg-warning-light text-warning',
+        'low': 'bg-info-light text-info'
+    };
+    return classes[priority] || 'bg-secondary-light text-secondary';
+}
+
+// 获取状态文本
+function getStatusText(status) {
+    const texts = {
+        'pending': '待处理',
+        'processing': '处理中',
+        'resolved': '已解决',
+        'closed': '已关闭'
+    };
+    return texts[status] || status;
+}
+
+// 获取优先级文本
+function getPriorityText(priority) {
+    const texts = {
+        'high': '高',
+        'medium': '中',
+        'low': '低'
+    };
+    return texts[priority] || priority;
+}
+
+// 格式化日期
+function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+}
+
+// 渲染分页
+function renderPagination(pagination) {
+    const container = document.getElementById('paginationContainer');
+    const nav = document.getElementById('paginationNav');
+    
+    if (pagination.total <= pageSize) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    nav.innerHTML = '';
+    
+    // 上一页
+    if (pagination.has_prev) {
+        nav.innerHTML += `
+            <li class="page-item">
+                <a class="page-link" href="javascript:void(0)" onclick="loadFeedbacks(${pagination.prev_num})">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            </li>
+        `;
+    }
+    
+    // 页码
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === currentPage) {
+            nav.innerHTML += `
+                <li class="page-item active">
+                    <span class="page-link">${i}</span>
+                </li>
+            `;
+        } else {
+            nav.innerHTML += `
+                <li class="page-item">
+                    <a class="page-link" href="javascript:void(0)" onclick="loadFeedbacks(${i})">${i}</a>
+                </li>
+            `;
+        }
+    }
+    
+    // 下一页
+    if (pagination.has_next) {
+        nav.innerHTML += `
+            <li class="page-item">
+                <a class="page-link" href="javascript:void(0)" onclick="loadFeedbacks(${pagination.next_num})">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+        `;
+    }
+}
+
+// 更新统计数据
+function updateStats(stats) {
+    document.getElementById('totalFeedbacks').textContent = stats.total;
+    document.getElementById('pendingFeedbacks').textContent = stats.pending;
+    document.getElementById('processingFeedbacks').textContent = stats.processing;
+    document.getElementById('resolvedFeedbacks').textContent = stats.resolved;
+}
+
+// 搜索处理
+function handleSearchEnter(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        searchFeedbacks();
+    }
+}
+
+function searchFeedbacks() {
+    loadFeedbacks(1);
+}
+
+function filterFeedbacks() {
+    loadFeedbacks(1);
+}
+
+// 查看反馈详情
+function viewFeedback(id) {
+    window.location.href = `/admin/feedbacks/${id}`;
+}
+
+// 删除反馈
+function deleteFeedback(id) {
+    Swal.fire({
+        title: '删除反馈',
+        html: `
+            <div class="text-center">
+                <div class="mb-3">
+                    <i class="fas fa-trash fa-3x text-danger"></i>
+                </div>
+                <p>确定要删除这条反馈吗？</p>
+                <p class="text-muted small">此操作不可恢复。</p>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#cf222e',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/admin/api/feedbacks/${id}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: '已删除',
+                        text: '反馈已成功删除',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        loadFeedbacks(currentPage);
+                    });
+                } else {
+                    Swal.fire('错误', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('错误', '删除失败：网络错误', 'error');
+            });
+        }
+    });
+}
+</script>
+{% endblock %} 

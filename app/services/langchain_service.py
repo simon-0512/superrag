@@ -47,7 +47,7 @@ except ImportError as e:
 from app.models import Conversation, Message
 from app.database import db
 from app.services.deepseek_service import DeepSeekService
-from config.settings import Config
+from config.settings import BaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +200,7 @@ class LangChainContextService:
 用户: {{input}}
 AI助手:"""
             else:
-                template = """你是SuperRAG智能助手，基于DeepSeek-V3模型。你能够回答用户的问题，并基于提供的知识库内容给出准确的答案。请用中文回答。
+                template = """你是Agorix智能助手，来自现代雅典集市，基于DeepSeek-V3模型。你能够回答用户的问题，并基于提供的知识库内容给出准确的答案。请用中文回答。
 
 当前对话历史：
 {chat_history}
@@ -251,7 +251,7 @@ AI助手:"""
             if knowledge_context and system_prompt:
                 enhanced_prompt = f"{system_prompt}\n\n以下是相关的知识库内容，请基于这些内容回答用户问题：\n{knowledge_context}"
             elif knowledge_context:
-                enhanced_prompt = f"你是SuperRAG智能助手。以下是相关的知识库内容，请基于这些内容回答用户问题：\n{knowledge_context}"
+                enhanced_prompt = f"你是Agorix智能助手。以下是相关的知识库内容，请基于这些内容回答用户问题：\n{knowledge_context}"
             else:
                 enhanced_prompt = system_prompt
             

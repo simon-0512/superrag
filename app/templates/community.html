@@ -1,117 +1,358 @@
 {% extends "base.html" %}
 
-{% block title %}SuperRAG 社区{% endblock %}
+{% block title %}Agorix 灵感集市{% endblock %}
 
 {% block extra_css %}
 <style>
 /* 社区专用样式 */
 .community-container {
-    max-width: 1200px;
+    max-width: 1000px;
     margin: 0 auto;
-    padding: 20px;
-    background: #f8f9fa;
+    padding: 12px 32px;
+    background: #fafafa;
     min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
 }
 
 /* 导航栏样式 */
 .community-nav {
     background: white;
-    border-radius: 12px;
-    padding: 20px;
+    border-radius: 8px;
+    padding: 16px 24px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.05);
+    max-width: 1000px;
+    margin: 0 auto 20px auto;
 }
 
 .nav-tabs {
     display: flex;
-    gap: 20px;
+    gap: 12px;
 }
 
 .nav-tabs .tab {
     background: none;
     border: none;
     padding: 8px 16px;
-    border-radius: 20px;
+    border-radius: 6px;
     color: #666;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    position: relative;
+    font-size: 14px;
 }
 
 .nav-tabs .tab.active {
-    background: #007bff;
-    color: white;
+    background: rgba(0, 123, 255, 0.1);
+    color: #007bff;
+    border: 1px solid rgba(0, 123, 255, 0.2);
 }
 
 .nav-tabs .tab:hover:not(.active) {
-    background: #f0f0f0;
+    background: rgba(0, 0, 0, 0.04);
     color: #333;
+    transform: translateY(-1px);
 }
 
 .create-post-btn {
-    background: #007bff;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
     color: white;
     border: none;
     padding: 10px 20px;
-    border-radius: 20px;
+    border-radius: 6px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.2s ease;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.25);
+    font-size: 14px;
 }
 
 .create-post-btn:hover {
-    background: #0056b3;
+    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 18px rgba(0, 123, 255, 0.35);
 }
 
 /* 内容区域布局 */
 .community-content {
     display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 20px;
+    grid-template-columns: 1fr 260px;
+    gap: 16px;
+    align-items: start;
+    max-width: 1000px;
+    margin: 0 auto;
 }
 
 .feed-container {
     background: white;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.05);
     overflow: hidden;
 }
 
-.sidebar {
+/* 右侧模块样式 */
+.right-modules {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
 }
 
-.sidebar-card {
+.creation-module,
+.trending-module {
     background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.05);
+    overflow: hidden;
 }
 
-.sidebar-card h3 {
-    margin: 0 0 15px 0;
-    font-size: 16px;
+.module-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+.module-header h6 {
+    margin: 0;
+    font-size: 14px;
     font-weight: 600;
     color: #333;
 }
 
-/* 帖子卡片样式 */
+.module-content {
+    padding: 16px 20px;
+}
+
+/* 创作模块样式 */
+.create-post-btn.primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.25);
+    font-size: 14px;
+    width: 100%;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.create-post-btn.primary:hover {
+    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(0, 123, 255, 0.35);
+}
+
+.creation-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.creation-stats .stat-item {
+    text-align: center;
+    padding: 8px;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+.creation-stats .stat-number {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #007bff;
+}
+
+.creation-stats .stat-label {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.creation-tips h6 {
+    font-size: 12px;
+    margin: 0 0 8px 0;
+    color: #666;
+    font-weight: 600;
+}
+
+.creation-tips ul {
+    margin: 0;
+    padding-left: 16px;
+    font-size: 11px;
+    color: #666;
+}
+
+.creation-tips li {
+    margin-bottom: 4px;
+}
+
+/* 热点模块样式 */
+.challenge-section,
+.hot-tags-section,
+.daily-stats-section {
+    margin-bottom: 20px;
+}
+
+.challenge-section:last-child,
+.hot-tags-section:last-child,
+.daily-stats-section:last-child {
+    margin-bottom: 0;
+}
+
+.challenge-section h6,
+.hot-tags-section h6,
+.daily-stats-section h6 {
+    font-size: 12px;
+    margin: 0 0 10px 0;
+    color: #666;
+    font-weight: 600;
+}
+
+.challenge-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+
+.challenge-item:hover {
+    border-color: #007bff;
+    background: #f8f9ff;
+}
+
+.challenge-info {
+    flex: 1;
+}
+
+.challenge-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.challenge-desc {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.challenge-meta {
+    font-size: 10px;
+    color: #999;
+}
+
+.challenge-meta span {
+    margin-right: 8px;
+}
+
+.challenge-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.challenge-btn:hover {
+    background: #0056b3;
+}
+
+.hot-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.hot-tag {
+    background: #f8f9fa;
+    color: #666;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #e9ecef;
+}
+
+.hot-tag:hover {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.hot-tag small {
+    opacity: 0.7;
+    margin-left: 4px;
+}
+
+.daily-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+}
+
+.stat-label {
+    color: #666;
+}
+
+.stat-value {
+    font-weight: 600;
+    color: #007bff;
+}
+
+/* 帖子卡片样式 - 紧凑版 */
 .post-card {
     background: white;
-    border-bottom: 1px solid #f0f0f0;
-    padding: 24px;
-    transition: background-color 0.2s ease;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 12px 16px;
+    transition: all 0.3s ease;
     cursor: pointer;
+    position: relative;
 }
 
 .post-card:hover {
-    background: #f8f9fa;
+    background: #fafafa;
+    transform: translateX(4px);
+}
+
+.post-card:hover::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
 }
 
 .post-card:last-child {
@@ -121,12 +362,18 @@
 .post-header {
     display: flex;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
+}
+
+.post-user {
+    display: flex;
+    align-items: center;
+    flex: 1;
 }
 
 .user-avatar {
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: #007bff;
     display: flex;
@@ -134,106 +381,436 @@
     justify-content: center;
     color: white;
     font-weight: 500;
-    margin-right: 12px;
+    margin-right: 8px;
+    font-size: 12px;
+    flex-shrink: 0;
 }
 
 .user-info {
     flex: 1;
+    min-width: 0;
 }
 
 .username {
     font-weight: 600;
     color: #333;
-    margin-right: 8px;
+    font-size: 13px;
+    margin: 0;
 }
 
-.timestamp {
+.post-time {
     color: #666;
-    font-size: 14px;
+    font-size: 11px;
+    margin: 0;
 }
 
 .post-content {
-    margin: 16px 0;
-    line-height: 1.6;
+    margin: 6px 0;
+    line-height: 1.4;
 }
 
-.user-description {
-    font-size: 16px;
+.post-content p {
+    font-size: 14px;
     color: #333;
-    margin-bottom: 12px;
+    margin: 0 0 4px 0;
+    line-height: 1.4;
 }
 
 .ai-content {
     background: #f8f9fa;
-    border-radius: 8px;
-    padding: 16px;
-    margin: 12px 0;
-    border-left: 4px solid #007bff;
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin: 4px 0;
+    border-left: 3px solid #007bff;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-content.clickable {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid rgba(0, 123, 255, 0.1);
+}
+
+.ai-content.clickable:hover {
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+    border-color: rgba(0, 123, 255, 0.2);
+}
+
+.ai-content i {
+    color: #007bff;
+    font-size: 14px;
+}
+
+.ai-content span {
+    color: #495057;
+}
+
+.view-hint {
+    margin-left: auto;
+    font-size: 11px;
+    color: #007bff !important;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+.ai-content.clickable:hover .view-hint {
+    opacity: 1;
+    color: #0056b3 !important;
 }
 
 .ai-prompt {
     background: #e3f2fd;
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin: 8px 0;
-    font-size: 14px;
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin: 4px 0;
+    font-size: 12px;
     color: #1976d2;
     border-left: 3px solid #2196f3;
 }
 
 .ai-prompt-label {
     font-weight: 600;
+    margin-bottom: 2px;
+}
+
+/* 右侧模块样式 */
+.right-modules {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.creation-module,
+.trending-module {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.module-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+.module-header h6 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.module-content {
+    padding: 16px 20px;
+}
+
+/* 创作模块样式 */
+.create-post-btn.primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.25);
+    font-size: 14px;
+    width: 100%;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.create-post-btn.primary:hover {
+    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(0, 123, 255, 0.35);
+}
+
+.creation-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.creation-stats .stat-item {
+    text-align: center;
+    padding: 8px;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+.creation-stats .stat-number {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #007bff;
+}
+
+.creation-stats .stat-label {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.creation-tips h6 {
+    font-size: 12px;
+    margin: 0 0 8px 0;
+    color: #666;
+    font-weight: 600;
+}
+
+.creation-tips ul {
+    margin: 0;
+    padding-left: 16px;
+    font-size: 11px;
+    color: #666;
+}
+
+.creation-tips li {
     margin-bottom: 4px;
+}
+
+/* 热点模块样式 */
+.challenge-section,
+.hot-tags-section,
+.daily-stats-section {
+    margin-bottom: 20px;
+}
+
+.challenge-section:last-child,
+.hot-tags-section:last-child,
+.daily-stats-section:last-child {
+    margin-bottom: 0;
+}
+
+.challenge-section h6,
+.hot-tags-section h6,
+.daily-stats-section h6 {
+    font-size: 12px;
+    margin: 0 0 10px 0;
+    color: #666;
+    font-weight: 600;
+}
+
+.challenge-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+
+.challenge-item:hover {
+    border-color: #007bff;
+    background: #f8f9ff;
+}
+
+.challenge-info {
+    flex: 1;
+}
+
+.challenge-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.challenge-desc {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.challenge-meta {
+    font-size: 10px;
+    color: #999;
+}
+
+.challenge-meta span {
+    margin-right: 8px;
+}
+
+.challenge-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.challenge-btn:hover {
+    background: #0056b3;
+}
+
+.hot-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.hot-tag {
+    background: #f8f9fa;
+    color: #666;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #e9ecef;
+}
+
+.hot-tag:hover {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.hot-tag small {
+    opacity: 0.7;
+    margin-left: 4px;
+}
+
+.daily-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+}
+
+.stat-label {
+    color: #666;
+}
+
+.stat-value {
+    font-weight: 600;
+    color: #007bff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .community-container {
+        padding: 8px 16px;
+        max-width: 100%;
+    }
+    
+    .community-nav {
+        max-width: 100%;
+        padding: 12px 16px;
+    }
+    
+    .community-content {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        max-width: 100%;
+    }
+    
+    .right-modules {
+        order: -1;
+    }
+    
+    .nav-tabs {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .nav-tabs .tab {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+    
+    .creation-stats {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    
+    .challenge-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .challenge-btn {
+        align-self: flex-end;
+    }
 }
 
 .post-tags {
-    margin: 12px 0;
+    margin: 4px 0;
 }
 
-.tag {
+.post-tag {
     display: inline-block;
     background: #e9ecef;
     color: #495057;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 12px;
-    margin-right: 6px;
-    margin-bottom: 4px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    margin-right: 4px;
+    margin-bottom: 2px;
+    font-weight: 500;
 }
 
 .post-actions {
     display: flex;
-    gap: 24px;
-    padding-top: 12px;
+    gap: 16px;
+    padding-top: 6px;
     border-top: 1px solid #f0f0f0;
+    margin-top: 6px;
 }
 
 .action-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     background: none;
     border: none;
     color: #666;
     cursor: pointer;
     transition: color 0.2s ease;
-    font-size: 14px;
+    font-size: 12px;
+    padding: 2px 4px;
+    border-radius: 3px;
 }
 
 .action-btn:hover {
-    color: #007bff;
+    color: #333;
+    background: rgba(0,0,0,0.04);
 }
 
 .action-btn.active {
-    color: #007bff;
-}
-
-.action-btn.liked {
     color: #e74c3c;
 }
 
-.action-btn.bookmarked {
-    color: #f39c12;
+.action-btn .count {
+    font-size: 11px;
 }
 
 /* 加载状态 */
@@ -278,6 +855,54 @@
     50% { opacity: 0.6; }
 }
 
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .community-container {
+        padding: 8px 16px;
+        max-width: 100%;
+    }
+    
+    .community-nav {
+        max-width: 100%;
+        padding: 12px 16px;
+    }
+    
+    .community-content {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        max-width: 100%;
+    }
+    
+    .right-modules {
+        order: -1;
+    }
+    
+    .nav-tabs {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .nav-tabs .tab {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+    
+    .creation-stats {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    
+    .challenge-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .challenge-btn {
+        align-self: flex-end;
+    }
+}
+
 /* 创建帖子模态框 */
 .create-post-modal {
     display: none;
@@ -296,68 +921,77 @@
     left: 50%;
     transform: translate(-50%, -50%);
     background: white;
-    border-radius: 12px;
+    border-radius: 8px;
     width: 90%;
     max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
-    padding: 24px;
+    padding: 0;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    border: 1px solid rgba(0,0,0,0.08);
 }
 
 .create-post-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
+    margin: 0;
+    padding: 20px 28px 16px 28px;
     border-bottom: 1px solid #e9ecef;
+    background: #fafafa;
+    border-radius: 8px 8px 0 0;
 }
 
 .create-post-header h3 {
     margin: 0;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
 }
 
 .close-modal {
     background: none;
     border: none;
-    font-size: 24px;
+    font-size: 20px;
     cursor: pointer;
     color: #666;
+    padding: 4px;
 }
 
 .form-group {
-    margin-bottom: 16px;
+    margin-bottom: 14px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
     font-weight: 500;
     color: #333;
+    font-size: 13px;
 }
 
 .form-control {
     width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #ddd;
+    padding: 10px 14px;
+    border: 1px solid rgba(0,0,0,0.12);
     border-radius: 6px;
     font-size: 14px;
-    transition: border-color 0.2s ease;
+    transition: all 0.3s ease;
+    background: #fafafa;
 }
 
 .form-control:focus {
     outline: none;
     border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+    background: white;
+    transform: translateY(-1px);
 }
 
 .char-counter {
     text-align: right;
-    font-size: 12px;
+    font-size: 11px;
     color: #666;
-    margin-top: 4px;
+    margin-top: 3px;
 }
 
 .char-counter.warning {
@@ -371,38 +1005,47 @@
 .create-post-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
-    margin-top: 20px;
-    padding-top: 16px;
+    gap: 10px;
+    margin: 16px 0 0 0;
+    padding: 14px 28px 20px 28px;
     border-top: 1px solid #e9ecef;
+    background: #fafafa;
+    border-radius: 0 0 8px 8px;
 }
 
 .btn-secondary {
-    background: #6c757d;
-    color: white;
-    border: none;
-    padding: 8px 16px;
+    background: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid rgba(0,0,0,0.12);
+    padding: 10px 20px;
     border-radius: 6px;
     cursor: pointer;
-    transition: background 0.2s ease;
+    transition: all 0.3s ease;
+    font-weight: 500;
 }
 
 .btn-secondary:hover {
-    background: #5a6268;
+    background: #e9ecef;
+    color: #495057;
+    transform: translateY(-1px);
 }
 
 .btn-primary {
-    background: #007bff;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
     color: white;
     border: none;
-    padding: 8px 16px;
+    padding: 10px 20px;
     border-radius: 6px;
     cursor: pointer;
-    transition: background 0.2s ease;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 .btn-primary:hover {
-    background: #0056b3;
+    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
 }
 
 .btn-primary:disabled {
@@ -410,33 +1053,967 @@
     cursor: not-allowed;
 }
 
+/* 分享类型选择tabs */
+.share-type-tabs {
+    display: flex;
+    background: white;
+    border-bottom: 1px solid #e9ecef;
+    padding: 0 28px;
+}
+
+.share-type-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 2px solid transparent;
+    color: #666;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.share-type-tab:hover {
+    background: rgba(0,0,0,0.04);
+    color: #333;
+}
+
+.share-type-tab.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+    background: white;
+}
+
+.share-content {
+    transition: all 0.3s ease;
+}
+
+/* 快捷操作按钮样式 */
+.quick-action-btn {
+    transition: all 0.3s ease !important;
+    border-radius: 6px !important;
+}
+
+.quick-action-btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
+    .community-container {
+        padding: 12px 16px;
+    }
+    
     .community-content {
         grid-template-columns: 1fr;
-    }
-    
-    .sidebar {
-        order: -1;
-    }
-    
-    .nav-tabs {
-        gap: 10px;
-    }
-    
-    .nav-tabs .tab {
-        padding: 6px 12px;
-    font-size: 14px;
-    }
-    
-    .community-nav {
-    flex-direction: column;
         gap: 16px;
     }
     
-    .post-actions {
+    .community-nav {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+    }
+    
+    .nav-tabs {
+        justify-content: center;
+    }
+    
+    .create-post-content {
+        width: 95%;
+        margin: 0 auto;
+    }
+}
+
+/* 右侧信息栏组件样式 */
+
+/* 用户信息卡片 */
+.user-profile {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.profile-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 18px;
+    margin-right: 12px;
+}
+
+.profile-info h4 {
+    margin: 0 0 2px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+}
+
+.profile-desc {
+    margin: 0;
+    font-size: 12px;
+    color: #666;
+}
+
+.user-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 12px 0;
+    border-top: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.stat-number {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+}
+
+/* 创作竞赛 */
+.contest-item {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.contest-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.contest-badge {
+    display: inline-block;
+    background: #28a745;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+.contest-badge.upcoming {
+    background: #6c757d;
+}
+
+.contest-item h4 {
+    margin: 0 0 6px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.contest-desc {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.contest-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.contest-meta span {
+    font-size: 11px;
+    color: #666;
+}
+
+.contest-meta i {
+    margin-right: 4px;
+    color: #007bff;
+}
+
+/* 热门话题 */
+.trending-topics {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.topic-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.topic-item:hover {
+    background: #e9ecef;
+    transform: translateX(2px);
+}
+
+.topic-tag {
+    font-size: 13px;
+    font-weight: 500;
+    color: #007bff;
+}
+
+.topic-count {
+    font-size: 11px;
+    color: #666;
+}
+
+/* 社区统计 */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.stats-item {
+    text-align: center;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.stats-number {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: #007bff;
+}
+
+.stats-label {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.daily-stats {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.daily-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.daily-label {
+    font-size: 11px;
+    color: #666;
+}
+
+.daily-number {
+    font-size: 14px;
+    font-weight: 600;
+    color: #28a745;
+    margin-top: 2px;
+}
+
+/* 快捷操作按钮 */
+.quick-action-btn:hover {
+    transform: translateY(-1px);
+}
+
+/* 对话详情模态框样式 */
+.conversation-detail-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.conversation-detail-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 900px;
+    height: 85vh;
+    max-height: 700px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.conversation-detail-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.conversation-header-info h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.conversation-meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 2px;
+}
+
+.conversation-meta span {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.close-modal:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.conversation-detail-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.conversation-description {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: #f0f9ff;
+    border-radius: 6px;
+    border-left: 3px solid #3b82f6;
+}
+
+.conversation-description h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e40af;
+    margin: 0 0 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.conversation-description p {
+    margin: 0;
+    color: #1e40af;
+    line-height: 1.4;
+    font-size: 13px;
+}
+
+.conversation-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.conversation-content h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.conversation-messages {
+    flex: 1;
+    background: #fafafa;
+    border-radius: 6px;
+    padding: 8px;
+    overflow-y: auto;
+    min-height: 200px;
+}
+
+/* 消息样式 - 类似chat页面 */
+.conversation-messages .message {
+    display: flex;
+    margin-bottom: 8px;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.conversation-messages .message:last-child {
+    margin-bottom: 0;
+}
+
+.conversation-messages .message-avatar {
+    flex-shrink: 0;
+}
+
+.conversation-messages .user-avatar,
+.conversation-messages .ai-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.conversation-messages .user-avatar {
+    background: #3b82f6;
+    color: white;
+}
+
+.conversation-messages .ai-avatar {
+    background: #10b981;
+    color: white;
+}
+
+.conversation-messages .message-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.conversation-messages .message-text {
+    background: white;
+    padding: 6px 10px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    border: 1px solid #e5e7eb;
+    line-height: 1.4;
+    font-size: 13px;
+}
+
+.conversation-messages .user-message .message-text {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.conversation-messages .assistant-message .message-text {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.conversation-messages .message-time {
+    font-size: 10px;
+    color: #9ca3af;
+    margin-left: 10px;
+}
+
+/* 代码块样式优化 */
+.conversation-messages pre {
+    margin: 4px 0;
+    background: #1f2937;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.conversation-messages code {
+    background: #f3f4f6;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 11px;
+}
+
+.conversation-messages pre code {
+    background: transparent;
+    padding: 8px;
+    display: block;
+    color: #e5e7eb;
+}
+
+/* V0.3.0 对话配置样式 */
+.conversation-config {
+    padding: 12px;
+    background: #f0f9ff;
+    border-radius: 6px;
+    border-left: 3px solid #0ea5e9;
+    margin-bottom: 12px;
+}
+
+.conversation-config h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0369a1;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.conversation-config .config-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+}
+
+.conversation-config .config-item {
+    background: white;
+    border: 1px solid #e0f2fe;
+    border-radius: 4px;
+    padding: 6px 8px;
+}
+
+.conversation-config .config-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+
+.conversation-config .config-value {
+    font-size: 12px;
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.conversation-config .config-system-prompt {
+    grid-column: 1 / -1;
+}
+
+.conversation-config .config-system-prompt .config-value {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    color: #475569;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 80px;
+    overflow-y: auto;
+    background: #f8fafc;
+    padding: 6px;
+    border-radius: 3px;
+    margin-top: 4px;
+}
+
+/* V0.3.1 优化的配置网格布局 */
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.config-grid .config-item {
+    background: white;
+    border: 1px solid #e0f2fe;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.config-grid .config-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #0369a1;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.config-grid .config-label i {
+    font-size: 12px;
+    color: #0ea5e9;
+}
+
+.config-grid .config-value {
+    font-size: 13px;
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.config-grid .config-system-prompt {
+    grid-column: 1 / -1;
+    border-color: #fed7aa;
+    background: #fef3e2;
+}
+
+.config-grid .config-system-prompt .config-label {
+    color: #ea580c;
+}
+
+.config-grid .config-system-prompt .config-label i {
+    color: #f97316;
+}
+
+.config-grid .system-prompt-text {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 11px;
+    color: #9a3412;
+    background: white;
+    border: 1px solid #fed7aa;
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.conversation-prompt {
+    padding: 8px 12px;
+    background: #fef3c7;
+    border-radius: 6px;
+    border-left: 3px solid #f59e0b;
+    margin-bottom: 12px;
+}
+
+.conversation-prompt h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    margin: 0 0 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.prompt-content {
+    color: #92400e;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.conversation-detail-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+    flex-shrink: 0;
+}
+
+.conversation-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.conversation-actions .btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.conversation-actions .btn-primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.conversation-actions .btn-primary:hover {
+    background: #2563eb;
+}
+
+.conversation-actions .btn-outline-secondary {
+    background: white;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+}
+
+.conversation-actions .btn-outline-secondary:hover {
+    background: #f9fafb;
+    color: #374151;
+}
+
+.conversation-actions .btn-outline-info {
+    background: white;
+    color: #0891b2;
+    border: 1px solid #67e8f9;
+}
+
+.conversation-actions .btn-outline-info:hover {
+    background: #ecfeff;
+    color: #0e7490;
+}
+
+/* 右侧模块样式 */
+.right-modules {
+    display: flex;
+    flex-direction: column;
     gap: 16px;
 }
+
+.creation-module,
+.trending-module {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.module-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+.module-header h6 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.module-content {
+    padding: 16px 20px;
+}
+
+/* 创作模块样式 */
+.create-post-btn.primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.25);
+    font-size: 14px;
+    width: 100%;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.create-post-btn.primary:hover {
+    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(0, 123, 255, 0.35);
+}
+
+.creation-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.creation-stats .stat-item {
+    text-align: center;
+    padding: 8px;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+.creation-stats .stat-number {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #007bff;
+}
+
+.creation-stats .stat-label {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.creation-tips h6 {
+    font-size: 12px;
+    margin: 0 0 8px 0;
+    color: #666;
+    font-weight: 600;
+}
+
+.creation-tips ul {
+    margin: 0;
+    padding-left: 16px;
+    font-size: 11px;
+    color: #666;
+}
+
+.creation-tips li {
+    margin-bottom: 4px;
+}
+
+/* 热点模块样式 */
+.challenge-section,
+.hot-tags-section,
+.daily-stats-section {
+    margin-bottom: 20px;
+}
+
+.challenge-section:last-child,
+.hot-tags-section:last-child,
+.daily-stats-section:last-child {
+    margin-bottom: 0;
+}
+
+.challenge-section h6,
+.hot-tags-section h6,
+.daily-stats-section h6 {
+    font-size: 12px;
+    margin: 0 0 10px 0;
+    color: #666;
+    font-weight: 600;
+}
+
+.challenge-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+
+.challenge-item:hover {
+    border-color: #007bff;
+    background: #f8f9ff;
+}
+
+.challenge-info {
+    flex: 1;
+}
+
+.challenge-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.challenge-desc {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.challenge-meta {
+    font-size: 10px;
+    color: #999;
+}
+
+.challenge-meta span {
+    margin-right: 8px;
+}
+
+.challenge-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.challenge-btn:hover {
+    background: #0056b3;
+}
+
+.hot-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.hot-tag {
+    background: #f8f9fa;
+    color: #666;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #e9ecef;
+}
+
+.hot-tag:hover {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.hot-tag small {
+    opacity: 0.7;
+    margin-left: 4px;
+}
+
+.daily-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+}
+
+.stat-label {
+    color: #666;
+}
+
+.stat-value {
+    font-weight: 600;
+    color: #007bff;
 }
 </style>
 {% endblock %}
@@ -451,9 +2028,6 @@
             <button class="tab" data-feed="trending">热门</button>
             <button class="tab" data-feed="featured">精选</button>
         </div>
-        <button class="create-post-btn" onclick="openCreatePostModal()">
-            <i class="bi bi-plus"></i> 分享创作
-        </button>
     </nav>
     
     <!-- 内容区域 -->
@@ -468,40 +2042,126 @@
             </div>
         </div>
         
-        <!-- 右侧信息栏 -->
-        <div class="sidebar">
-            <!-- 热门话题 -->
-            <div class="sidebar-card">
-                <h3><i class="bi bi-hash"></i> 热门话题</h3>
-                <div id="trending-tags">
-                    <!-- 热门标签将通过JavaScript加载 -->
+        <!-- 右侧创作和热点模块 -->
+        <div class="right-modules">
+            <!-- 创作模块 -->
+            <div class="creation-module">
+                <div class="module-header">
+                    <h6><i class="bi bi-plus-circle text-primary me-2"></i>创作中心</h6>
+                </div>
+                <div class="module-content">
+                    {% if current_user.is_authenticated and current_user.can_use_features() %}
+                        <button class="create-post-btn primary" onclick="openCreatePostModal()">
+                            <i class="bi bi-edit"></i> 分享创作
+                        </button>
+                    {% elif current_user.is_authenticated and current_user.is_disabled() %}
+                        <div class="disabled-user-notice">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>账号已被禁用</strong><br>
+                                您可以查看过往内容，但无法发布新内容
+                            </div>
+                        </div>
+                    {% else %}
+                        <button class="create-post-btn primary" onclick="location.href='{{ url_for('auth.login') }}'">
+                            <i class="bi bi-person"></i> 登录后分享
+                        </button>
+                    {% endif %}
+                    
+                    <div class="creation-stats">
+                        <div class="stat-item">
+                            <div class="stat-number">{{ current_user.get_posts_count() if current_user.is_authenticated else 0 }}</div>
+                            <div class="stat-label">我的分享</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">12</div>
+                            <div class="stat-label">获得点赞</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">5</div>
+                            <div class="stat-label">收获评论</div>
                         </div>
                     </div>
                     
-            <!-- 社区统计 -->
-            <div class="sidebar-card">
-                <h3><i class="bi bi-bar-chart"></i> 社区统计</h3>
-                <div id="community-stats">
-                    <!-- 统计数据将通过JavaScript加载 -->
+                    <div class="creation-tips">
+                        <h6>创作技巧</h6>
+                        <ul>
+                            <li>分享具体的AI应用场景</li>
+                            <li>提供可复现的提示词</li>
+                            <li>添加相关标签增加曝光</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             
-            <!-- 快捷操作 -->
-            <div class="sidebar-card">
-                <h3><i class="bi bi-lightning"></i> 快捷操作</h3>
-                <div class="quick-actions">
-                    <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="location.href='/chat'">
-                        <i class="bi bi-chat-dots me-1"></i> 新建对话
-                    </button>
-                    <button class="btn btn-outline-secondary btn-sm w-100 mb-2" onclick="showMyBookmarks()">
-                        <i class="bi bi-bookmark me-1"></i> 我的收藏
-                    </button>
-                    <button class="btn btn-outline-info btn-sm w-100" onclick="showMyPosts()">
-                        <i class="bi bi-file-text me-1"></i> 我的分享
-                    </button>
+            <!-- 热点模块 -->
+            <div class="trending-module">
+                <div class="module-header">
+                    <h6><i class="bi bi-fire text-danger me-2"></i>热点动态</h6>
                 </div>
+                <div class="module-content">
+                    <!-- 挑战比赛 -->
+                    <div class="challenge-section">
+                        <h6>🏆 站方挑战</h6>
+                        <div class="challenge-item">
+                            <div class="challenge-info">
+                                <div class="challenge-title">AI代码优化挑战</div>
+                                <div class="challenge-desc">用AI重构一段代码，比比谁更优雅</div>
+                                <div class="challenge-meta">
+                                    <span class="participants">126人参与</span>
+                                    <span class="deadline">3天后截止</span>
                                 </div>
                             </div>
+                            <button class="challenge-btn">参与</button>
+                        </div>
+                        
+                        <div class="challenge-item">
+                            <div class="challenge-info">
+                                <div class="challenge-title">创意文案大赛</div>
+                                <div class="challenge-desc">AI创作最有趣的产品文案</div>
+                                <div class="challenge-meta">
+                                    <span class="participants">89人参与</span>
+                                    <span class="deadline">1周后截止</span>
+                                </div>
+                            </div>
+                            <button class="challenge-btn">参与</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 热门标签 -->
+                    <div class="hot-tags-section">
+                        <h6>🔥 热门标签</h6>
+                        <div class="hot-tags">
+                            <span class="hot-tag" onclick="searchByTag('GPT应用')">#GPT应用 <small>2.1k</small></span>
+                            <span class="hot-tag" onclick="searchByTag('代码生成')">#代码生成 <small>1.8k</small></span>
+                            <span class="hot-tag" onclick="searchByTag('文案创作')">#文案创作 <small>1.3k</small></span>
+                            <span class="hot-tag" onclick="searchByTag('学习笔记')">#学习笔记 <small>956</small></span>
+                            <span class="hot-tag" onclick="searchByTag('效率工具')">#效率工具 <small>743</small></span>
+                            <span class="hot-tag" onclick="searchByTag('创意设计')">#创意设计 <small>621</small></span>
+                        </div>
+                    </div>
+                    
+                    <!-- 今日数据 -->
+                    <div class="daily-stats-section">
+                        <h6>📊 今日数据</h6>
+                        <div class="daily-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">新增分享</span>
+                                <span class="stat-value">+47</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">活跃用户</span>
+                                <span class="stat-value">238</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">热门话题</span>
+                                <span class="stat-value">#AI编程</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -513,7 +2173,19 @@
             <button class="close-modal" onclick="closeCreatePostModal()">&times;</button>
         </div>
         
-        <form id="createPostForm">
+        <!-- 分享类型选择 -->
+        <div class="share-type-tabs">
+            <button type="button" class="share-type-tab active" data-type="text" onclick="switchShareType('text')">
+                <i class="bi bi-chat-text"></i> 文字分享
+            </button>
+            <button type="button" class="share-type-tab" data-type="conversation" onclick="switchShareType('conversation')">
+                <i class="bi bi-chat-dots"></i> 对话分享
+            </button>
+        </div>
+        
+        <form id="createPostForm" style="padding: 20px 28px 0 28px;">
+            <!-- 文字分享模式 -->
+            <div class="share-content" id="textShareContent">
                 <div class="form-group">
                     <label for="postContent">分享内容 *</label>
                     <textarea class="form-control" id="postContent" rows="3" 
@@ -525,6 +2197,27 @@
                     <label for="aiPrompt">AI提示词 (可选)</label>
                     <textarea class="form-control" id="aiPrompt" rows="2" 
                              placeholder="分享你使用的提示词..."></textarea>
+                </div>
+            </div>
+            
+            <!-- 对话分享模式 -->
+            <div class="share-content" id="conversationShareContent" style="display: none;">
+                <div class="form-group">
+                    <label for="shareDescription">对话描述 *</label>
+                    <textarea class="form-control" id="shareDescription" rows="3" 
+                             placeholder="简单描述一下这个对话的内容和亮点..." maxlength="140"></textarea>
+                    <div class="char-counter" id="descriptionCharCounter">0/140</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="conversationSelect">选择要分享的对话 *</label>
+                    <select class="form-control" id="conversationSelect">
+                        <option value="">请选择一个对话...</option>
+                    </select>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="loadConversations()">
+                        <i class="bi bi-arrow-clockwise"></i> 刷新对话列表
+                    </button>
+                </div>
             </div>
             
             <div class="form-group">
@@ -540,163 +2233,494 @@
         </form>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
+<!-- 对话详情查看模态框 -->
+<div class="conversation-detail-modal" id="conversationDetailModal">
+    <div class="conversation-detail-content">
+        <div class="conversation-detail-header">
+            <div class="conversation-header-info">
+                <h3>对话详情</h3>
+                <div class="conversation-meta">
+                    <span class="conversation-user">分享者：<span id="conversationSharer"></span></span>
+                    <span class="conversation-time" id="conversationTime"></span>
+                </div>
+            </div>
+            <button class="close-modal" onclick="closeConversationModal()">&times;</button>
+        </div>
+        
+        <div class="conversation-detail-body">
+            <!-- 对话描述 -->
+            <div class="conversation-description">
+                <h4><i class="bi bi-chat-quote"></i> 分享描述</h4>
+                <p id="conversationDescription"></p>
+            </div>
+            
+            <!-- V0.3.0 对话配置参数 -->
+            <div class="conversation-config" id="conversationConfigSection" style="display: none;">
+                <h4><i class="bi bi-gear"></i> 对话配置</h4>
+                <div class="config-content" id="conversationConfig">
+                    <!-- 配置参数将通过JavaScript加载 -->
+                </div>
+            </div>
+            
+            <!-- 对话内容 -->
+            <div class="conversation-content">
+                <h4><i class="bi bi-chat-dots"></i> 对话内容</h4>
+                <div class="conversation-messages" id="conversationMessages">
+                    <!-- 对话消息将通过JavaScript加载 -->
+                </div>
+            </div>
+            
+            <!-- AI提示词（如果有） -->
+            <div class="conversation-prompt" id="conversationPromptSection" style="display: none;">
+                <h4><i class="bi bi-robot"></i> AI提示词</h4>
+                <div class="prompt-content" id="conversationPrompt"></div>
+            </div>
+        </div>
+        
+        <div class="conversation-detail-footer">
+            <div class="conversation-actions">
+                <button class="btn btn-primary" onclick="copyToMyChat()">
+                    <i class="bi bi-chat-left-dots"></i> 复制到我的对话
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 引入 marked.js 和 highlight.js 用于消息渲染 - V0.3.1 性能优化 -->
 <script>
-// 社区功能JavaScript
-let currentFeed = 'recommended';
-let currentPage = 1;
-let isLoading = false;
-let hasMore = true;
+// 性能监控：记录资源加载开始时间
+const resourceLoadStart = performance.now();
+console.log(`🔍 [DEBUG] 开始加载外部资源 - ${new Date().toLocaleTimeString()}`);
 
-// 初始化社区页面
-document.addEventListener('DOMContentLoaded', function() {
-    initializeCommunity();
+// 资源加载状态管理
+window.communityResources = {
+    marked: false,
+    hljs: false,
+    mathjax: false,
+    allLoaded: false
+};
+
+// 检查所有资源是否加载完成
+function checkResourcesLoaded() {
+    const resources = window.communityResources;
+    if (resources.marked && resources.hljs) {
+        resources.allLoaded = true;
+        const totalTime = performance.now() - resourceLoadStart;
+        console.log(`✅ [DEBUG] 核心资源加载完成: ${totalTime.toFixed(3)}ms`);
+        
+        // 触发页面初始化（不等待MathJax）
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPageAfterResources);
+        } else {
+            initPageAfterResources();
+        }
+    }
+}
+
+// 资源加载完成后的页面初始化
+function initPageAfterResources() {
+    console.log(`🎯 [DEBUG] 页面初始化条件满足，开始初始化`);
+}
+
+// 简化的marked.js加载 - 带备用CDN
+function loadMarked() {
+    return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+            console.warn(`⚠️ [DEBUG] marked.js加载超时，使用降级方案`);
+            window.marked = {
+                parse: (text) => text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/`(.*?)`/g, '<code>$1</code>')
+                    .replace(/\n/g, '<br>')
+                    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            };
+            window.communityResources.marked = true;
+            checkResourcesLoaded();
+            resolve();
+        }, 5000);
+
+        // 尝试加载marked.js
+        function tryLoadMarked(urls, index = 0) {
+            if (index >= urls.length) {
+                clearTimeout(timeout);
+                timeout();
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = urls[index];
+            script.onload = () => {
+                clearTimeout(timeout);
+                window.communityResources.marked = true;
+                console.log(`✅ [DEBUG] marked.js加载完成`);
+                checkResourcesLoaded();
+                resolve();
+            };
+            script.onerror = () => {
+                console.warn(`⚠️ [DEBUG] CDN ${index + 1} 失败，尝试下一个`);
+                tryLoadMarked(urls, index + 1);
+            };
+            document.head.appendChild(script);
+        }
+
+        const cdns = [
+            'https://cdn.jsdelivr.net/npm/marked@5.1.1/marked.min.js',
+            'https://cdnjs.cloudflare.com/ajax/libs/marked/5.1.1/marked.min.js',
+            'https://unpkg.com/marked@5.1.1/marked.min.js'
+        ];
+        
+        tryLoadMarked(cdns);
+    });
+}
+
+// 简化的highlight.js加载 - 带备用CDN  
+function loadHighlightJS() {
+    return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+            console.warn(`⚠️ [DEBUG] highlight.js加载超时，使用降级方案`);
+            window.hljs = {
+                highlightElement: (element) => {
+                    if (element && element.tagName === 'CODE') {
+                        element.style.fontFamily = 'Monaco, Menlo, monospace';
+                        element.style.fontSize = '0.9em';
+                        element.style.backgroundColor = '#f6f8fa';
+                        element.style.padding = '0.2em 0.4em';
+                        element.style.borderRadius = '3px';
+                    }
+                },
+                highlightAll: () => {
+                    document.querySelectorAll('pre code').forEach(block => {
+                        window.hljs.highlightElement(block);
+                    });
+                }
+            };
+            window.communityResources.hljs = true;
+            checkResourcesLoaded();
+            resolve();
+        }, 5000);
+
+        // 加载CSS
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.jsdelivr.net/npm/highlight.js@11.8.0/styles/github.min.css';
+        document.head.appendChild(link);
+
+        // 尝试加载highlight.js
+        function tryLoadHljs(urls, index = 0) {
+            if (index >= urls.length) {
+                clearTimeout(timeout);
+                timeout();
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = urls[index];
+            script.onload = () => {
+                clearTimeout(timeout);
+                window.communityResources.hljs = true;
+                console.log(`✅ [DEBUG] highlight.js加载完成`);
+                checkResourcesLoaded();
+                resolve();
+            };
+            script.onerror = () => {
+                console.warn(`⚠️ [DEBUG] highlight.js CDN ${index + 1} 失败，尝试下一个`);
+                tryLoadHljs(urls, index + 1);
+            };
+            document.head.appendChild(script);
+        }
+
+        const cdns = [
+            'https://cdn.jsdelivr.net/npm/highlight.js@11.8.0/es/highlight.min.js',
+            'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js',
+            'https://unpkg.com/highlight.js@11.8.0/lib/index.js'
+        ];
+        
+        tryLoadHljs(cdns);
+    });
+}
+
+// 延迟加载MathJax（不阻塞页面初始化）
+function loadMathJax() {
+    setTimeout(() => {
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                ignoreHtmlClass: 'no-mathjax',
+                processHtmlClass: 'mathjax'
+            }
+        };
+
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es/tex-mml-chtml.js';
+        script.onload = () => {
+            window.communityResources.mathjax = true;
+            console.log(`✅ [DEBUG] MathJax加载完成`);
+        };
+        script.onerror = () => {
+            console.warn(`⚠️ [DEBUG] MathJax加载失败，数学公式渲染功能不可用`);
+        };
+        document.head.appendChild(script);
+    }, 100);
+}
+
+// 并行加载资源
+Promise.all([loadMarked(), loadHighlightJS()]).then(() => {
+    console.log(`🎉 [DEBUG] 所有核心资源加载完成`);
 });
 
-function initializeCommunity() {
-    loadFeed();
-    loadTrendingTags();
-    loadCommunityStats();
-    setupInfiniteScroll();
+// 延迟加载MathJax
+loadMathJax();
+</script>
+
+<!-- 工具函数 -->
+<script>
+// 页面初始化
+document.addEventListener('DOMContentLoaded', function() {
+    const pageInitStart = performance.now();
+    console.log(`🔍 [DEBUG] 论坛页面初始化开始 - ${new Date().toLocaleTimeString()}`);
+    
+    // 初始化页面
+    const initStart = performance.now();
+    initializeCommunityPage().then(() => {
+        const initTime = performance.now() - initStart;
+        console.log(`✅ [DEBUG] 论坛页面数据初始化完成: ${initTime.toFixed(3)}ms`);
+    });
+    
+    // 设置tab切换
+    const tabStart = performance.now();
+    setupTabSwitching();
+    const tabTime = performance.now() - tabStart;
+    console.log(`✅ [DEBUG] Tab切换设置完成: ${tabTime.toFixed(3)}ms`);
+    
+    // 设置创建帖子表单
+    const formStart = performance.now();
     setupCreatePostForm();
+    const formTime = performance.now() - formStart;
+    console.log(`✅ [DEBUG] 创建帖子表单设置完成: ${formTime.toFixed(3)}ms`);
+    
+    const totalTime = performance.now() - pageInitStart;
+    console.log(`🎉 [DEBUG] 论坛页面基础初始化完成: ${totalTime.toFixed(3)}ms`);
+});
+
+// 初始化社区页面
+async function initializeCommunityPage() {
+    try {
+        // 加载默认推荐时间流
+        await loadFeed('recommended');
+        
+        // 隐藏加载指示器
+        hideLoadingIndicator();
+        
+        console.log('社区页面数据加载完成');
+    } catch (error) {
+        console.error('社区页面初始化失败:', error);
+        showError('页面加载失败，请刷新重试');
+        hideLoadingIndicator();
+    }
 }
 
-// 加载时间流
-async function loadFeed(reset = false) {
-    if (isLoading || (!hasMore && !reset)) return;
-    
-    isLoading = true;
-    const loadingIndicator = document.getElementById('loading-indicator');
-    loadingIndicator.style.display = 'block';
+// 加载时间流数据
+async function loadFeed(feedType = 'recommended', page = 1, append = false) {
+    const loadStart = performance.now();
+    console.log(`🔍 [DEBUG] 开始加载时间流 - ${feedType}, page ${page} - ${new Date().toLocaleTimeString()}`);
     
     try {
-        if (reset) {
-            currentPage = 1;
-            hasMore = true;
+        if (!append) {
+            showLoadingIndicator();
         }
         
-        const response = await fetch(`/api/community/feed?type=${currentFeed}&page=${currentPage}&limit=20`);
+        const fetchStart = performance.now();
+        const response = await fetch(`/api/community/feed?type=${feedType}&page=${page}&limit=20`);
+        const fetchEnd = performance.now();
+        console.log(`✅ [DEBUG] 时间流网络请求完成: ${(fetchEnd - fetchStart).toFixed(3)}ms`);
+        
+        const parseStart = performance.now();
         const data = await response.json();
+        const parseEnd = performance.now();
+        console.log(`✅ [DEBUG] 时间流数据解析完成: ${(parseEnd - parseStart).toFixed(3)}ms`);
         
         if (data.success) {
-            const postsContainer = document.getElementById('posts-container');
+            const renderStart = performance.now();
+            renderPosts(data.posts, append);
+            const renderEnd = performance.now();
             
-            if (reset) {
-                postsContainer.innerHTML = '';
-            }
+            // 更新当前feed类型
+            window.currentFeedType = feedType;
+            window.currentPage = page;
             
-            if (data.posts.length === 0) {
-                if (reset) {
-                    postsContainer.innerHTML = '<div class="text-center py-5"><i class="bi bi-chat-square-text" style="font-size: 3rem; color: #ccc;"></i><p class="text-muted mt-2">还没有内容，成为第一个分享者吧！</p></div>';
-                }
-                hasMore = false;
-            } else {
-                data.posts.forEach(post => {
-                    postsContainer.appendChild(createPostCard(post));
-                });
-                currentPage++;
-                hasMore = data.posts.length === 20;
-            }
+            const totalTime = renderEnd - loadStart;
+            console.log(`✅ [DEBUG] 时间流加载完成:`);
+            console.log(`   - 网络请求: ${(fetchEnd - fetchStart).toFixed(3)}ms`);
+            console.log(`   - 数据解析: ${(parseEnd - parseStart).toFixed(3)}ms`);
+            console.log(`   - 页面渲染: ${(renderEnd - renderStart).toFixed(3)}ms`);
+            console.log(`   - 总耗时: ${totalTime.toFixed(3)}ms`);
+            console.log(`   - 帖子数量: ${data.posts.length}`);
         } else {
-            console.error('加载时间流失败:', data.message);
-            showToast('加载时间流失败', 'error');
+            const errorTime = performance.now() - loadStart;
+            console.error(`❌ [DEBUG] 加载时间流失败: ${data.message} (耗时: ${errorTime.toFixed(3)}ms)`);
+            showError(data.message || '加载失败');
         }
     } catch (error) {
-        console.error('加载时间流异常:', error);
-        showToast('加载时间流异常', 'error');
+        const errorTime = performance.now() - loadStart;
+        console.error(`❌ [DEBUG] 加载时间流异常: ${error.message} (耗时: ${errorTime.toFixed(3)}ms)`);
+        showError('网络错误，请重试');
     } finally {
-        isLoading = false;
-        loadingIndicator.style.display = hasMore ? 'none' : 'block';
-        if (!hasMore) {
-            loadingIndicator.innerHTML = '<i class="bi bi-check-circle"></i> 已加载全部内容';
+        if (!append) {
+            hideLoadingIndicator();
         }
     }
 }
 
-// 创建帖子卡片
-function createPostCard(post) {
-    const card = document.createElement('div');
-    card.className = 'post-card';
-    card.dataset.postId = post.id;
+// 渲染帖子列表
+function renderPosts(posts, append = false) {
+    const renderStart = performance.now();
+    console.log(`🔍 [DEBUG] 开始渲染帖子列表 - 数量: ${posts.length}, 追加模式: ${append}`);
     
-    // 格式化时间
+    const container = document.getElementById('posts-container');
+    
+    if (!append) {
+        const clearStart = performance.now();
+        container.innerHTML = '';
+        const clearTime = performance.now() - clearStart;
+        console.log(`✅ [DEBUG] 容器清空完成: ${clearTime.toFixed(3)}ms`);
+    }
+    
+    if (posts.length === 0 && !append) {
+        const emptyStart = performance.now();
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="bi bi-chat-text" style="font-size: 3rem; color: #6c757d;"></i>
+                <h5 class="mt-3 text-muted">还没有内容</h5>
+                <p class="text-muted">成为第一个分享AI创作的人吧！</p>
+                <button class="btn btn-primary" onclick="openCreatePostModal()">
+                    <i class="bi bi-plus"></i> 开始分享
+                </button>
+            </div>
+        `;
+        const emptyTime = performance.now() - emptyStart;
+        console.log(`✅ [DEBUG] 空状态渲染完成: ${emptyTime.toFixed(3)}ms`);
+        return;
+    }
+    
+    const elementsStart = performance.now();
+    posts.forEach((post, index) => {
+        const elementStart = performance.now();
+        const postElement = createPostElement(post);
+        const elementEnd = performance.now();
+        
+        container.appendChild(postElement);
+        
+        if (index < 3) { // 只记录前3个帖子的详细时间
+            console.log(`✅ [DEBUG] 帖子 ${index + 1} 创建完成: ${(elementEnd - elementStart).toFixed(3)}ms`);
+        }
+    });
+    const elementsTime = performance.now() - elementsStart;
+    
+    const totalTime = performance.now() - renderStart;
+    console.log(`✅ [DEBUG] 帖子列表渲染完成:`);
+    console.log(`   - 元素创建: ${elementsTime.toFixed(3)}ms`);
+    console.log(`   - 总耗时: ${totalTime.toFixed(3)}ms`);
+    console.log(`   - 平均每帖子: ${(elementsTime / posts.length).toFixed(3)}ms`);
+}
+
+// 创建帖子元素
+function createPostElement(post) {
+    const postDiv = document.createElement('div');
+    postDiv.className = 'post-card';
+    postDiv.setAttribute('data-post-id', post.id);
+    
+    // 构建用户信息 - 增加安全检查
+    const user = post.user || { username: '未知用户', nickname: null };
+    const username = user.nickname || user.username || '未知用户';
+    const avatar = getAvatarText(username);
     const timeStr = formatTime(post.created_at);
     
-    // 渲染标签
-    const tagsHtml = post.tags.map(tag => `<span class="tag">#${tag}</span>`).join('');
+    // 构建标签 - 直接放在内容后面
+    const tagsHtml = post.tags && post.tags.length > 0 
+        ? ' ' + post.tags.map(tag => `<span class="post-tag">#${tag}</span>`).join(' ')
+        : '';
     
-    // 渲染AI内容
+    // 构建AI内容显示 - 简化为一行
     let aiContentHtml = '';
-    if (post.ai_prompt) {
-        aiContentHtml += `<div class="ai-prompt"><div class="ai-prompt-label">🤖 AI提示词：</div>${escapeHtml(post.ai_prompt)}</div>`;
+    if (post.ai_content_type === 'conversation') {
+        aiContentHtml = `
+            <div class="ai-content conversation-preview" onclick="viewConversation('${post.id}')">
+                <i class="bi bi-chat-dots"></i>
+                <span>AI对话分享</span>
+                <span class="view-hint">点击查看</span>
+            </div>
+        `;
     }
     
-    if (post.ai_content_data) {
-        aiContentHtml += '<div class="ai-content"><i class="bi bi-robot"></i> AI创作内容 (点击查看详情)</div>';
-    }
-    
-    card.innerHTML = `
+    postDiv.innerHTML = `
         <div class="post-header">
-            <div class="user-avatar">${getAvatarText(post.user.username)}</div>
+            <div class="post-user">
+                <div class="user-avatar">${avatar}</div>
                 <div class="user-info">
-                <span class="username">${escapeHtml(post.user.nickname || post.user.username)}</span>
-                <span class="timestamp">${timeStr}</span>
+                    <div class="username">${escapeHtml(username)}</div>
+                    <div class="post-time">${timeStr}</div>
+                </div>
             </div>
         </div>
         
         <div class="post-content">
-            <p class="user-description">${escapeHtml(post.content)}</p>
-            ${aiContentHtml}
-            <div class="post-tags">${tagsHtml}</div>
+            <p>${escapeHtml(post.content)}${tagsHtml}</p>
         </div>
         
+        ${aiContentHtml}
+        
         <div class="post-actions">
-            <button class="action-btn like-btn ${post.user_interactions?.like ? 'active liked' : ''}" 
-                    onclick="toggleLike(${post.id}, this)" data-count="${post.like_count}">
-                <i class="bi bi-heart${post.user_interactions?.like ? '-fill' : ''}"></i> 
-                <span>${post.like_count}</span>
+            <button class="action-btn ${post.user_liked ? 'active' : ''}" onclick="toggleLike('${post.id}')">
+                <i class="bi bi-heart${post.user_liked ? '-fill' : ''}"></i>
+                <span class="count">${post.like_count || 0}</span>
             </button>
-            <button class="action-btn comment-btn" onclick="showComments(${post.id})" data-count="${post.comment_count}">
-                <i class="bi bi-chat"></i> <span>${post.comment_count}</span>
+            <button class="action-btn" onclick="showComments('${post.id}')">
+                <i class="bi bi-chat"></i>
+                <span class="count">${post.comment_count || 0}</span>
             </button>
-            <button class="action-btn share-btn" onclick="sharePost(${post.id})" data-count="${post.share_count}">
-                <i class="bi bi-share"></i> <span>${post.share_count}</span>
+            <button class="action-btn" onclick="sharePost('${post.id}')">
+                <i class="bi bi-share"></i>
+                <span class="count">${post.share_count || 0}</span>
             </button>
-            <button class="action-btn bookmark-btn ${post.user_interactions?.bookmark ? 'active bookmarked' : ''}" 
-                    onclick="toggleBookmark(${post.id}, this)">
-                <i class="bi bi-bookmark${post.user_interactions?.bookmark ? '-fill' : ''}"></i>
+            <button class="action-btn ${post.user_bookmarked ? 'active' : ''}" onclick="toggleBookmark('${post.id}')">
+                <i class="bi bi-bookmark${post.user_bookmarked ? '-fill' : ''}"></i>
             </button>
         </div>
     `;
     
-    return card;
+    return postDiv;
 }
 
-// 切换feed类型
-function switchFeed(feedType) {
-    // 更新按钮状态
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.remove('active');
-        if (tab.dataset.feed === feedType) {
-            tab.classList.add('active');
-        }
-    });
-    
-    currentFeed = feedType;
-    loadFeed(true);
-}
-
-// 设置tab事件监听
-document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        switchFeed(tab.dataset.feed);
+// 设置tab切换
+function setupTabSwitching() {
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', async function() {
+            // 移除所有active类
+            tabs.forEach(t => t.classList.remove('active'));
+            // 添加active类到当前tab
+            this.classList.add('active');
+            
+            // 获取feed类型并加载
+            const feedType = this.dataset.feed;
+            await loadFeed(feedType);
         });
     });
+}
 
-// 点赞/取消点赞
-async function toggleLike(postId, button) {
+// 点赞功能
+async function toggleLike(postId) {
     try {
         const response = await fetch(`/api/community/posts/${postId}/like`, {
             method: 'POST',
@@ -708,29 +2732,33 @@ async function toggleLike(postId, button) {
         const data = await response.json();
         
         if (data.success) {
+            // 更新UI
+            const button = document.querySelector(`[data-post-id="${postId}"] .action-btn:first-child`);
             const icon = button.querySelector('i');
-            const countSpan = button.querySelector('span');
+            const count = button.querySelector('.count');
             
             if (data.action === 'liked') {
-                button.classList.add('active', 'liked');
+                button.classList.add('active');
                 icon.className = 'bi bi-heart-fill';
             } else {
-                button.classList.remove('active', 'liked');
+                button.classList.remove('active');
                 icon.className = 'bi bi-heart';
             }
             
-            countSpan.textContent = data.like_count;
+            count.textContent = data.like_count;
+            
+            showToast(data.action === 'liked' ? '已点赞' : '已取消点赞', 'success');
         } else {
-            showToast(data.message, 'error');
+            showToast(data.message || '操作失败', 'error');
         }
     } catch (error) {
-        console.error('点赞操作失败:', error);
-        showToast('点赞操作失败', 'error');
+        console.error('点赞失败:', error);
+        showToast('操作失败', 'error');
     }
 }
 
-// 收藏/取消收藏
-async function toggleBookmark(postId, button) {
+// 收藏功能
+async function toggleBookmark(postId) {
     try {
         const response = await fetch(`/api/community/posts/${postId}/bookmark`, {
             method: 'POST',
@@ -742,195 +2770,178 @@ async function toggleBookmark(postId, button) {
         const data = await response.json();
         
         if (data.success) {
+            // 更新UI
+            const button = document.querySelector(`[data-post-id="${postId}"] .action-btn:last-child`);
             const icon = button.querySelector('i');
             
             if (data.action === 'bookmarked') {
-                button.classList.add('active', 'bookmarked');
+                button.classList.add('active');
                 icon.className = 'bi bi-bookmark-fill';
                 showToast('已收藏', 'success');
             } else {
-                button.classList.remove('active', 'bookmarked');
+                button.classList.remove('active');
                 icon.className = 'bi bi-bookmark';
                 showToast('已取消收藏', 'success');
             }
         } else {
-            showToast(data.message, 'error');
+            showToast(data.message || '操作失败', 'error');
         }
     } catch (error) {
-        console.error('收藏操作失败:', error);
-        showToast('收藏操作失败', 'error');
+        console.error('收藏失败:', error);
+        showToast('操作失败', 'error');
     }
 }
 
-// 加载热门标签
-async function loadTrendingTags() {
-    try {
-        const response = await fetch('/api/community/trending/tags?limit=8');
-        const data = await response.json();
-        
-        const container = document.getElementById('trending-tags');
-        
-        if (data.success && data.tags.length > 0) {
-            container.innerHTML = data.tags.map(tag => 
-                `<span class="tag" style="cursor: pointer; margin: 2px;" onclick="searchByTag('${tag.name}')">#${tag.name} (${tag.count})</span>`
-            ).join('');
-        } else {
-            container.innerHTML = '<p class="text-muted small">暂无热门话题</p>';
-        }
-    } catch (error) {
-        console.error('加载热门标签失败:', error);
+// 显示/隐藏加载指示器
+function showLoadingIndicator() {
+    const indicator = document.getElementById('loading-indicator');
+    if (indicator) {
+        indicator.style.display = 'flex';
     }
 }
 
-// 加载社区统计
-async function loadCommunityStats() {
-    try {
-        const response = await fetch('/api/community/stats');
-        const data = await response.json();
-        
-        const container = document.getElementById('community-stats');
-        
-        if (data.success) {
-            const stats = data.stats;
-            container.innerHTML = `
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="text-muted small">今日帖子</span>
-                    <span class="fw-bold">${stats.today_posts}</span>
-                </div>
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="text-muted small">总帖子数</span>
-                    <span class="fw-bold">${stats.total_posts}</span>
-                </div>
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="text-muted small">总用户数</span>
-                    <span class="fw-bold">${stats.total_users}</span>
-                </div>
-                <div class="d-flex justify-content-between">
-                    <span class="text-muted small">今日活跃</span>
-                    <span class="fw-bold">${stats.today_active_users}</span>
-                </div>
-            `;
-        } else {
-            container.innerHTML = '<p class="text-muted small">统计数据加载失败</p>';
-        }
-    } catch (error) {
-        console.error('加载统计数据失败:', error);
+function hideLoadingIndicator() {
+    const indicator = document.getElementById('loading-indicator');
+    if (indicator) {
+        indicator.style.display = 'none';
     }
 }
 
-// 无限滚动
-function setupInfiniteScroll() {
-    window.addEventListener('scroll', () => {
-        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
-            loadFeed();
-        }
-    });
+// 显示错误信息
+function showError(message) {
+    const container = document.getElementById('posts-container');
+    container.innerHTML = `
+        <div class="error-state">
+            <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #dc3545;"></i>
+            <h5 class="mt-3 text-danger">加载失败</h5>
+            <p class="text-muted">${escapeHtml(message)}</p>
+            <button class="btn btn-outline-primary" onclick="location.reload()">
+                <i class="bi bi-arrow-clockwise"></i> 重新加载
+            </button>
+        </div>
+    `;
 }
 
-// 创建帖子模态框
+// 创建帖子相关函数
 function openCreatePostModal() {
-    document.getElementById('createPostModal').style.display = 'block';
-    document.getElementById('postContent').focus();
+    document.getElementById('createPostModal').style.display = 'flex';
 }
 
 function closeCreatePostModal() {
     document.getElementById('createPostModal').style.display = 'none';
+    // 重置表单
     document.getElementById('createPostForm').reset();
-    updateCharCounter();
+    // 切换回文字分享
+    switchShareType('text');
 }
 
-// 设置创建帖子表单
-function setupCreatePostForm() {
-    const contentTextarea = document.getElementById('postContent');
-    const charCounter = document.getElementById('charCounter');
-    const form = document.getElementById('createPostForm');
-    
-    // 字符计数
-    contentTextarea.addEventListener('input', updateCharCounter);
-    
-    function updateCharCounter() {
-        const length = contentTextarea.value.length;
-            charCounter.textContent = `${length}/140`;
-        
-        charCounter.className = 'char-counter';
-            if (length > 120) {
-            charCounter.classList.add('warning');
+function switchShareType(type) {
+    // 更新tab状态
+    document.querySelectorAll('.share-type-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.type === type) {
+            tab.classList.add('active');
         }
-        if (length > 140) {
-            charCounter.classList.add('error');
-        }
+    });
+    
+    // 显示对应的内容区域
+    document.getElementById('textShareContent').style.display = type === 'text' ? 'block' : 'none';
+    document.getElementById('conversationShareContent').style.display = type === 'conversation' ? 'block' : 'none';
+    
+    // 如果是对话分享，加载对话列表
+    if (type === 'conversation') {
+        loadConversations();
     }
-    
-    // 表单提交
-    form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-        const content = contentTextarea.value.trim();
-            if (!content) {
-            showToast('内容不能为空', 'error');
-                return;
-            }
-            
-        if (content.length > 140) {
-            showToast('内容不能超过140字', 'error');
-                return;
-            }
-            
-        const submitBtn = document.getElementById('submitPostBtn');
-        submitBtn.disabled = true;
-        submitBtn.textContent = '发布中...';
-        
-        try {
-            const postData = {
-                content: content,
-                ai_prompt: document.getElementById('aiPrompt').value.trim() || null,
-                tags: document.getElementById('postTags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
-            };
-        
-        const response = await fetch('/api/community/posts', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(postData)
-        });
-        
+}
+
+// 加载对话列表
+async function loadConversations() {
+    try {
+        const response = await fetch('/api/conversations?per_page=50');
         const data = await response.json();
         
-        if (data.success) {
-            showToast('发布成功！', 'success');
-            closeCreatePostModal();
-                loadFeed(true); // 重新加载时间流
-                loadCommunityStats(); // 更新统计数据
+        const select = document.getElementById('conversationSelect');
+        select.innerHTML = '<option value="">请选择一个对话...</option>';
+        
+        if (data.success && data.conversations && data.conversations.length > 0) {
+            data.conversations.forEach(conversation => {
+                const option = document.createElement('option');
+                option.value = conversation.id;
+                option.textContent = conversation.title || `对话 ${conversation.id}`;
+                select.appendChild(option);
+            });
+            showToast('对话列表加载成功', 'success');
         } else {
-                showToast(data.message, 'error');
+            select.innerHTML = '<option value="">暂无对话记录</option>';
+            showToast('暂无对话记录', 'info');
         }
     } catch (error) {
-            console.error('发布失败:', error);
-            showToast('发布失败', 'error');
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '发布';
+        console.error('加载对话列表失败:', error);
+        const select = document.getElementById('conversationSelect');
+        select.innerHTML = '<option value="">加载失败，请重试</option>';
+        showToast('加载对话列表失败', 'error');
     }
-    });
 }
 
-// 工具函数
+// 占位函数，待实现
+function showComments(postId) {
+    showToast('评论功能开发中...', 'info');
+}
+
+function sharePost(postId) {
+    showToast('分享功能开发中...', 'info');
+}
+
+function showUserBookmarks() {
+    showToast('我的收藏功能开发中...', 'info');
+}
+
+function showUserPosts() {
+    showToast('我的分享功能开发中...', 'info');
+}
+
+function searchByTag(tag) {
+    showToast(`搜索标签"${tag}"功能开发中...`, 'info');
+}
+
 function formatTime(timeStr) {
-    const date = new Date(timeStr);
-    const now = new Date();
-    const diff = now - date;
-    
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    
-    if (minutes < 1) return '刚刚';
-    if (minutes < 60) return `${minutes}分钟前`;
-    if (hours < 24) return `${hours}小时前`;
-    if (days < 7) return `${days}天前`;
-    
-    return date.toLocaleDateString();
+    try {
+        // 确保时间字符串格式正确
+        if (!timeStr) return '未知时间';
+        
+        // 处理ISO格式时间字符串
+        const date = new Date(timeStr);
+        
+        // 检查日期是否有效
+        if (isNaN(date.getTime())) {
+            console.warn('无效的时间格式:', timeStr);
+            return '时间格式错误';
+        }
+        
+        const now = new Date();
+        const diff = now - date;
+        
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        
+        if (minutes < 1) return '刚刚';
+        if (minutes < 60) return `${minutes}分钟前`;
+        if (hours < 24) return `${hours}小时前`;
+        if (days < 7) return `${days}天前`;
+        
+        // 超过7天显示具体日期
+        return date.toLocaleDateString('zh-CN', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (error) {
+        console.error('时间格式化错误:', error, 'timeStr:', timeStr);
+        return '时间错误';
+    }
 }
 
 function getAvatarText(username) {
@@ -960,25 +2971,436 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// 占位函数，待实现
-function showComments(postId) {
-    showToast('评论功能开发中...', 'info');
+// 设置创建帖子表单
+function setupCreatePostForm() {
+    const form = document.getElementById('createPostForm');
+    const postContent = document.getElementById('postContent');
+    const shareDescription = document.getElementById('shareDescription');
+    const charCounter = document.getElementById('charCounter');
+    const descriptionCharCounter = document.getElementById('descriptionCharCounter');
+    
+    // 字符计数器
+    if (postContent && charCounter) {
+        postContent.addEventListener('input', function() {
+            const length = this.value.length;
+            charCounter.textContent = `${length}/140`;
+            if (length > 120) {
+                charCounter.style.color = '#dc3545';
+            } else {
+                charCounter.style.color = '#6c757d';
+            }
+        });
+    }
+    
+    if (shareDescription && descriptionCharCounter) {
+        shareDescription.addEventListener('input', function() {
+            const length = this.value.length;
+            descriptionCharCounter.textContent = `${length}/140`;
+            if (length > 120) {
+                descriptionCharCounter.style.color = '#dc3545';
+            } else {
+                descriptionCharCounter.style.color = '#6c757d';
+            }
+        });
+    }
+    
+    // 表单提交
+    if (form) {
+        form.addEventListener('submit', handleCreatePost);
+    }
 }
 
-function sharePost(postId) {
-    showToast('转发功能开发中...', 'info');
+// 处理创建帖子
+async function handleCreatePost(e) {
+    e.preventDefault();
+    
+    const activeTab = document.querySelector('.share-type-tab.active');
+    const shareType = activeTab ? activeTab.dataset.type : 'text';
+    
+    const submitBtn = document.getElementById('submitPostBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '发布中...';
+    
+    try {
+        let postData = {};
+        
+        if (shareType === 'text') {
+            const content = document.getElementById('postContent').value.trim();
+            const aiPrompt = document.getElementById('aiPrompt').value.trim();
+            
+            if (!content) {
+                showToast('请输入分享内容', 'error');
+                return;
+            }
+            
+            postData = {
+                content: content,
+                ai_prompt: aiPrompt || null,
+                tags: parseTagsInput()
+            };
+        } else if (shareType === 'conversation') {
+            const description = document.getElementById('shareDescription').value.trim();
+            const conversationId = document.getElementById('conversationSelect').value;
+            
+            if (!description) {
+                showToast('请输入对话描述', 'error');
+                return;
+            }
+            
+            if (!conversationId) {
+                showToast('请选择要分享的对话', 'error');
+                return;
+            }
+            
+            postData = {
+                content: description,
+                ai_content_type: 'conversation',
+                ai_content_data: { conversation_id: conversationId },
+                tags: parseTagsInput()
+            };
+        }
+        
+        const response = await fetch('/api/community/posts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(postData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('发布成功！', 'success');
+            closeCreatePostModal();
+            // 刷新时间流
+            await loadFeed(window.currentFeedType || 'recommended');
+        } else {
+            showToast(data.message || '发布失败', 'error');
+        }
+        
+    } catch (error) {
+        console.error('发布帖子失败:', error);
+        showToast('发布失败，请重试', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '发布';
+    }
 }
 
-function searchByTag(tag) {
-    showToast(`搜索标签 #${tag} 功能开发中...`, 'info');
+// 解析标签输入
+function parseTagsInput() {
+    const tagsInput = document.getElementById('postTags');
+    if (!tagsInput || !tagsInput.value.trim()) return [];
+    
+    return tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
 }
 
-function showMyBookmarks() {
-    showToast('我的收藏功能开发中...', 'info');
+// 从chat页面复制的消息渲染函数
+function renderMarkdown(content) {
+    try {
+        // 预处理数学公式：处理方括号包围的公式
+        content = preprocessMathFormulas(content);
+        
+        // 配置marked选项
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            sanitize: false
+        });
+        
+        return marked.parse(content);
+    } catch (error) {
+        console.error('Markdown渲染失败:', error);
+        return formatMessageContent(content); // 降级到简单格式化
+    }
 }
 
-function showMyPosts() {
-    showToast('我的分享功能开发中...', 'info');
+// 预处理数学公式
+function preprocessMathFormulas(content) {
+    // 1. 处理每个独立的LaTeX块级公式 \[ ... \]
+    let processedContent = content;
+    let matches = [];
+    let regex = /\\\[\s*\n?\s*([\s\S]*?)\s*\n?\s*\\\]/g;
+    let match;
+    
+    // 收集所有匹配
+    while ((match = regex.exec(content)) !== null) {
+        matches.push({
+            fullMatch: match[0],
+            formula: match[1].trim(),
+            index: match.index
+        });
+    }
+    
+    // 从后往前替换，避免索引偏移
+    for (let i = matches.length - 1; i >= 0; i--) {
+        const m = matches[i];
+        const replacement = '\n$$' + m.formula + '$$\n';
+        processedContent = processedContent.substring(0, m.index) + replacement + processedContent.substring(m.index + m.fullMatch.length);
+    }
+    
+    // 2. 处理LaTeX行内公式 \( ... \)
+    processedContent = processedContent.replace(/\\\(\s*(.*?)\s*\\\)/g, function(match, formula) {
+        formula = formula.trim();
+        return '$' + formula + '$';
+    });
+    
+    // 3. 处理方括号包围的数学公式 [数学内容]
+    processedContent = processedContent.replace(/\[\s*([^[\]]*(?:\\[^[\]]*)*[^[\]]*)\s*\]/g, function(match, formula) {
+        formula = formula.trim();
+        
+        // 检查是否包含数学符号
+        const mathIndicators = ['\\frac', '\\partial', '\\hat', '\\text', '\\quad', 
+                              '\\alpha', '\\beta', '\\gamma', '\\delta', '\\theta', '\\lambda', 
+                              '^{', '_{', '\\sum', '\\int', '\\cdot', '\\times'];
+        
+        const isMathFormula = mathIndicators.some(indicator => formula.includes(indicator));
+        
+        if (isMathFormula) {
+            return '\n$$' + formula + '$$\n';
+        }
+        
+        return match;
+    });
+    
+    // 4. 清理重复的标记
+    processedContent = processedContent.replace(/\$\$\s*\$\$/g, '$$');
+    processedContent = processedContent.replace(/\$\s*\$/g, '$');
+    
+    return processedContent;
 }
+
+// 渲染数学公式
+function renderMath(element) {
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        // 清除之前的MathJax处理
+        window.MathJax.typesetClear([element]);
+        
+        // 重新渲染数学公式
+        window.MathJax.typesetPromise([element]).then(function() {
+            console.log('MathJax渲染完成');
+        }).catch(function (err) {
+            console.log('MathJax渲染错误:', err.message);
+        });
+    }
+}
+
+// 格式化消息内容（支持代码高亮和数学公式）
+function formatMessageContent(content) {
+    // 简单的代码块处理
+    content = content.replace(/```([a-z]*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
+    
+    // 行内代码
+    content = content.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // 粗体和斜体
+    content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // 换行处理
+    content = content.replace(/\n/g, '<br>');
+    
+    return content;
+}
+
+// 全局变量存储当前对话数据
+let currentConversationData = null;
+
+// 查看对话详情 - 使用新的模态框
+async function viewConversation(postId) {
+    try {
+        const response = await fetch(`/api/community/posts/${postId}/conversation`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            showToast(data.message || '加载对话失败', 'error');
+            return;
+        }
+        
+        // 存储当前对话数据供其他函数使用
+        currentConversationData = data;
+        
+        // 填充模态框内容
+        document.getElementById('conversationSharer').textContent = data.post.user.nickname || data.post.user.username;
+        document.getElementById('conversationTime').textContent = formatTime(data.post.created_at);
+        document.getElementById('conversationDescription').textContent = data.post.content;
+        
+        // V0.3.1 显示对话配置参数（优化显示）
+        const configSection = document.getElementById('conversationConfigSection');
+        const configContent = document.getElementById('conversationConfig');
+        if (data.conversation.conversation_config) {
+            const config = data.conversation.conversation_config;
+            
+            // 构建基础配置信息
+            const configItems = [
+                {
+                    icon: 'bi-cpu',
+                    label: '模型',
+                    value: escapeHtml(config.model_display_name || config.model_name)
+                },
+                {
+                    icon: 'bi-thermometer',
+                    label: '温度',
+                    value: escapeHtml(config.temperature_display_name || config.temperature)
+                },
+                {
+                    icon: 'bi-textarea-resize',
+                    label: '输出长度',
+                    value: config.max_tokens.toLocaleString() + ' Token'
+                }
+            ];
+            
+            let configHtml = '<div class="config-grid">';
+            configItems.forEach(item => {
+                configHtml += `
+                    <div class="config-item">
+                        <div class="config-label">
+                            <i class="bi ${item.icon}"></i> ${item.label}
+                        </div>
+                        <div class="config-value">${item.value}</div>
+                    </div>
+                `;
+            });
+            configHtml += '</div>';
+            
+            // 添加系统提示词（如果有）
+            if (config.system_prompt && config.system_prompt.trim()) {
+                const displayPrompt = config.system_prompt.length > 200 
+                    ? config.system_prompt.substring(0, 200) + '...' 
+                    : config.system_prompt;
+                    
+                configHtml += `
+                    <div class="config-item config-system-prompt">
+                        <div class="config-label">
+                            <i class="bi bi-gear"></i> 系统提示词
+                        </div>
+                        <div class="config-value system-prompt-text">
+                            ${escapeHtml(displayPrompt)}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            configContent.innerHTML = configHtml;
+            configSection.style.display = 'block';
+        } else {
+            configSection.style.display = 'none';
+        }
+        
+        // 显示AI提示词（如果有）
+        const promptSection = document.getElementById('conversationPromptSection');
+        const promptContent = document.getElementById('conversationPrompt');
+        if (data.post.ai_prompt) {
+            promptContent.textContent = data.post.ai_prompt;
+            promptSection.style.display = 'block';
+        } else {
+            promptSection.style.display = 'none';
+        }
+        
+        // 渲染对话消息
+        const messagesContainer = document.getElementById('conversationMessages');
+        messagesContainer.innerHTML = '';
+        
+        data.conversation.messages.forEach((message, index) => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`;
+            
+            // 渲染消息内容
+            let renderedContent;
+            if (message.role === 'user') {
+                // 用户消息使用简单格式化
+                renderedContent = formatMessageContent(message.content);
+            } else {
+                // AI消息使用Markdown渲染
+                renderedContent = renderMarkdown(message.content);
+            }
+            
+            const avatar = message.role === 'user' ? 
+                getAvatarText(data.post.user.username) : 'AI';
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">
+                    <div class="${message.role === 'user' ? 'user' : 'ai'}-avatar">${avatar}</div>
+                </div>
+                <div class="message-content">
+                    <div class="message-text mathjax">${renderedContent}</div>
+                    <div class="message-time">${formatTime(message.created_at)}</div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+        });
+        
+        // 对代码块添加高亮，但不添加复制按钮
+        messagesContainer.querySelectorAll('pre code').forEach((block) => {
+            if (window.hljs) {
+                hljs.highlightElement(block);
+            }
+        });
+        
+        // 渲染数学公式
+        renderMath(messagesContainer);
+        
+        // 显示模态框
+        document.getElementById('conversationDetailModal').style.display = 'flex';
+        
+    } catch (error) {
+        console.error('加载对话详情失败:', error);
+        showToast('加载对话详情失败', 'error');
+    }
+}
+
+// 关闭对话模态框
+function closeConversationModal() {
+    document.getElementById('conversationDetailModal').style.display = 'none';
+    currentConversationData = null;
+}
+
+// 复制到我的对话 - 新功能
+async function copyToMyChat() {
+    if (!currentConversationData) return;
+    
+    try {
+        const data = currentConversationData;
+        
+        // 构建要复制的对话数据
+        const conversationData = {
+            title: `基于"${data.conversation.title || '分享对话'}"的新对话`,
+            messages: data.conversation.messages.map(msg => ({
+                role: msg.role,
+                content: msg.content
+            }))
+        };
+        
+        // 将对话数据存储到sessionStorage，供chat页面读取
+        sessionStorage.setItem('importedConversation', JSON.stringify(conversationData));
+        
+        // 关闭模态框
+        closeConversationModal();
+        
+        // 跳转到chat页面
+        window.location.href = '/chat?import=true';
+        
+    } catch (error) {
+        console.error('导入对话失败:', error);
+        showToast('导入对话失败', 'error');
+    }
+}
+
+// 点击模态框外部关闭
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('conversationDetailModal');
+    if (event.target === modal) {
+        closeConversationModal();
+    }
+});
+
+// ESC键关闭模态框
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeConversationModal();
+    }
+});
 </script>
 {% endblock %} 

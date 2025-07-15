@@ -1,0 +1,565 @@
+{% extends "admin/base.html" %}
+
+{% block title %}仪表板 - Agorix 管理后台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-tachometer-alt text-primary me-2"></i>
+        <span class="text-secondary">管理仪表板</span>
+    </div>
+    <div class="text-muted">
+        <i class="fas fa-clock me-1"></i>
+        <span id="current-time"></span>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="text-muted text-uppercase small mb-2">总用户数</div>
+                        <h3 class="mb-0">{{ stats.users.total or 0 }}</h3>
+                        <small class="text-muted">活跃: {{ stats.users.active or 0 }}</small>
+                    </div>
+                    <div class="ms-3">
+                        <div class="bg-primary-light rounded-3 p-3">
+                            <i class="fas fa-users text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="text-muted text-uppercase small mb-2">总对话数</div>
+                        <h3 class="mb-0">{{ stats.conversations.total or 0 }}</h3>
+                        <small class="text-muted">消息: {{ stats.conversations.messages or 0 }}</small>
+                    </div>
+                    <div class="ms-3">
+                        <div class="bg-success-light rounded-3 p-3">
+                            <i class="fas fa-comments text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="text-muted text-uppercase small mb-2">社区帖子</div>
+                        <h3 class="mb-0">{{ stats.community.posts or 0 }}</h3>
+                        <small class="text-muted">互动: {{ stats.community.interactions or 0 }}</small>
+                    </div>
+                    <div class="ms-3">
+                        <div class="bg-warning-light rounded-3 p-3">
+                            <i class="fas fa-forum text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="text-muted text-uppercase small mb-2">关注关系</div>
+                        <h3 class="mb-0">{{ stats.community.follows or 0 }}</h3>
+                        <small class="text-muted">用户互关</small>
+                    </div>
+                    <div class="ms-3">
+                        <div class="bg-danger-light rounded-3 p-3">
+                            <i class="fas fa-heart text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图表区域 -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-user-tag text-primary me-2"></i>
+                        <span class="text-secondary">用户角色分布</span>
+                    </div>
+                </div>
+                <div class="chart-container" style="height: 240px;">
+                    <canvas id="roleChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-chart-line text-primary me-2"></i>
+                        <span class="text-secondary">7天数据趋势</span>
+                    </div>
+                    <div class="trend-chart-legend">
+                        <span class="trend-legend-item">
+                            <i class="fas fa-circle text-primary"></i>
+                            新增用户
+                        </span>
+                        <span class="trend-legend-item">
+                            <i class="fas fa-circle text-success"></i>
+                            新增对话
+                        </span>
+                        <span class="trend-legend-item">
+                            <i class="fas fa-circle text-warning"></i>
+                            新增帖子
+                        </span>
+                    </div>
+                </div>
+                <div class="chart-container" style="height: 240px;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近数据 -->
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-user-plus text-primary me-2"></i>
+                        <span class="text-secondary">最新用户</span>
+                    </div>
+                    <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary">
+                        查看全部
+                    </a>
+                </div>
+                {% if recent_data.users %}
+                    <div class="list-group list-group-flush">
+                        {% for user in recent_data.users %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm bg-primary-light rounded-circle d-flex align-items-center justify-content-center me-3">
+                                    <i class="fas fa-user text-primary"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="text-body mb-1">{{ user.username }}</div>
+                                    <small class="text-muted">{{ user.email }}</small>
+                                    <div>
+                                        <span class="badge bg-{{ 'danger' if user.role.value == 'admin' else 'primary' if user.role.value == 'tester' else 'warning' if user.role.value == 'vip' else 'secondary' }}-light text-{{ 'danger' if user.role.value == 'admin' else 'primary' if user.role.value == 'tester' else 'warning' if user.role.value == 'vip' else 'secondary' }}">
+                                            {{ user.get_role_name() }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    {{ user.created_at.strftime('%m-%d %H:%M') if user.created_at else '' }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2 opacity-50"></i>
+                        <p class="mb-0">暂无用户数据</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-comment-dots text-primary me-2"></i>
+                        <span class="text-secondary">最新对话</span>
+                    </div>
+                    <a href="{{ url_for('admin.conversations') }}" class="btn btn-sm btn-outline-primary">
+                        查看全部
+                    </a>
+                </div>
+                {% if recent_data.conversations %}
+                    <div class="list-group list-group-flush">
+                        {% for conv in recent_data.conversations %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="text-body mb-1">{{ conv.title[:30] }}{% if conv.title|length > 30 %}...{% endif %}</div>
+                                    <small class="text-muted">用户: {{ conv.user.username if conv.user else '未知' }}</small>
+                                    <div class="mt-1">
+                                        <span class="badge bg-info-light text-info">{{ conv.message_count }} 消息</span>
+                                        {% if not conv.is_active %}
+                                            <span class="badge bg-danger-light text-danger">已删除</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    {{ conv.created_at.strftime('%m-%d %H:%M') if conv.created_at else '' }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2 opacity-50"></i>
+                        <p class="mb-0">暂无对话数据</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-newspaper text-primary me-2"></i>
+                        <span class="text-secondary">最新帖子</span>
+                    </div>
+                    <a href="{{ url_for('admin.community') }}" class="btn btn-sm btn-outline-primary">
+                        查看全部
+                    </a>
+                </div>
+                {% if recent_data.posts %}
+                    <div class="list-group list-group-flush">
+                        {% for post in recent_data.posts %}
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="text-body mb-1">{{ post.content[:50] }}{% if post.content|length > 50 %}...{% endif %}</div>
+                                    <small class="text-muted">作者: {{ post.user.username if post.user else '未知' }}</small>
+                                    <div class="mt-1">
+                                        <span class="badge bg-success-light text-success">❤️ {{ post.like_count }}</span>
+                                        <span class="badge bg-info-light text-info">💬 {{ post.comment_count }}</span>
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    {{ post.created_at.strftime('%m-%d %H:%M') if post.created_at else '' }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2 opacity-50"></i>
+                        <p class="mb-0">暂无帖子数据</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-primary-light { background-color: var(--primary-light) !important; }
+.bg-success-light { background-color: var(--success-light) !important; }
+.bg-warning-light { background-color: var(--warning-light) !important; }
+.bg-danger-light { background-color: var(--danger-light) !important; }
+.bg-info-light { background-color: var(--info-light) !important; }
+
+.text-primary { color: var(--primary) !important; }
+.text-success { color: var(--success) !important; }
+.text-warning { color: var(--warning) !important; }
+.text-danger { color: var(--danger) !important; }
+.text-info { color: var(--info) !important; }
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+.list-group-item {
+    padding: var(--spacing-md) 0;
+}
+
+.list-group-item + .list-group-item {
+    border-top: 1px solid var(--border) !important;
+}
+
+.btn-sm {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 12px;
+    height: 28px;
+}
+
+.badge {
+    font-weight: 500;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+h3 {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.text-body {
+    color: var(--text-primary) !important;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.card {
+    transition: var(--transition);
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+.trend-chart-container {
+    position: relative;
+    height: 300px;
+    margin-top: var(--spacing-md);
+}
+
+.trend-chart-legend {
+    display: flex;
+    gap: var(--spacing-md);
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.trend-legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.trend-legend-item i {
+    font-size: 8px;
+}
+
+.chart-container {
+    position: relative;
+    width: 100%;
+    margin-top: var(--spacing-md);
+}
+
+.card {
+    max-height: 360px;
+    overflow: hidden;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 更新当前时间
+function updateCurrentTime() {
+    const now = new Date();
+    const options = { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+    document.getElementById('current-time').textContent = now.toLocaleString('zh-CN', options);
+}
+
+// 初始化图表
+document.addEventListener('DOMContentLoaded', function() {
+    // 更新时间
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+    
+    // 角色分布图表
+    const roleCtx = document.getElementById('roleChart').getContext('2d');
+    new Chart(roleCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['管理员', '测试员', 'VIP用户', '普通用户'],
+            datasets: [{
+                data: [
+                    {{ stats.users.admin or 0 }},
+                    {{ stats.users.tester or 0 }},
+                    {{ stats.users.vip or 0 }},
+                    {{ stats.users.normal or 0 }}
+                ],
+                backgroundColor: [
+                    'rgba(207, 34, 46, 0.2)',    // 管理员 - 红色
+                    'rgba(9, 105, 218, 0.2)',    // 测试员 - 蓝色
+                    'rgba(154, 103, 0, 0.2)',    // VIP - 黄色
+                    'rgba(110, 119, 129, 0.2)'   // 普通用户 - 灰色
+                ],
+                borderColor: [
+                    'rgb(207, 34, 46)',
+                    'rgb(9, 105, 218)',
+                    'rgb(154, 103, 0)',
+                    'rgb(110, 119, 129)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    titleColor: '#24292f',
+                    titleFont: {
+                        size: 12,
+                        weight: '500'
+                    },
+                    bodyColor: '#57606a',
+                    bodyFont: {
+                        size: 12
+                    },
+                    borderColor: '#d0d7de',
+                    borderWidth: 1,
+                    padding: 12,
+                    boxPadding: 6,
+                    usePointStyle: true
+                }
+            },
+            cutout: '70%'
+        }
+    });
+    
+    // 趋势图表
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: {{ trend_data.labels | tojson }},
+            datasets: [
+                {
+                    label: '新增用户',
+                    data: {{ trend_data.users | tojson }},
+                    borderColor: 'rgb(9, 105, 218)',
+                    backgroundColor: 'rgba(9, 105, 218, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: '新增对话',
+                    data: {{ trend_data.conversations | tojson }},
+                    borderColor: 'rgb(26, 127, 55)',
+                    backgroundColor: 'rgba(26, 127, 55, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: '新增帖子',
+                    data: {{ trend_data.posts | tojson }},
+                    borderColor: 'rgb(154, 103, 0)',
+                    backgroundColor: 'rgba(154, 103, 0, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    titleColor: '#24292f',
+                    titleFont: {
+                        size: 12,
+                        weight: '500'
+                    },
+                    bodyColor: '#57606a',
+                    bodyFont: {
+                        size: 12
+                    },
+                    borderColor: '#d0d7de',
+                    borderWidth: 1,
+                    padding: 12,
+                    boxPadding: 6,
+                    usePointStyle: true,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            size: 12
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %} 

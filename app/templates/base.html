@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SuperRAG - 智能问答与知识管理平台{% endblock %}</title>
+    <title>{% block title %}Agorix - 智能对话交流分享平台{% endblock %}</title>
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -32,19 +32,34 @@
             
             <!-- 品牌名称 -->
             <a class="navbar-brand fw-bold" href="{{ url_for('main.index') }}" style="color: var(--text-primary);">
-                <i class="bi bi-lightbulb me-2" style="color: var(--accent);"></i>SuperRAG
+                <i class="bi bi-chat-dots me-2" style="color: var(--accent);"></i>Agorix
             </a>
             
-            <!-- 右侧用户操作 -->
-            <div class="d-flex">
+            <!-- 右侧用户操作和功能按钮 -->
+            <div class="d-flex align-items-center">
                 {% if current_user.is_authenticated %}
-                    <div class="dropdown">
-                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="userDropdown" 
-                                data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle"></i>
-                            <span class="d-none d-md-inline ms-1">{{ current_user.nickname or current_user.username }}</span>
+                    <!-- 通知和反馈按钮 - 现代设计 -->
+                    <div class="header-actions me-3">
+                        <button class="header-action-btn" onclick="showNotificationModal()" title="通知">
+                            <i class="bi bi-bell"></i>
+                            <span class="notification-dot" id="notificationDot" style="display: none;"></span>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <button class="header-action-btn" onclick="showFeedbackModal()" title="意见反馈">
+                            <i class="bi bi-chat-quote"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- 用户头像下拉菜单 -->
+                    <div class="dropdown">
+                        <button class="btn user-dropdown-btn" type="button" id="userDropdown" 
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="user-avatar">
+                                <i class="bi bi-person-circle"></i>
+                            </div>
+                            <span class="user-name d-none d-md-inline">{{ current_user.nickname or current_user.username }}</span>
+                            <i class="bi bi-chevron-down ms-2"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end modern-dropdown" aria-labelledby="userDropdown">
                             <li><a class="dropdown-item" href="{{ url_for('main.dashboard') }}">
                                 <i class="bi bi-speedometer2 me-2"></i>仪表板
                             </a></li>
@@ -58,11 +73,11 @@
                         </ul>
                     </div>
                 {% else %}
-                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary me-2">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-auth-login me-2">
                         <i class="bi bi-box-arrow-in-right"></i>
                         <span class="d-none d-md-inline ms-1">登录</span>
                     </a>
-                    <a href="{{ url_for('auth.register') }}" class="btn btn-outline-secondary">
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-auth-register">
                         <i class="bi bi-person-plus"></i>
                         <span class="d-none d-md-inline ms-1">注册</span>
                     </a>
@@ -98,10 +113,20 @@
                         <i class="bi bi-book me-3"></i>
                         <span>知识库管理</span>
                     </a>
-                    <a href="{{ url_for('main.langchain_demo') }}" class="sidebar-nav-item">
-                        <i class="bi bi-diagram-3 me-3"></i>
-                        <span>LangChain 管理</span>
+                    <a href="{{ url_for('main.community') }}" class="sidebar-nav-item">
+                        <i class="bi bi-people me-3"></i>
+                        <span>AI创作论坛</span>
                     </a>
+
+                    
+                    {% if current_user.role.value == 'admin' %}
+                        <div class="sidebar-divider"></div>
+                        <div class="sidebar-section-title">管理员工具</div>
+                        <a href="{{ url_for('admin.dashboard') }}" class="sidebar-nav-item">
+                            <i class="bi bi-shield-check me-3"></i>
+                            <span>管理后台</span>
+                        </a>
+                    {% endif %}
                 {% else %}
                     <a href="{{ url_for('auth.login') }}" class="sidebar-nav-item">
                         <i class="bi bi-box-arrow-in-right me-3"></i>
@@ -129,7 +154,7 @@
         
         <div class="sidebar-footer">
             <div class="text-center text-muted small">
-                <div>SuperRAG v1.0</div>
+                <div>Agorix v1.0</div>
                 <div>智能问答平台</div>
             </div>
         </div>
@@ -161,25 +186,626 @@
     </main>
 
     <!-- 页脚 -->
-    <footer>
+    <footer class="footer-modern">
         <div class="container">
-            <div class="row">
+            <div class="row align-items-center">
                 <div class="col-md-6">
-                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">SuperRAG</div>
-                    <div>智能问答与知识管理平台</div>
+                    <div class="footer-brand">
+                        <div class="footer-logo">Agorix</div>
+                        <div class="footer-tagline">现代雅典集市 · 智慧流动之地</div>
+                    </div>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <div>
-                        <a href="#" class="text-decoration-none me-3" style="color: var(--text-secondary);">
-                            <i class="bi bi-github me-1"></i>GitHub
+                    <div class="footer-badges">
+                        <a href="https://github.com/simon-0512/superrag" target="_blank" class="footer-badge github">
+                            <i class="bi bi-github"></i>
+                            <span>GitHub</span>
                         </a>
-                        <a href="#" class="text-decoration-none me-3" style="color: var(--text-secondary);">文档</a>
-                        <a href="#" class="text-decoration-none" style="color: var(--text-secondary);">反馈</a>
+                        <span class="footer-badge version">v1.0</span>
+                        <span class="footer-badge status">Beta</span>
+                    </div>
+                    <div class="footer-links">
+                        <a href="#" class="footer-link">文档</a>
+                        <a href="#" class="footer-link" onclick="showFeedbackModal()">反馈</a>
+                        <a href="#" class="footer-link">关于</a>
                     </div>
                 </div>
             </div>
         </div>
     </footer>
+    
+    <style>
+    /* GitHub风格精致模态框设计 */
+    .modal-content {
+        border: 1px solid #d1d9e0;
+        border-radius: 6px;
+        box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+        background: white;
+    }
+    
+    .modal-header {
+        background: #f6f8fa;
+        border-bottom: 1px solid #d1d9e0;
+        border-radius: 6px 6px 0 0;
+        padding: 12px 16px;
+    }
+    
+    .modal-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #24292f;
+        margin: 0;
+    }
+    
+    .modal-body {
+        padding: 16px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    
+    .modal-footer {
+        background: #f6f8fa;
+        border-top: 1px solid #d1d9e0;
+        border-radius: 0 0 6px 6px;
+        padding: 12px 16px;
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+    
+    /* GitHub风格表单控件 */
+    .form-control, .form-select {
+        border: 1px solid #d1d9e0;
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-size: 14px;
+        line-height: 1.45;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        background: white;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #0969da;
+        box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.12);
+        outline: none;
+    }
+    
+    .form-label {
+        font-size: 14px;
+        font-weight: 500;
+        color: #24292f;
+        margin-bottom: 6px;
+    }
+    
+    /* GitHub风格按钮 */
+    .btn {
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        padding: 6px 12px;
+        line-height: 1.45;
+        transition: all 0.15s ease;
+        border: 1px solid transparent;
+    }
+    
+    .btn-primary {
+        background: #1f883d;
+        border-color: rgba(31, 136, 61, 0.15);
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: #1a7f37;
+        border-color: rgba(31, 136, 61, 0.15);
+        color: white;
+        box-shadow: 0 1px 0 rgba(31, 136, 61, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    
+    .btn-secondary {
+        background: #f6f8fa;
+        border-color: rgba(31, 35, 40, 0.15);
+        color: #24292f;
+    }
+    
+    .btn-secondary:hover {
+        background: #f3f4f6;
+        border-color: rgba(31, 35, 40, 0.15);
+        color: #24292f;
+        box-shadow: 0 1px 0 rgba(31, 35, 40, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+    
+    .btn-danger {
+        background: #da3633;
+        border-color: rgba(218, 54, 51, 0.15);
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background: #b62324;
+        border-color: rgba(218, 54, 51, 0.15);
+        color: white;
+        box-shadow: 0 1px 0 rgba(218, 54, 51, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    
+    .btn-outline-secondary {
+        background: transparent;
+        border-color: #d1d9e0;
+        color: #656d76;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: #f3f4f6;
+        border-color: #d1d9e0;
+        color: #24292f;
+    }
+    
+    /* 精致的输入组 */
+    .input-group {
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    
+    .input-group .form-control {
+        border-radius: 0;
+        border-right: 0;
+    }
+    
+    .input-group .form-control:first-child {
+        border-radius: 6px 0 0 6px;
+    }
+    
+    .input-group .btn {
+        border-radius: 0 6px 6px 0;
+        border-left: 0;
+    }
+    
+    /* 精致的文本域 */
+    textarea.form-control {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    /* 精致的选择框 */
+    .form-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23656d76' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        background-size: 16px 12px;
+        padding-right: 32px;
+    }
+    
+    /* 通知项目样式 */
+    .notification-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #d1d9e0;
+        border-radius: 6px;
+        background: white;
+    }
+    
+    .notification-item {
+        padding: 12px 16px;
+        border-bottom: 1px solid #d1d9e0;
+        transition: background-color 0.15s ease;
+    }
+    
+    .notification-item:last-child {
+        border-bottom: none;
+    }
+    
+    .notification-item:hover {
+        background-color: #f6f8fa;
+    }
+    
+    .notification-item.unread {
+        background-color: rgba(9, 105, 218, 0.05);
+        border-left: 3px solid #0969da;
+    }
+    
+    .notification-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+    
+    .notification-header i {
+        margin-right: 8px;
+        color: #656d76;
+        font-size: 14px;
+    }
+    
+    .notification-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #24292f;
+        flex: 1;
+    }
+    
+    .new-badge {
+        background: #1f883d;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1;
+    }
+    
+    .notification-content {
+        color: #656d76;
+        margin-bottom: 4px;
+        line-height: 1.5;
+        font-size: 14px;
+    }
+    
+    .notification-time {
+        font-size: 12px;
+        color: #8c959f;
+    }
+    
+    .no-notifications {
+        text-align: center;
+        padding: 32px 16px;
+        color: #8c959f;
+        font-size: 14px;
+    }
+    
+    /* Alert样式优化 */
+    .alert {
+        border-radius: 6px;
+        border: 1px solid transparent;
+        padding: 12px 16px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    
+    .alert-success {
+        background-color: #dafbe1;
+        border-color: #1f883d;
+        color: #1a7f37;
+    }
+    
+    .alert-danger {
+        background-color: #ffebe9;
+        border-color: #da3633;
+        color: #cf222e;
+    }
+    
+    .alert-warning {
+        background-color: #fff8c5;
+        border-color: #d1242f;
+        color: #7d4e00;
+    }
+    
+    .alert-info {
+        background-color: #ddf4ff;
+        border-color: #0969da;
+        color: #0969da;
+    }
+    
+    /* 现代化顶部导航栏设计 */
+    .header-actions {
+        display: flex;
+        gap: 0.3rem;
+        align-items: center;
+    }
+    
+    .header-action-btn {
+        width: 38px;
+        height: 38px;
+        border: none;
+        background: rgba(247, 248, 250, 0.8);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        backdrop-filter: blur(12px);
+        font-size: 1rem;
+        cursor: pointer;
+        border: 1px solid rgba(229, 231, 235, 0.6);
+    }
+    
+    .header-action-btn:hover {
+        background: var(--accent);
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(0, 122, 255, 0.25);
+        border-color: var(--accent);
+    }
+    
+    .notification-dot {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 8px;
+        height: 8px;
+        background: linear-gradient(135deg, #ff3b30 0%, #ff6b6b 100%);
+        border-radius: 50%;
+        border: 2px solid white;
+        animation: pulse 2s infinite;
+        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.3);
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.15); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    /* 用户下拉菜单设计 */
+    .user-dropdown-btn {
+        background: rgba(247, 248, 250, 0.8);
+        border: 1px solid rgba(229, 231, 235, 0.6);
+        border-radius: 12px;
+        padding: 0.4rem 0.8rem;
+        display: flex;
+        align-items: center;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(12px);
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+    
+    .user-dropdown-btn:hover,
+    .user-dropdown-btn:focus {
+        background: white;
+        border-color: var(--accent);
+        color: var(--text-primary);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(0, 122, 255, 0.15);
+    }
+    
+    .user-avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent) 0%, #5856D6 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.9rem;
+        margin-right: 0.5rem;
+    }
+    
+    .user-name {
+        font-size: 0.9rem;
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    /* 现代下拉菜单样式 */
+    .modern-dropdown {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+        backdrop-filter: blur(20px);
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(229, 231, 235, 0.6);
+        padding: 0.5rem;
+        min-width: 180px;
+        margin-top: 0.5rem;
+    }
+    
+    .modern-dropdown .dropdown-item {
+        border-radius: 8px;
+        padding: 0.6rem 0.8rem;
+        margin-bottom: 0.2rem;
+        transition: all 0.2s ease;
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+    
+    .modern-dropdown .dropdown-item:hover {
+        background: rgba(0, 122, 255, 0.08);
+        color: var(--accent);
+        transform: translateX(2px);
+    }
+    
+    .modern-dropdown .dropdown-item i {
+        color: #6b7280;
+        transition: color 0.2s ease;
+    }
+    
+    .modern-dropdown .dropdown-item:hover i {
+        color: var(--accent);
+    }
+    
+    .modern-dropdown .dropdown-divider {
+        margin: 0.5rem 0;
+        border-color: rgba(229, 231, 235, 0.8);
+    }
+    
+    /* 认证按钮样式 */
+    .btn-auth-login,
+    .btn-auth-register {
+        border-radius: 10px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid rgba(229, 231, 235, 0.6);
+        backdrop-filter: blur(12px);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-auth-login {
+        background: rgba(247, 248, 250, 0.8);
+        color: var(--text-primary);
+    }
+    
+    .btn-auth-login:hover {
+        background: white;
+        color: var(--accent);
+        border-color: var(--accent);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(0, 122, 255, 0.15);
+    }
+    
+    .btn-auth-register {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+    }
+    
+    .btn-auth-register:hover {
+        background: #0052cc;
+        border-color: #0052cc;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(0, 82, 204, 0.25);
+    }
+    
+    /* 精致页脚设计 */
+    .footer-modern {
+        background: linear-gradient(135deg, #fafafa 0%, #ffffff 100%);
+        border-top: 1px solid var(--border);
+        padding: 1.5rem 0;
+        margin-top: 1rem;
+    }
+    
+    .footer-brand {
+        margin-bottom: 1rem;
+    }
+    
+    .footer-logo {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.3rem;
+        background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .footer-tagline {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        font-weight: 400;
+    }
+    
+    .footer-badges {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.8rem;
+        flex-wrap: wrap;
+    }
+    
+    .footer-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.7rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    
+    .footer-badge.github {
+        background: linear-gradient(135deg, #24292e 0%, #2f363d 100%);
+        color: white;
+        border: 1px solid #444d56;
+    }
+    
+    .footer-badge.github:hover {
+        background: linear-gradient(135deg, #1a1e22 0%, #24292e 100%);
+        color: white;
+        text-decoration: none;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .footer-badge.github i {
+        margin-right: 0.3rem;
+    }
+    
+    .footer-badge.version {
+        background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .footer-badge.status {
+        background: linear-gradient(135deg, #34C759 0%, #32D74B 100%);
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .footer-links {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .footer-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: color 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .footer-link:hover {
+        color: var(--accent);
+        text-decoration: none;
+    }
+    
+            @media (max-width: 768px) {
+            .footer-badges {
+                justify-content: center;
+            }
+            
+            .footer-links {
+                justify-content: center;
+            }
+            
+            .footer-modern {
+                text-align: center;
+            }
+            
+            .header-actions {
+                gap: 0.2rem;
+                margin-right: 0.5rem !important;
+            }
+            
+            .header-action-btn {
+                width: 34px;
+                height: 34px;
+                font-size: 0.9rem;
+            }
+            
+            .user-dropdown-btn {
+                padding: 0.3rem 0.6rem;
+                border-radius: 10px;
+            }
+            
+            .user-name {
+                display: none !important;
+            }
+            
+            .user-avatar {
+                margin-right: 0.3rem;
+            }
+            
+            .btn-auth-login,
+            .btn-auth-register {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
 
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -195,6 +821,243 @@
     
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- 通知和反馈功能 -->
+    <script>
+    // 简化的alert函数，防止showAlert未定义
+    function safeShowAlert(message, type = 'info') {
+        if (typeof showAlert !== 'undefined') {
+            showAlert(message, type);
+        } else {
+            // 创建简单的alert
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type === 'danger' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+            alertDiv.style.position = 'fixed';
+            alertDiv.style.top = '20px';
+            alertDiv.style.right = '20px';
+            alertDiv.style.zIndex = '9999';
+            alertDiv.style.minWidth = '300px';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            // 自动移除
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 5000);
+        }
+    }
+    
+    // 通用模态框函数
+    function showGeneralModal(title, content, type = '', callback = null, buttonText = '确定') {
+        // 创建或获取通用模态框
+        let modal = document.getElementById('generalModal');
+        if (!modal) {
+            // 创建模态框
+            const modalHtml = `
+                <div class="modal fade" id="generalModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="generalModalTitle"></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="generalModalBody">
+                            </div>
+                            <div class="modal-footer" id="generalModalFooter">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                                <button type="button" class="btn btn-primary" id="generalModalAction">确定</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            modal = document.getElementById('generalModal');
+        }
+        
+        // 设置内容
+        document.getElementById('generalModalTitle').textContent = title;
+        document.getElementById('generalModalBody').innerHTML = content;
+        
+        // 设置按钮
+        const actionBtn = document.getElementById('generalModalAction');
+        if (callback) {
+            actionBtn.textContent = buttonText;
+            actionBtn.className = `btn btn-${type || 'primary'}`;
+            actionBtn.onclick = callback;
+            actionBtn.style.display = 'block';
+        } else {
+            actionBtn.style.display = 'none';
+        }
+        
+        // 显示模态框
+        new bootstrap.Modal(modal).show();
+    }
+    
+    // 显示通知模态框
+    function showNotificationModal() {
+        showNotifications();
+    }
+    
+    // 通知功能
+    function showNotifications() {
+        fetch('/api/notifications')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayNotifications(data.notifications);
+                } else {
+                    safeShowAlert('获取通知失败', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                safeShowAlert('网络错误', 'danger');
+            });
+    }
+    
+    function displayNotifications(notifications) {
+        let content = '<div class="notification-list">';
+        
+        if (notifications.length === 0) {
+            content += '<div class="no-notifications">暂无通知</div>';
+        } else {
+            notifications.forEach(notification => {
+                const isNew = !notification.is_viewed;
+                content += `
+                    <div class="notification-item ${isNew ? 'unread' : ''}" data-id="${notification.id}">
+                        <div class="notification-header">
+                            <i class="${notification.icon}"></i>
+                            <span class="notification-title">${notification.title}</span>
+                            ${isNew ? '<span class="new-badge">新</span>' : ''}
+                        </div>
+                        <div class="notification-content">${notification.content}</div>
+                        <div class="notification-time">${new Date(notification.created_at).toLocaleString()}</div>
+                    </div>
+                `;
+            });
+        }
+        
+        content += '</div>';
+        
+        showGeneralModal('系统通知', content, '', () => {
+            // 标记所有通知为已查看
+            notifications.forEach(notification => {
+                if (!notification.is_viewed) {
+                    markNotificationViewed(notification.id);
+                }
+            });
+        });
+    }
+    
+    function markNotificationViewed(notificationId) {
+        fetch(`/api/notifications/${notificationId}/view`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        }).then(() => {
+            updateNotificationCount();
+        });
+    }
+    
+    // 反馈功能
+    function showFeedbackModal() {
+        const content = `
+            <form id="feedbackForm">
+                <div class="mb-3">
+                    <label for="feedbackTitle" class="form-label">标题</label>
+                    <input type="text" class="form-control" id="feedbackTitle" required>
+                </div>
+                <div class="mb-3">
+                    <label for="feedbackCategory" class="form-label">分类</label>
+                    <select class="form-select" id="feedbackCategory">
+                        <option value="general">一般建议</option>
+                        <option value="bug">问题反馈</option>
+                        <option value="feature">功能建议</option>
+                        <option value="ui">界面体验</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="feedbackContent" class="form-label">详细内容</label>
+                    <textarea class="form-control" id="feedbackContent" rows="4" required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="contactInfo" class="form-label">联系方式（可选）</label>
+                    <input type="text" class="form-control" id="contactInfo" placeholder="邮箱或其他联系方式">
+                </div>
+            </form>
+        `;
+        
+        showGeneralModal('意见反馈', content, 'primary', submitFeedback, '提交反馈');
+    }
+    
+    function submitFeedback() {
+        const form = document.getElementById('feedbackForm');
+        const formData = new FormData(form);
+        
+        const data = {
+            title: document.getElementById('feedbackTitle').value,
+            content: document.getElementById('feedbackContent').value,
+            category: document.getElementById('feedbackCategory').value,
+            contact_info: document.getElementById('contactInfo').value
+        };
+        
+        if (!data.title || !data.content) {
+            safeShowAlert('请填写标题和内容', 'warning');
+            return;
+        }
+        
+        fetch('/api/feedback', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                safeShowAlert(data.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('generalModal')).hide();
+            } else {
+                safeShowAlert(data.error || '提交失败', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            safeShowAlert('网络错误', 'danger');
+        });
+    }
+    
+    // 更新通知计数
+    function updateNotificationCount() {
+        if (typeof current_user !== 'undefined' && current_user.is_authenticated) {
+            fetch('/api/notifications/unread-count')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.unread_count > 0) {
+                        document.getElementById('notificationDot').style.display = 'block';
+                    } else {
+                        document.getElementById('notificationDot').style.display = 'none';
+                    }
+                })
+                .catch(error => console.error('Error updating notification count:', error));
+        }
+    }
+    
+    // 页面加载时检查通知
+    document.addEventListener('DOMContentLoaded', function() {
+        updateNotificationCount();
+    });
+    </script>
+    
+
     
     {% block extra_js %}{% endblock %}
 </body>

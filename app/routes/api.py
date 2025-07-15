@@ -17,6 +17,7 @@ from app.models import User, KnowledgeBase, Conversation, Message
 from app.database import db
 from app.services import DeepSeekService
 from app.services.conversation_service import ConversationService
+from app.decorators import require_read_permission, require_write_permission
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ def save_message_worker():
             conversation_id = save_data['conversation_id']
             ai_msg_id = save_data['ai_msg_id']
             ai_response = save_data['ai_response']
+            thinking_process = save_data.get('thinking_process')  # V0.3.1 新增
             debug_info = save_data['debug_info']
             user_id = save_data['user_id']
             retry_count = save_data.get('retry_count', 0)
@@ -110,12 +112,17 @@ def save_message_worker():
                         message_save_queue.task_done()
                         continue
                     
-                    # 保存AI消息
+                    # 保存AI消息 - V0.3.1 包含思考过程
+                    msg_metadata = {}
+                    if thinking_process and thinking_process.strip():
+                        msg_metadata['thinking_process'] = thinking_process
+                    
                     ai_msg = Message(
                         id=ai_msg_id,
                         conversation_id=conversation_id,
                         role='assistant',
                         content=ai_response,
+                        msg_metadata=msg_metadata,  # V0.3.1 思考过程存储在metadata中
                         token_count=len(ai_response.split()),  # 简单的token计算
                         created_at=datetime.utcnow()
                     )
@@ -261,6 +268,7 @@ def cleanup_old_conversations(user_id, max_conversations=10):
 
 @api_bp.route('/chat', methods=['POST'])
 @login_required
+@require_write_permission
 def chat():
     """聊天API - 使用LangChain管理上下文，独立线程保存消息"""
     try:
@@ -278,6 +286,8 @@ def chat():
         user_message = data['message'].strip()
         conversation_id = data.get('conversation_id')
         knowledge_base_id = data.get('knowledge_base_id')
+        # V0.3.0 新增：获取对话配置参数
+        conversation_config_data = data.get('conversation_config')
         
         if not user_message:
             return jsonify({
@@ -298,16 +308,48 @@ def chat():
             # 创建新对话前，先清理旧对话
             cleanup_old_conversations(current_user.id, max_conversations=10)
             
+            # V0.3.0 修复：使用传递的配置参数创建新对话
+            if conversation_config_data:
+                model_name = conversation_config_data.get('model_name', 'deepseek-chat')
+                temperature = conversation_config_data.get('temperature', 1.0)
+                max_tokens = conversation_config_data.get('max_tokens', 4000)
+                system_prompt = conversation_config_data.get('system_prompt', '')
+                
+                # 验证参数
+                if model_name not in ['deepseek-chat', 'deepseek-reasoner']:
+                    model_name = 'deepseek-chat'
+                if temperature not in [0.0, 1.0, 1.5]:
+                    temperature = 1.0
+                if system_prompt and len(system_prompt) > 2000:
+                    system_prompt = system_prompt[:2000]
+            else:
+                # 使用默认配置
+                model_name = 'deepseek-chat'
+                temperature = 1.0
+                max_tokens = 4000
+                system_prompt = ''
+            
             # 创建新对话
             conversation = Conversation(
                 id=str(uuid.uuid4()),
                 user_id=current_user.id,
                 title=user_message[:50] + ('...' if len(user_message) > 50 else ''),
-                model_name='deepseek-chat'
+                model_name=model_name,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                system_prompt=system_prompt if system_prompt else None
             )
             db.session.add(conversation)
             db.session.flush()  # 获取ID
             is_new_conversation = True
+        
+        # V0.3.0 获取对话配置
+        conversation_config = conversation.get_conversation_config() if conversation else {
+            'model_name': 'deepseek-chat',
+            'temperature': 1.0,
+            'max_tokens': 4000,
+            'system_prompt': ''
+        }
         
         # 检查是否需要流式响应
         use_stream = request.args.get('stream', 'true').lower() == 'true'
@@ -372,13 +414,24 @@ def chat():
                         'message_content_length': len(user_message)
                     })
                     
+                    # V0.3.1 添加对话配置和API交互信息到调试信息
+                    debug_info['conversation_config'] = conversation_config
+                    debug_info['model_params'] = {
+                        'model_name': conversation_config.get('model_name', 'deepseek-chat'),
+                        'temperature': conversation_config.get('temperature', 1.0),
+                        'max_tokens': conversation_config.get('max_tokens', 4000),
+                        'system_prompt_length': len(conversation_config.get('system_prompt', '') or ''),
+                        'has_system_prompt': bool(conversation_config.get('system_prompt', ''))
+                    }
+                    debug_info['user_message'] = user_message
+                    
                     # 🔥 修复BUG2：立即发送初始化消息，让用户知道正在处理
                     yield f"data: {json.dumps({'type': 'start', 'conversation_id': conversation.id, 'user_message_id': user_msg_id, 'ai_message_id': ai_msg_id, 'debug_info': debug_info})}\n\n"
                     
-                    debug_info['processing_steps'].append(f"[{time.time() - start_time:.3f}s] 开始处理用户消息")
+                    debug_info['processing_steps'].append(f"[{time.time() - start_time:.3f}s] 开始处理用户消息，模型: {conversation_config.get('model_name')}")
                     
                     # 发送处理状态更新
-                    yield f"data: {json.dumps({'type': 'processing', 'status': '正在处理中...'})}\n\n"
+                    yield f"data: {json.dumps({'type': 'processing', 'status': '正在处理中...', 'model_params': debug_info['model_params']})}\n\n"
                     
                     if conversation_service.langchain_enabled and conversation_service.langchain_service:
                         # 使用LangChain进行对话处理
@@ -413,22 +466,87 @@ def chat():
                         conversation_history, _ = conversation_service.get_optimized_context(conversation)
                         conversation_history = [msg for msg in conversation_history if msg.get('content') != user_message]
                         
-                        # 使用真正的流式API
+                        # 使用真正的流式API (V0.3.0 支持对话配置)
                         try:
-                            for chunk in service.chat_stream(
+                            # 使用配置化的聊天方法
+                            chat_result = service.chat_with_conversation_config(
                                 user_message=user_message,
+                                conversation_config=conversation_config,
                                 conversation_history=conversation_history,
                                 knowledge_context=knowledge_context,
-                                system_prompt=system_prompt
-                            ):
-                                ai_response += chunk
-                                yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
+                                stream=True
+                            )
+                            
+                            if chat_result['success'] and 'stream' in chat_result:
+                                # V0.3.1 修复：DeepSeek-R1 流式响应处理 - 先发送思考过程，再发送内容
+                                is_r1_model = conversation_config.get('model_name') == 'deepseek-reasoner'
+                                full_response = ""
+                                reasoning_content = ""
+                                content_started = False
+                                
+                                # 处理流式响应 - 分两阶段：先thinking，后content
+                                for chunk in chat_result['stream']:
+                                    # V0.3.1 优先处理reasoning_content（DeepSeek-R1特有）
+                                    if hasattr(chunk.choices[0], 'delta') and hasattr(chunk.choices[0].delta, 'reasoning_content'):
+                                        if chunk.choices[0].delta.reasoning_content is not None:
+                                            reasoning_content += chunk.choices[0].delta.reasoning_content
+                                            # 流式发送思考过程
+                                            if is_r1_model:
+                                                yield f"data: {json.dumps({'type': 'thinking_stream', 'content': chunk.choices[0].delta.reasoning_content})}\n\n"
+                                    
+                                    # 处理正文内容
+                                    if chunk.choices[0].delta.content is not None:
+                                        content = chunk.choices[0].delta.content
+                                        ai_response += content
+                                        full_response += content
+                                        
+                                        # 第一次收到content时，先发送思考完成信号
+                                        if not content_started and is_r1_model and reasoning_content.strip():
+                                            yield f"data: {json.dumps({'type': 'thinking_complete', 'thinking_process': reasoning_content.strip()})}\n\n"
+                                            logger.info(f"[R1][THINKING] 思考过程完成，开始正文: {len(reasoning_content)} 字符")
+                                            content_started = True
+                                        
+                                        # 发送正文内容
+                                        yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+                                
+                                # 流式完成后处理
+                                if is_r1_model:
+                                    # 如果有思考过程但没有通过reasoning_content发送，使用备用方案
+                                    if not reasoning_content.strip():
+                                        import re
+                                        think_pattern = r'<think>(.*?)</think>|<thinking>(.*?)</thinking>'
+                                        think_matches = re.findall(think_pattern, full_response, re.DOTALL)
+                                        
+                                        if think_matches:
+                                            thinking_parts = []
+                                            for match in think_matches:
+                                                thinking_parts.extend([part for part in match if part.strip()])
+                                            thinking_process = '\n\n'.join(thinking_parts).strip()
+                                            
+                                            if thinking_process:
+                                                # 发送备用思考过程
+                                                yield f"data: {json.dumps({'type': 'thinking_complete', 'thinking_process': thinking_process})}\n\n"
+                                                logger.info(f"[R1][THINKING] 备用方案发送思考过程: {len(thinking_process)} 字符")
+                                                
+                                                # 从ai_response中移除思考标记
+                                                ai_response = re.sub(r'<think>.*?</think>|<thinking>.*?</thinking>', '', ai_response, flags=re.DOTALL).strip()
+                            else:
+                                # 回退到老方法
+                                for chunk in service.chat_stream(
+                                    user_message=user_message,
+                                    conversation_history=conversation_history,
+                                    knowledge_context=knowledge_context,
+                                    system_prompt=system_prompt
+                                ):
+                                    ai_response += chunk
+                                    yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
                             
                             debug_info['langchain_result'] = {
                                 'success': True,
                                 'response_length': len(ai_response),
                                 'context_info': context_info,
-                                'stream_mode': True
+                                'stream_mode': True,
+                                'config_used': conversation_config
                             }
                             
                         except Exception as stream_error:
@@ -494,16 +612,82 @@ def chat():
                             knowledge_context=knowledge_context
                         )
                         
-                        # 获取DeepSeek服务并流式获取响应
+                        # 获取DeepSeek服务并流式获取响应 (V0.3.0 支持对话配置)
                         service = get_deepseek_service()
-                        for chunk in service.chat_stream(
+                        
+                        # 使用配置化的聊天方法
+                        chat_result = service.chat_with_conversation_config(
                             user_message=user_message,
+                            conversation_config=conversation_config,
                             conversation_history=conversation_history,
                             knowledge_context=knowledge_context,
-                            system_prompt=system_prompt
-                        ):
-                            ai_response += chunk
-                            yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
+                            stream=True
+                        )
+                        
+                        if chat_result['success'] and 'stream' in chat_result:
+                            # V0.3.1 修复：DeepSeek-R1 流式响应处理（传统方式）- 先发送思考过程，再发送内容
+                            is_r1_model = conversation_config.get('model_name') == 'deepseek-reasoner'
+                            full_response = ""
+                            reasoning_content = ""
+                            content_started = False
+                            
+                            # 处理流式响应 - 分两阶段：先thinking，后content
+                            for chunk in chat_result['stream']:
+                                # V0.3.1 优先处理reasoning_content（DeepSeek-R1特有）
+                                if hasattr(chunk.choices[0], 'delta') and hasattr(chunk.choices[0].delta, 'reasoning_content'):
+                                    if chunk.choices[0].delta.reasoning_content is not None:
+                                        reasoning_content += chunk.choices[0].delta.reasoning_content
+                                        # 流式发送思考过程
+                                        if is_r1_model:
+                                            yield f"data: {json.dumps({'type': 'thinking_stream', 'content': chunk.choices[0].delta.reasoning_content})}\n\n"
+                                
+                                # 处理正文内容
+                                if chunk.choices[0].delta.content is not None:
+                                    content = chunk.choices[0].delta.content
+                                    ai_response += content
+                                    full_response += content
+                                    
+                                    # 第一次收到content时，先发送思考完成信号
+                                    if not content_started and is_r1_model and reasoning_content.strip():
+                                        yield f"data: {json.dumps({'type': 'thinking_complete', 'thinking_process': reasoning_content.strip()})}\n\n"
+                                        logger.info(f"[R1][THINKING] 传统方式思考过程完成，开始正文: {len(reasoning_content)} 字符")
+                                        content_started = True
+                                    
+                                    # 发送正文内容
+                                    yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+                            
+                            # 流式完成后处理
+                            if is_r1_model:
+                                # 如果有思考过程但没有通过reasoning_content发送，使用备用方案
+                                if not reasoning_content.strip():
+                                    # 备用方案：检查完整响应中的思考标记
+                                    import re
+                                    think_pattern = r'<think>(.*?)</think>|<thinking>(.*?)</thinking>'
+                                    think_matches = re.findall(think_pattern, full_response, re.DOTALL)
+                                    
+                                    if think_matches:
+                                        thinking_parts = []
+                                        for match in think_matches:
+                                            thinking_parts.extend([part for part in match if part.strip()])
+                                        thinking_process = '\n\n'.join(thinking_parts).strip()
+                                        
+                                        if thinking_process:
+                                            # 发送备用思考过程
+                                            yield f"data: {json.dumps({'type': 'thinking_complete', 'thinking_process': thinking_process})}\n\n"
+                                            logger.info(f"[R1][THINKING] 传统方式备用方案发送思考过程: {len(thinking_process)} 字符")
+                                            
+                                            # 从ai_response中移除思考标记
+                                            ai_response = re.sub(r'<think>.*?</think>|<thinking>.*?</thinking>', '', ai_response, flags=re.DOTALL).strip()
+                        else:
+                            # 回退到老方法
+                            for chunk in service.chat_stream(
+                                user_message=user_message,
+                                conversation_history=conversation_history,
+                                knowledge_context=knowledge_context,
+                                system_prompt=system_prompt
+                            ):
+                                ai_response += chunk
+                                yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
                     
                     # 完成处理
                     debug_info['timing']['total_time'] = time.time() - start_time
@@ -515,6 +699,7 @@ def chat():
                             'conversation_id': conversation.id,
                             'ai_msg_id': ai_msg_id,
                             'ai_response': ai_response,
+                            'thinking_process': reasoning_content if 'reasoning_content' in locals() and reasoning_content.strip() else None,  # V0.3.1 新增
                             'debug_info': debug_info,
                             'user_id': current_user.id,
                             'retry_count': 0
@@ -539,6 +724,24 @@ def chat():
                         'processing_complete': True,
                         'save_queued': bool(ai_response.strip()),
                         'queue_size': message_save_queue.qsize()
+                    }
+                    
+                    # V0.3.1 添加API交互信息到调试数据
+                    debug_info['api_request'] = {
+                        'model': conversation_config.get('model_name'),
+                        'temperature': conversation_config.get('temperature'),
+                        'max_tokens': conversation_config.get('max_tokens'),
+                        'messages_count': len(conversation_history) + 2,  # 包括系统提示和用户消息
+                        'system_prompt_length': len(conversation_config.get('system_prompt', '') or ''),
+                        'user_message': user_message
+                    }
+                    
+                    debug_info['api_response'] = {
+                        'content': ai_response,
+                        'content_length': len(ai_response),
+                        'reasoning_content': reasoning_content if 'reasoning_content' in locals() else None,
+                        'success': True,
+                        'model_used': conversation_config.get('model_name')
                     }
                     
                     # 发送完成消息，包含调试信息
@@ -620,13 +823,14 @@ def chat():
                 
                 ai_response = api_result['data']['choices'][0]['message']['content']
             
-            # 保存AI消息（非流式模式直接保存）
+            # 保存AI消息（非流式模式直接保存）- V0.3.1 兼容思考过程
             ai_msg_id = str(uuid.uuid4())
             ai_msg = Message(
                 id=ai_msg_id,
                 conversation_id=conversation.id,
                 role='assistant',
                 content=ai_response,
+                msg_metadata={},  # V0.3.1 非流式模式暂无思考过程
                 token_count=len(ai_response.split()),
                 created_at=datetime.utcnow()
             )
@@ -653,8 +857,9 @@ def chat():
 
 @api_bp.route('/chat_simple', methods=['POST'])
 @login_required
+@require_write_permission
 def chat_simple():
-    """简单聊天API（非流式）"""
+    """简单聊天API（非流式）- V0.3.0 支持对话配置"""
     try:
         data = request.get_json()
         
@@ -665,6 +870,7 @@ def chat_simple():
             }), 400
         
         user_message = data['message'].strip()
+        conversation_id = data.get('conversation_id')
         
         if not user_message:
             return jsonify({
@@ -672,16 +878,111 @@ def chat_simple():
                 'message': '消息不能为空'
             }), 400
         
-        # 直接调用DeepSeek API进行测试
+        # 获取对话和配置
+        conversation = None
+        if conversation_id:
+            conversation = Conversation.query.filter_by(
+                id=conversation_id,
+                user_id=current_user.id
+            ).first()
+        
+        if not conversation:
+            # 创建新对话，使用默认配置
+            conversation = Conversation(
+                id=str(uuid.uuid4()),
+                user_id=current_user.id,
+                title=user_message[:50] + ('...' if len(user_message) > 50 else ''),
+                model_name='deepseek-chat',  # 默认模型
+                temperature=1.0,             # 默认温度
+                max_tokens=4000,             # 默认输出长度
+                system_prompt=None,          # 默认无系统提示词
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.session.add(conversation)
+            db.session.commit()
+        
+        # 准备对话配置
+        conversation_config = {
+            'model_name': conversation.model_name,
+            'temperature': conversation.temperature,
+            'max_tokens': conversation.max_tokens,
+            'system_prompt': conversation.system_prompt
+        }
+        
+        # 保存用户消息
+        user_msg = Message(
+            id=str(uuid.uuid4()),
+            conversation_id=conversation.id,
+            role='user',
+            content=user_message,
+            token_count=len(user_message.split()),
+            created_at=datetime.utcnow()
+        )
+        db.session.add(user_msg)
+        
+        # 获取对话历史
+        conversation_service = ConversationService()
+        conversation_history, _ = conversation_service.get_optimized_context(conversation)
+        # 排除当前用户消息
+        conversation_history = [msg for msg in conversation_history if msg.get('content') != user_message]
+        
+        # 使用配置化聊天
         service = get_deepseek_service()
-        result = service.simple_chat(user_message)
+        result = service.chat_with_conversation_config(
+            user_message=user_message,
+            conversation_config=conversation_config,
+            conversation_history=conversation_history,
+            knowledge_context=None,  # 简单聊天暂不支持知识库
+            stream=False
+        )
         
         if result['success']:
-            return jsonify({
+            # 获取AI响应内容
+            ai_response = result['data']['choices'][0]['message']['content']
+            
+            # 保存AI消息 - V0.3.1 包含思考过程
+            thinking_process = result.get('thinking_process') if result.get('has_thinking') else None
+            msg_metadata = {}
+            if thinking_process and thinking_process.strip():
+                msg_metadata['thinking_process'] = thinking_process
+                
+            ai_msg = Message(
+                id=str(uuid.uuid4()),
+                conversation_id=conversation.id,
+                role='assistant',
+                content=ai_response,
+                msg_metadata=msg_metadata,  # V0.3.1 思考过程存储在metadata中
+                token_count=result['data'].get('usage', {}).get('completion_tokens', len(ai_response.split())),
+                created_at=datetime.utcnow()
+            )
+            db.session.add(ai_msg)
+            
+            # 更新对话统计
+            conversation.message_count += 2
+            conversation.updated_at = datetime.utcnow()
+            db.session.commit()
+            
+            response_data = {
                 'success': True,
-                'response': result['response'],
-                'usage': result.get('usage', {})
-            })
+                'response': ai_response,
+                'conversation_id': conversation.id,
+                'conversation_config': {
+                    'model_name': conversation.model_name,
+                    'model_display_name': conversation.get_model_display_name(),
+                    'temperature': conversation.temperature,
+                    'temperature_display_name': conversation.get_temperature_display_name(),
+                    'max_tokens': conversation.max_tokens
+                },
+                'usage': result['data'].get('usage', {})
+            }
+            
+            # 如果是 DeepSeek-R1 模型，包含思考过程
+            if result.get('has_thinking'):
+                response_data['thinking_process'] = result.get('thinking_process', '')
+                response_data['has_thinking'] = True
+            
+            return jsonify(response_data)
         else:
             return jsonify({
                 'success': False,
@@ -689,6 +990,7 @@ def chat_simple():
             }), 500
             
     except Exception as e:
+        db.session.rollback()
         logger.error(f"简单聊天API异常: {str(e)}")
         return jsonify({
             'success': False,
@@ -697,6 +999,7 @@ def chat_simple():
 
 @api_bp.route('/knowledge_bases', methods=['GET'])
 @login_required
+@require_read_permission
 def get_knowledge_bases():
     """获取用户知识库列表"""
     try:
@@ -714,6 +1017,7 @@ def get_knowledge_bases():
 
 @api_bp.route('/conversations', methods=['GET'])
 @login_required
+@require_read_permission
 def get_conversations():
     """获取对话列表"""
     try:
@@ -772,6 +1076,7 @@ def get_conversations():
 
 @api_bp.route('/conversations/<conversation_id>/messages', methods=['GET'])
 @login_required
+@require_read_permission
 def get_conversation_messages(conversation_id):
     """获取对话的所有消息"""
     try:
@@ -810,10 +1115,16 @@ def get_conversation_messages(conversation_id):
                     else:  # 超过1天
                         time_diff = f"{int(diff_seconds // 86400)}天后"
             
+            # V0.3.1 修复：添加思考过程字段到返回数据中
+            thinking_process = None
+            if msg.msg_metadata and isinstance(msg.msg_metadata, dict):
+                thinking_process = msg.msg_metadata.get('thinking_process')
+            
             message_list.append({
                 'id': msg.id,
                 'role': msg.role,
                 'content': msg.content,
+                'thinking_process': thinking_process,  # V0.3.1 新增：思考过程字段
                 'token_count': msg.token_count or 0,
                 'created_at': msg.created_at.isoformat(),
                 'created_at_formatted': msg.created_at.strftime('%Y-%m-%d %H:%M:%S'),
@@ -843,6 +1154,7 @@ def get_conversation_messages(conversation_id):
 
 @api_bp.route('/conversations/<conversation_id>', methods=['DELETE'])
 @login_required
+@require_write_permission
 def delete_conversation(conversation_id):
     """删除对话及其所有消息"""
     try:
@@ -877,6 +1189,7 @@ def delete_conversation(conversation_id):
 
 @api_bp.route('/conversations/<conversation_id>/title', methods=['PUT'])
 @login_required
+@require_write_permission
 def update_conversation_title(conversation_id):
     """更新对话标题"""
     try:
@@ -930,6 +1243,7 @@ def test_deepseek():
 
 @api_bp.route('/stats', methods=['GET'])
 @login_required
+@require_read_permission
 def get_stats():
     """获取用户统计信息"""
     try:
@@ -956,6 +1270,7 @@ def get_stats():
 
 @api_bp.route('/save_message', methods=['POST'])
 @login_required
+@require_write_permission
 def save_message():
     """保存AI响应消息"""
     try:
@@ -1258,7 +1573,7 @@ def analyze_langchain_context(conversation_id):
 def get_langchain_config():
     """获取 LangChain 配置信息"""
     try:
-        from config.settings import Config
+        from config.settings import BaseConfig
         
         config_info = {
             'enabled': BaseConfig.LANGCHAIN_ENABLED,
@@ -1370,6 +1685,188 @@ def get_message_save_status():
         return jsonify({
             "success": False,
             "error": str(e)
+        }), 500
+
+
+# V0.3.0 对话参数管理 API
+@api_bp.route('/conversations/<conversation_id>/config', methods=['GET'])
+@login_required
+@require_read_permission
+def get_conversation_config(conversation_id):
+    """获取对话参数配置"""
+    try:
+        conversation = Conversation.query.filter_by(
+            id=conversation_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not conversation:
+            return jsonify({
+                'success': False,
+                'message': '对话不存在或无权限访问'
+            }), 404
+        
+        config = {
+            'conversation_id': conversation.id,
+            'model_name': conversation.model_name,
+            'model_display_name': conversation.get_model_display_name(),
+            'temperature': conversation.temperature,
+            'temperature_display_name': conversation.get_temperature_display_name(),
+            'max_tokens': conversation.max_tokens,
+            'max_tokens_options': conversation.get_max_tokens_options(),
+            'system_prompt': conversation.system_prompt or '',
+            'available_models': [
+                {'value': 'deepseek-chat', 'label': 'DeepSeek-V3', 'max_tokens_options': [4000, 8000]},
+                {'value': 'deepseek-reasoner', 'label': 'DeepSeek-R1', 'max_tokens_options': [32000, 64000]}
+            ],
+            'available_temperatures': [
+                {'value': 0.0, 'label': '代码生成'},
+                {'value': 1.0, 'label': '通用对话'},
+                {'value': 1.5, 'label': '创意写作'}
+            ]
+        }
+        
+        return jsonify({
+            'success': True,
+            'config': config
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取对话配置失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'获取配置失败: {str(e)}'
+        }), 500
+
+
+@api_bp.route('/conversations/<conversation_id>/config', methods=['PUT'])
+@login_required
+@require_write_permission
+def update_conversation_config(conversation_id):
+    """更新对话参数配置"""
+    try:
+        conversation = Conversation.query.filter_by(
+            id=conversation_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not conversation:
+            return jsonify({
+                'success': False,
+                'message': '对话不存在或无权限访问'
+            }), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': '缺少配置数据'
+            }), 400
+        
+        # 更新配置
+        try:
+            conversation.update_conversation_config(
+                model_name=data.get('model_name'),
+                temperature=data.get('temperature'),
+                max_tokens=data.get('max_tokens'),
+                system_prompt=data.get('system_prompt')
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': '对话配置更新成功',
+                'config': {
+                    'model_name': conversation.model_name,
+                    'model_display_name': conversation.get_model_display_name(),
+                    'temperature': conversation.temperature,
+                    'temperature_display_name': conversation.get_temperature_display_name(),
+                    'max_tokens': conversation.max_tokens,
+                    'system_prompt': conversation.system_prompt
+                }
+            })
+            
+        except ValueError as e:
+            return jsonify({
+                'success': False,
+                'message': str(e)
+            }), 400
+        
+    except Exception as e:
+        current_app.logger.error(f"更新对话配置失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'更新配置失败: {str(e)}'
+        }), 500
+
+
+@api_bp.route('/conversations', methods=['POST'])
+@login_required
+@require_write_permission
+def create_conversation_with_config():
+    """创建带有自定义配置的新对话"""
+    try:
+        data = request.get_json() or {}
+        
+        # 验证和设置默认值
+        model_name = data.get('model_name', 'deepseek-chat')
+        if model_name not in ['deepseek-chat', 'deepseek-reasoner']:
+            model_name = 'deepseek-chat'
+        
+        temperature = data.get('temperature', 1.0)
+        if temperature not in [0.0, 1.0, 1.5]:
+            temperature = 1.0
+        
+        # 根据模型设置默认max_tokens
+        if model_name == 'deepseek-chat':
+            default_max_tokens = 4000
+            valid_max_tokens = [4000, 8000]
+        else:  # deepseek-reasoner
+            default_max_tokens = 32000
+            valid_max_tokens = [32000, 64000]
+        
+        max_tokens = data.get('max_tokens', default_max_tokens)
+        if max_tokens not in valid_max_tokens:
+            max_tokens = default_max_tokens
+        
+        system_prompt = data.get('system_prompt', '').strip()
+        if len(system_prompt) > 2000:
+            return jsonify({
+                'success': False,
+                'message': '系统提示词不能超过2000字'
+            }), 400
+        
+        title = data.get('title', '新对话')
+        knowledge_base_id = data.get('knowledge_base_id')
+        
+        # 创建对话
+        conversation = Conversation(
+            id=str(uuid.uuid4()),
+            title=title,
+            user_id=current_user.id,
+            knowledge_base_id=knowledge_base_id,
+            model_name=model_name,
+            system_prompt=system_prompt if system_prompt else None,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        db.session.add(conversation)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '对话创建成功',
+            'conversation': conversation.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"创建对话失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'创建对话失败: {str(e)}'
         }), 500
 
 @api_bp.route('/test_multi_turn', methods=['POST'])

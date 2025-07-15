@@ -6,9 +6,7 @@ SuperRAG配置文件示例
 import os
 from datetime import timedelta
 
-class Config:
-    """配置基类"""
-    
+class BaseConfig:
     # Flask配置
     SECRET_KEY = "your-secret-key-here"
     
@@ -22,8 +20,8 @@ class Config:
     
     # API密钥
     OPENAI_API_KEY = "your-openai-api-key"
-    DEEPSEEK_API_KEY = "your-deepseek-api-key"
-    DEEPSEEK_API_BASE = "https://api.deepseek.com/v1"
+    DEEPSEEK_API_KEY = "sk-157323fda4204a02afa405149a0fefcf"
+    DEEPSEEK_API_BASE = "https://api.deepseek.com"
     DEEPSEEK_MODEL = "deepseek-chat"
     
     # 文件上传配置
@@ -43,34 +41,30 @@ class Config:
     LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
     LOG_FILE = "logs/app.log"
     
+    # LangChain配置
+    LANGCHAIN_ENABLED = False
+    LANGCHAIN_MEMORY_TYPE = "buffer"
+    LANGCHAIN_MAX_TOKEN_LIMIT = 8000
+    LANGCHAIN_WINDOW_SIZE = 10
+    LANGCHAIN_DEBUG = False
+    LANGCHAIN_VERBOSE = False
+    
+    # 对话相关配置
+    CONVERSATION_SUMMARY_ROUNDS = 10
+    CONVERSATION_SUMMARY_TOKEN_LIMIT = 3000
+    MAX_CONTEXT_MESSAGES = 20
+    
     # 其他配置
     DEBUG = False
     TESTING = False
     
-    @classmethod
-    def get_config(cls, config_name=None):
-        """获取配置类"""
-        config_mapping = {
-            'development': DevelopmentConfig,
-            'production': ProductionConfig,
-            'testing': TestingConfig
-        }
-        
-        if config_name:
-            return config_mapping.get(config_name, DevelopmentConfig)
-        
-        # 默认使用开发配置
-        return DevelopmentConfig
-
-class DevelopmentConfig(Config):
-    """开发环境配置"""
+class DevelopmentConfig(BaseConfig):
     DEBUG = True
     
-class ProductionConfig(Config):
-    """生产环境配置"""
+class ProductionConfig(BaseConfig):
+    # 生产环境特定配置
     pass
     
-class TestingConfig(Config):
-    """测试环境配置"""
+class TestingConfig(BaseConfig):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:" 

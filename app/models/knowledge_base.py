@@ -9,6 +9,7 @@ from sqlalchemy import text
 import uuid
 import os
 from app.database import db
+from app.utils.timezone_utils import get_beijing_time_for_db
 
 class KnowledgeBase(db.Model):
     """知识库模型"""
@@ -39,8 +40,8 @@ class KnowledgeBase(db.Model):
     chunk_overlap = db.Column(db.Integer, default=200, nullable=False)
     
     # 时间戳
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=get_beijing_time_for_db, nullable=False)
+    updated_at = db.Column(db.DateTime, default=get_beijing_time_for_db, onupdate=get_beijing_time_for_db, nullable=False)
     
     # 关联关系
     documents = db.relationship('Document', backref='knowledge_base', lazy='dynamic', cascade='all, delete-orphan')
@@ -118,8 +119,8 @@ class Document(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     
     # 时间戳
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=get_beijing_time_for_db, nullable=False)
+    updated_at = db.Column(db.DateTime, default=get_beijing_time_for_db, onupdate=get_beijing_time_for_db, nullable=False)
     processed_at = db.Column(db.DateTime, nullable=True)
     
     # 关联关系
@@ -186,7 +187,7 @@ class DocumentChunk(db.Model):
     embedding = db.Column(db.JSON, nullable=True)  # 存储向量嵌入
     
     # 时间戳
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=get_beijing_time_for_db, nullable=False)
     
     def to_dict(self):
         """转换为字典"""
@@ -219,11 +220,11 @@ class Conversation(db.Model):
     # 关联知识库（可选）
     knowledge_base_id = db.Column(db.String(36), db.ForeignKey('knowledge_bases.id'), nullable=True, index=True)
     
-    # 对话设置
-    model_name = db.Column(db.String(50), default='deepseek-chat', nullable=False)
-    system_prompt = db.Column(db.Text, nullable=True)
-    temperature = db.Column(db.Float, default=0.7, nullable=False)
-    max_tokens = db.Column(db.Integer, default=2000, nullable=False)
+    # 对话设置 - V0.3.0 扩展
+    model_name = db.Column(db.String(50), default='deepseek-chat', nullable=False)  # deepseek-chat 或 deepseek-reasoner
+    system_prompt = db.Column(db.Text, nullable=True)  # 初始提示词（2k字以内）
+    temperature = db.Column(db.Float, default=1.0, nullable=False)  # 0, 1.0, 1.5
+    max_tokens = db.Column(db.Integer, default=4000, nullable=False)  # V3: 4k/8k, R1: 32k/64k
     
     # 统计信息
     message_count = db.Column(db.Integer, default=0, nullable=False)
@@ -233,8 +234,8 @@ class Conversation(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     
     # 时间戳
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=get_beijing_time_for_db, nullable=False)
+    updated_at = db.Column(db.DateTime, default=get_beijing_time_for_db, onupdate=get_beijing_time_for_db, nullable=False)
     
     # 关联关系
     messages = db.relationship('Message', backref='conversation', lazy='dynamic', cascade='all, delete-orphan')
@@ -246,15 +247,94 @@ class Conversation(db.Model):
         self.total_tokens = sum(msg.token_count for msg in self.messages if msg.token_count) or 0
         db.session.commit()
     
+    def get_model_display_name(self):
+        """获取模型显示名称"""
+        model_names = {
+            'deepseek-chat': 'DeepSeek-V3',
+            'deepseek-reasoner': 'DeepSeek-R1'
+        }
+        return model_names.get(self.model_name, self.model_name)
+    
+    def get_temperature_display_name(self):
+        """获取温度显示名称"""
+        temp_names = {
+            0.0: '代码生成',
+            1.0: '通用对话',
+            1.5: '创意写作'
+        }
+        return temp_names.get(self.temperature, f'自定义({self.temperature})')
+    
+    def get_max_tokens_options(self):
+        """获取当前模型支持的输出长度选项"""
+        if self.model_name == 'deepseek-chat':
+            return [4000, 8000]  # V3: 4k, 8k
+        elif self.model_name == 'deepseek-reasoner':
+            return [32000, 64000]  # R1: 32k, 64k
+        else:
+            return [4000, 8000]  # 默认
+    
+    def validate_system_prompt(self, prompt):
+        """验证系统提示词长度（2k字以内）"""
+        if prompt and len(prompt) > 2000:
+            return False, "系统提示词不能超过2000字"
+        return True, ""
+    
+    def update_conversation_config(self, model_name=None, temperature=None, max_tokens=None, system_prompt=None):
+        """更新对话配置参数"""
+        if model_name is not None:
+            # 验证模型名称
+            valid_models = ['deepseek-chat', 'deepseek-reasoner']
+            if model_name in valid_models:
+                self.model_name = model_name
+                # 切换模型时重置max_tokens为默认值
+                if model_name == 'deepseek-chat':
+                    self.max_tokens = 4000
+                elif model_name == 'deepseek-reasoner':
+                    self.max_tokens = 32000
+        
+        if temperature is not None:
+            # 验证温度值
+            valid_temps = [0.0, 1.0, 1.5]
+            if temperature in valid_temps:
+                self.temperature = temperature
+        
+        if max_tokens is not None:
+            # 验证输出长度
+            valid_tokens = self.get_max_tokens_options()
+            if max_tokens in valid_tokens:
+                self.max_tokens = max_tokens
+        
+        if system_prompt is not None:
+            # 验证系统提示词
+            valid, error_msg = self.validate_system_prompt(system_prompt)
+            if valid:
+                self.system_prompt = system_prompt
+            else:
+                raise ValueError(error_msg)
+        
+        db.session.commit()
+    
+    def get_conversation_config(self):
+        """获取对话配置参数 - V0.3.0"""
+        return {
+            'model_name': self.model_name,
+            'temperature': self.temperature,
+            'max_tokens': self.max_tokens,
+            'system_prompt': self.system_prompt
+        }
+    
     def to_dict(self, include_messages=False):
-        """转换为字典"""
+        """转换为字典 - V0.3.0 增强版"""
         data = {
             'id': self.id,
             'title': self.title,
             'model_name': self.model_name,
+            'model_display_name': self.get_model_display_name(),
             'system_prompt': self.system_prompt,
             'temperature': self.temperature,
+            'temperature_display_name': self.get_temperature_display_name(),
             'max_tokens': self.max_tokens,
+            'max_tokens_options': self.get_max_tokens_options(),
             'message_count': self.message_count,
             'total_tokens': self.total_tokens,
             'is_active': self.is_active,
@@ -267,20 +347,6 @@ class Conversation(db.Model):
             data['messages'] = [msg.to_dict() for msg in self.messages.order_by(Message.created_at)]
         
         return data
-    
-    def to_dict(self):
-        """转换为字典格式"""
-        return {
-            'id': self.id,
-            'title': self.title,
-            'model_name': self.model_name,
-            'system_prompt': self.system_prompt,
-            'message_count': self.message_count,
-            'total_tokens': self.total_tokens,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
 
     def __repr__(self):
         return f'<Conversation {self.title}>'
@@ -301,7 +367,7 @@ class Message(db.Model):
     role = db.Column(db.String(20), nullable=False)  # user, assistant, system
     content = db.Column(db.Text, nullable=False)
     
-    # 元数据
+    # 元数据（V0.3.1 思考过程存储在这里）
     msg_metadata = db.Column(db.JSON, default=dict, nullable=False)
     
     # 统计信息
@@ -312,7 +378,7 @@ class Message(db.Model):
     relevant_chunks = db.Column(db.JSON, nullable=True)  # 相关文档块ID列表
     
     # 时间戳
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=get_beijing_time_for_db, nullable=False)
     
     def to_dict(self):
         """转换为字典"""
@@ -320,6 +386,7 @@ class Message(db.Model):
             'id': self.id,
             'role': self.role,
             'content': self.content,
+            'thinking_process': self.msg_metadata.get('thinking_process') if self.msg_metadata else None,  # V0.3.1 从metadata获取
             'msg_metadata': self.msg_metadata,
             'token_count': self.token_count,
             'used_knowledge_base': self.used_knowledge_base,

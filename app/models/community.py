@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Enum, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.database import db
+from app.utils.timezone_utils import get_beijing_time_for_db
 import enum
 
 
@@ -57,10 +58,10 @@ class CommunityPost(db.Model):
     view_count = Column(Integer, default=0, comment='浏览数')
     
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=get_beijing_time_for_db)
+    updated_at = Column(DateTime, default=get_beijing_time_for_db, onupdate=get_beijing_time_for_db)
     
-    # 关联关系
+    # 关联关系 - 恢复关系定义
     user = relationship("User", back_populates="community_posts")
     conversation = relationship("Conversation", backref="community_posts")
     interactions = relationship("CommunityInteraction", back_populates="post", cascade="all, delete-orphan")
@@ -101,9 +102,9 @@ class CommunityInteraction(db.Model):
     post_id = Column(Integer, ForeignKey('community_posts.id'), nullable=False)
     interaction_type = Column(Enum(InteractionType), nullable=False)
     content = Column(Text, comment='评论内容(comment类型时使用)')
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_beijing_time_for_db)
     
-    # 关联关系
+    # 关联关系 - 恢复关系定义
     user = relationship("User", back_populates="community_interactions")
     post = relationship("CommunityPost", back_populates="interactions")
     
@@ -135,9 +136,9 @@ class UserFollow(db.Model):
     id = Column(Integer, primary_key=True, autoincrement=True)
     follower_id = Column(Integer, ForeignKey('users.id'), nullable=False, comment='关注者ID')
     following_id = Column(Integer, ForeignKey('users.id'), nullable=False, comment='被关注者ID')
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_beijing_time_for_db)
     
-    # 关联关系
+    # 关联关系 - 恢复关系定义
     follower = relationship("User", foreign_keys=[follower_id], back_populates="following_relationships")
     following = relationship("User", foreign_keys=[following_id], back_populates="follower_relationships")
     

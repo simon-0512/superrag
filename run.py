@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SuperRAG - 智能问答与知识管理平台
+Agorix - 现代雅典集市 · 智能对话交流分享平台
 启动文件
 """
 

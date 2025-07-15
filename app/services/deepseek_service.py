@@ -5,7 +5,7 @@ DeepSeek API 服务
 import logging
 from typing import Dict, List, Optional, Any, Iterator
 from openai import OpenAI
-from config.settings import Config
+from config.settings import BaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +13,9 @@ class DeepSeekService:
     """DeepSeek API 服务类"""
     
     def __init__(self):
-        self.api_key = Config.DEEPSEEK_API_KEY
-        self.api_base = Config.DEEPSEEK_API_BASE
-        self.model = Config.DEEPSEEK_MODEL
+        self.api_key = BaseConfig.DEEPSEEK_API_KEY
+        self.api_base = BaseConfig.DEEPSEEK_API_BASE
+        self.model = BaseConfig.DEEPSEEK_MODEL
         
         # 初始化OpenAI客户端
         self.client = OpenAI(
@@ -206,7 +206,7 @@ class DeepSeekService:
         
         # 1. 构建系统提示词（如果有）
         if not system_prompt:
-            system_prompt = "你是SuperRAG智能助手，基于DeepSeek-V3模型。你能够回答用户的问题，并基于提供的知识库内容给出准确的答案。请用中文回答。"
+            system_prompt = "你是Agorix智能助手，来自现代雅典集市，基于DeepSeek-V3模型。你能够回答用户的问题，并基于提供的知识库内容给出准确的答案。请用中文回答。"
         
         if knowledge_context:
             system_prompt += f"\n\n以下是相关的知识库内容，请基于这些内容回答用户问题：\n{knowledge_context}"
@@ -255,7 +255,7 @@ class DeepSeekService:
         
         # 1. 构建系统提示词
         if not system_prompt:
-            system_prompt = "你是SuperRAG智能助手，基于DeepSeek-V3模型。你能够回答用户的问题，并基于提供的知识库内容给出准确的答案。请用中文回答。"
+            system_prompt = "你是Agorix智能助手，来自现代雅典集市，基于DeepSeek-V3模型。你能够回答用户的问题，并基于提供的知识库内容给出准确的答案。请用中文回答。"
         
         if knowledge_context:
             system_prompt += f"\n\n以下是相关的知识库内容，请基于这些内容回答用户问题：\n{knowledge_context}"
@@ -281,6 +281,160 @@ class DeepSeekService:
         
         # 使用流式API
         yield from self.chat_completion_stream(messages)
+    
+    def chat_with_conversation_config(self,
+                                     user_message: str,
+                                     conversation_config: Dict[str, Any],
+                                     conversation_history: List[Dict[str, str]] = None,
+                                     knowledge_context: str = None,
+                                     stream: bool = True) -> Dict[str, Any]:
+        """
+        使用对话配置参数进行聊天 - V0.3.0 新功能
+        
+        Args:
+            user_message: 用户消息
+            conversation_config: 对话配置 (model_name, temperature, max_tokens, system_prompt)
+            conversation_history: 对话历史
+            knowledge_context: 知识库上下文
+            stream: 是否使用流式响应
+            
+        Returns:
+            包含成功状态和响应内容的字典
+        """
+        try:
+            # 从配置中获取参数
+            model_name = conversation_config.get('model_name', 'deepseek-chat')
+            temperature = conversation_config.get('temperature', 1.0)
+            max_tokens = conversation_config.get('max_tokens', 4000)
+            system_prompt = conversation_config.get('system_prompt', '')
+            
+            # 构建消息列表
+            messages = []
+            
+            # 1. 构建系统提示词
+            if not system_prompt:
+                if model_name == 'deepseek-reasoner':
+                    system_prompt = "你是Agorix智能助手，来自现代雅典集市，基于DeepSeek-R1模型。你具有深度思考能力，能够进行复杂推理和问题分析。请用中文回答。"
+                else:
+                    system_prompt = "你是Agorix智能助手，来自现代雅典集市，基于DeepSeek-V3模型。你能够回答用户的问题，并基于提供的知识库内容给出准确的答案。请用中文回答。"
+            
+            if knowledge_context:
+                system_prompt += f"\n\n以下是相关的知识库内容，请基于这些内容回答用户问题：\n{knowledge_context}"
+            
+            messages.append({
+                "role": "system",
+                "content": system_prompt
+            })
+            
+            # 2. 添加对话历史
+            if conversation_history:
+                messages.extend(conversation_history)
+            
+            # 3. 添加当前用户消息
+            messages.append({
+                "role": "user",
+                "content": user_message
+            })
+            
+            logger.info(f"[CHAT][CONFIG] 使用配置 - 模型: {model_name}, 温度: {temperature}, 最大Token: {max_tokens}")
+            
+            # 调用API
+            result = self.chat_completion(
+                messages=messages,
+                model=model_name,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=stream
+            )
+            
+            # 针对 DeepSeek-R1 模型处理思考链
+            if result['success'] and model_name == 'deepseek-reasoner':
+                result = self._process_deepseek_r1_response(result)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"使用对话配置聊天异常: {str(e)}")
+            return {
+                'success': False,
+                'error': f"配置聊天失败: {str(e)}"
+            }
+    
+    def _process_deepseek_r1_response(self, api_result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        处理 DeepSeek-R1 模型的响应，分离思考链和最终答案
+        
+        Args:
+            api_result: 原始API结果
+            
+        Returns:
+            处理后的结果，包含 thinking_process 和 final_answer
+        """
+        try:
+            if not api_result.get('success'):
+                return api_result
+            
+            # V0.3.0 修复：支持流式响应的思考链处理
+            if 'stream' in api_result:
+                # 流式响应，直接返回，由调用方处理完整内容后再分离
+                return api_result
+            
+            # V0.3.1 修复：正确处理DeepSeek-R1的reasoning_content字段
+            choice = api_result['data']['choices'][0]
+            message = choice['message']
+            content = message['content']
+            
+            # 检查是否有reasoning_content字段（DeepSeek-R1特有）
+            reasoning_content = message.get('reasoning_content', '')
+            
+            if reasoning_content and reasoning_content.strip():
+                # DeepSeek-R1 有思考过程
+                api_result['thinking_process'] = reasoning_content
+                api_result['has_thinking'] = True
+                
+                logger.info(f"[R1][THINKING] 发现思考过程: {len(reasoning_content)} 字符")
+                logger.info(f"[R1][ANSWER] 最终答案: {len(content)} 字符")
+            else:
+                # 检查是否包含思考标记（备用方案）
+                thinking_markers = ['<think>', '</think>', '<thinking>', '</thinking>']
+                has_thinking_markers = any(marker in content for marker in thinking_markers)
+                
+                if has_thinking_markers:
+                    # 使用标记分离的备用方案
+                    import re
+                    
+                    # 提取 <think>...</think> 或 <thinking>...</thinking> 内容
+                    think_pattern = r'<think>(.*?)</think>|<thinking>(.*?)</thinking>'
+                    think_matches = re.findall(think_pattern, content, re.DOTALL)
+                    
+                    if think_matches:
+                        # 合并所有思考内容
+                        thinking_parts = []
+                        for match in think_matches:
+                            thinking_parts.extend([part for part in match if part.strip()])
+                        thinking_process = '\n\n'.join(thinking_parts).strip()
+                        
+                        # 移除思考标记，保留最终答案
+                        final_answer = re.sub(r'<think>.*?</think>|<thinking>.*?</thinking>', '', content, flags=re.DOTALL).strip()
+                        
+                        # 更新API结果
+                        api_result['data']['choices'][0]['message']['content'] = final_answer
+                        api_result['thinking_process'] = thinking_process
+                        api_result['has_thinking'] = True
+                        
+                        logger.info(f"[R1][THINKING] 备用方案提取思考过程: {len(thinking_process)} 字符")
+                        logger.info(f"[R1][ANSWER] 备用方案最终答案: {len(final_answer)} 字符")
+                    else:
+                        api_result['has_thinking'] = False
+                else:
+                    api_result['has_thinking'] = False
+            
+            return api_result
+            
+        except Exception as e:
+            logger.error(f"处理 DeepSeek-R1 响应异常: {str(e)}")
+            # 返回原始结果，不影响正常功能
+            return api_result
     
     def test_connection(self) -> Dict[str, Any]:
         """

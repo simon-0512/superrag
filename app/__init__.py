@@ -4,17 +4,23 @@ SuperRAG 应用包初始化
 
 import os
 from flask import Flask
-from config.settings import Config
 
 def create_app(config_name=None):
     """应用工厂函数"""
     app = Flask(__name__)
     
-    # 加载配置
-    if config_name:
-        app.config.from_object(Config.get_config(config_name))
-    else:
-        app.config.from_object(Config.get_config())
+    # 简化配置加载 - 直接使用DevelopmentConfig
+    from config.settings import DevelopmentConfig, ProductionConfig, TestingConfig
+    
+    config_name = config_name or os.environ.get('FLASK_ENV', 'development')
+    config_map = {
+        'development': DevelopmentConfig,
+        'production': ProductionConfig, 
+        'testing': TestingConfig
+    }
+    
+    config_class = config_map.get(config_name, DevelopmentConfig)
+    app.config.from_object(config_class)
     
     # 确保实例文件夹存在
     try:
@@ -32,9 +38,27 @@ def create_app(config_name=None):
     
     # 注册蓝图
     from app.routes import main_bp, api_bp
+    from app.routes.community_api import community_api
+    from app.routes.role_api import role_api_bp
+    from app.routes.admin import admin_bp
+    from app.routes.notification_api import notification_api
     
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(community_api)
+    app.register_blueprint(role_api_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(notification_api)
+    
+    # 注册自定义过滤器
+    def format_number(value):
+        """格式化数字，添加千位分隔符"""
+        try:
+            return "{:,}".format(int(value))
+        except (ValueError, TypeError):
+            return value
+    
+    app.jinja_env.filters['format_number'] = format_number
     
     # 错误处理
     @app.errorhandler(404)

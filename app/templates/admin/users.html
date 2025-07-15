@@ -1,0 +1,386 @@
+{% extends "admin/base.html" %}
+
+{% block title %}用户管理 - Agorix 管理后台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-users text-primary me-2"></i>
+        <span class="text-secondary">用户管理</span>
+    </div>
+</div>
+
+<!-- 搜索和过滤 -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="form-control" name="search" 
+                           placeholder="用户名、邮箱或昵称" 
+                           value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select name="role" class="form-select">
+                    <option value="">全部角色</option>
+                    {% for role in roles %}
+                        <option value="{{ role.value }}" 
+                                {{ 'selected' if role_filter == role.value }}>
+                            {{ {'admin': '管理员', 'tester': '测试人员', 'vip': 'VIP用户', 'user': '普通用户'}[role.value] }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="per_page" class="form-select">
+                    <option value="20" {{ 'selected' if users.per_page == 20 }}>20条/页</option>
+                    <option value="50" {{ 'selected' if users.per_page == 50 }}>50条/页</option>
+                    <option value="100" {{ 'selected' if users.per_page == 100 }}>100条/页</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i>搜索
+                </button>
+                <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i>重置
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 用户列表 -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0">
+        <div class="d-flex align-items-center">
+            <span class="text-secondary">用户列表</span>
+            <span class="badge bg-primary-light text-primary ms-2">{{ users.total }}</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if users.items %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>用户信息</th>
+                            <th>角色</th>
+                            <th>状态</th>
+                            <th>注册时间</th>
+                            <th>最后登录</th>
+                            <th width="100">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users.items %}
+                        <tr id="user-{{ user.id }}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-primary-light rounded-circle d-flex align-items-center justify-content-center me-3">
+                                        <i class="fas fa-user text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-body mb-1">{{ user.username }}</div>
+                                        <small class="text-muted">{{ user.email }}</small>
+                                        {% if user.nickname %}
+                                            <div><small class="text-muted">{{ user.nickname }}</small></div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 'danger' if user.role.value == 'admin' else 'primary' if user.role.value == 'tester' else 'warning' if user.role.value == 'vip' else 'secondary' }}-light text-{{ 'danger' if user.role.value == 'admin' else 'primary' if user.role.value == 'tester' else 'warning' if user.role.value == 'vip' else 'secondary' }}">
+                                    {{ user.get_role_name() }}
+                                </span>
+                            </td>
+                            <td>
+                                <div>
+                                    {% if user.deleted %}
+                                        <span class="badge bg-secondary-light text-secondary">已删除</span>
+                                    {% elif user.disabled %}
+                                        <span class="badge bg-warning-light text-warning">已禁用</span>
+                                    {% elif user.is_active %}
+                                        <span class="badge bg-success-light text-success">正常</span>
+                                    {% else %}
+                                        <span class="badge bg-danger-light text-danger">非活跃</span>
+                                    {% endif %}
+                                    {% if user.is_verified %}
+                                        <span class="badge bg-info-light text-info ms-1">已验证</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-body">{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '-' }}</div>
+                            </td>
+                            <td>
+                                <div class="text-body">{{ user.last_login_at.strftime('%Y-%m-%d %H:%M') if user.last_login_at else '从未登录' }}</div>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <a href="{{ url_for('admin.user_detail', user_id=user.id) }}" 
+                                       class="btn btn-sm btn-outline-primary" title="查看详情">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if user.id != current_user.id %}
+                                        {% if not user.deleted %}
+                                            <button class="btn btn-sm btn-outline-{{ 'success' if user.disabled else 'warning' }}"
+                                                    onclick="showToggleUserModal('{{ user.id }}', '{{ user.username }}', {{ 'true' if user.disabled else 'false' }})"
+                                                    title="{{ '启用' if user.disabled else '禁用' }}">
+                                                <i class="fas fa-{{ 'unlock' if user.disabled else 'lock' }}"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    onclick="showDeleteUserModal('{{ user.id }}', '{{ user.username }}')"
+                                                    title="删除">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        {% else %}
+                                            <span class="text-muted">已删除</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页 -->
+            {% if users.pages > 1 %}
+                <div class="card-footer border-0 bg-transparent">
+                    <nav aria-label="用户列表分页">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if users.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.users', page=users.prev_num, search=search, role=role_filter, per_page=users.per_page) }}">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page_num in users.iter_pages() %}
+                                {% if page_num %}
+                                    {% if page_num != users.page %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('admin.users', page=page_num, search=search, role=role_filter, per_page=users.per_page) }}">{{ page_num }}</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">…</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if users.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.users', page=users.next_num, search=search, role=role_filter, per_page=users.per_page) }}">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-users text-muted fa-3x mb-3"></i>
+                <h5 class="text-muted">没有找到用户</h5>
+                <p class="text-muted">尝试调整搜索条件或筛选器</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-primary-light { background-color: var(--primary-light) !important; }
+.bg-success-light { background-color: var(--success-light) !important; }
+.bg-warning-light { background-color: var(--warning-light) !important; }
+.bg-danger-light { background-color: var(--danger-light) !important; }
+.bg-info-light { background-color: var(--info-light) !important; }
+.bg-secondary-light { background-color: rgba(110, 119, 129, 0.1) !important; }
+
+.text-primary { color: var(--primary) !important; }
+.text-success { color: var(--success) !important; }
+.text-warning { color: var(--warning) !important; }
+.text-danger { color: var(--danger) !important; }
+.text-info { color: var(--info) !important; }
+.text-secondary { color: var(--secondary) !important; }
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+.table > :not(caption) > * > * {
+    padding: var(--spacing-md);
+}
+
+.table th {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-sm {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 12px;
+    height: 28px;
+}
+
+.badge {
+    font-weight: 500;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.text-body {
+    color: var(--text-primary) !important;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.card {
+    transition: var(--transition);
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 显示切换用户状态模态框
+function showToggleUserModal(userId, username, isDisabled) {
+    const action = isDisabled ? '启用' : '禁用';
+    const actionColor = isDisabled ? 'success' : 'warning';
+    const icon = isDisabled ? 'unlock' : 'lock';
+    
+    Swal.fire({
+        title: `${action}用户`,
+        html: `
+            <div class="text-center">
+                <div class="mb-3">
+                    <i class="fas fa-${icon} fa-3x text-${actionColor}"></i>
+                </div>
+                <p>确定要${action}用户 <strong>"${username}"</strong> 吗？</p>
+                <p class="text-muted small">${isDisabled ? '启用后用户将可以正常登录系统。' : '禁用后用户将无法登录系统。'}</p>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: action,
+        cancelButtonText: '取消',
+        confirmButtonColor: isDisabled ? '#1a7f37' : '#9a6700',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            toggleUserStatus(userId, username);
+        }
+    });
+}
+
+// 显示删除用户模态框
+function showDeleteUserModal(userId, username) {
+    Swal.fire({
+        title: '删除用户',
+        html: `
+            <div class="text-center">
+                <div class="mb-3">
+                    <i class="fas fa-trash fa-3x text-danger"></i>
+                </div>
+                <p>确定要删除用户 <strong>"${username}"</strong> 吗？</p>
+                <p class="text-muted small">删除后用户将无法登录系统，但其历史数据将被保留。</p>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#cf222e',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            deleteUser(userId, username);
+        }
+    });
+}
+
+// 切换用户状态
+function toggleUserStatus(userId, username) {
+    fetch(`/admin/users/${userId}/toggle_disable`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                title: '操作成功',
+                text: data.message,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.reload();
+            });
+        } else {
+            Swal.fire('错误', data.message, 'error');
+        }
+    })
+    .catch(error => {
+        Swal.fire('错误', '操作失败：网络错误', 'error');
+    });
+}
+
+// 删除用户
+function deleteUser(userId, username) {
+    fetch(`/admin/users/${userId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                title: '已删除',
+                text: data.message,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                window.location.reload();
+            });
+        } else {
+            Swal.fire('错误', data.message, 'error');
+        }
+    })
+    .catch(error => {
+        Swal.fire('错误', '删除失败：网络错误', 'error');
+    });
+}
+</script>
+{% endblock %} 

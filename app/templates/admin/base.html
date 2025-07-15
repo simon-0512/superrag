@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Agorix 管理后台{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- SweetAlert2 -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* 设计系统 */
+        :root {
+            /* 颜色系统 */
+            --primary: #0969da;
+            --primary-light: rgba(9, 105, 218, 0.1);
+            --secondary: #6e7781;
+            --success: #1a7f37;
+            --success-light: rgba(26, 127, 55, 0.1);
+            --warning: #9a6700;
+            --warning-light: rgba(154, 103, 0, 0.1);
+            --danger: #cf222e;
+            --danger-light: rgba(207, 34, 46, 0.1);
+            --info: #0969da;
+            --info-light: rgba(9, 105, 218, 0.1);
+            
+            /* 中性色 */
+            --text-primary: #24292f;
+            --text-secondary: #57606a;
+            --text-muted: #6e7781;
+            --border: #d0d7de;
+            --border-hover: #8b949e;
+            --bg-white: #ffffff;
+            --bg-subtle: #f6f8fa;
+            
+            /* 间距和尺寸 */
+            --radius: 6px;
+            --border-width: 1px;
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            
+            /* 动画 */
+            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        body {
+            background-color: var(--bg-subtle);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        
+        /* 侧边栏 */
+        .sidebar {
+            min-height: 100vh;
+            background: var(--bg-white);
+            border-right: var(--border-width) solid var(--border);
+            color: var(--text-primary);
+            padding: var(--spacing-md) 0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: var(--spacing-md) var(--spacing-lg);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .sidebar-brand img {
+            height: 32px;
+            width: auto;
+        }
+        
+        .sidebar-brand h5 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .back-to-site {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-radius: var(--radius);
+            transition: var(--transition);
+            margin-top: var(--spacing-sm);
+        }
+        
+        .back-to-site:hover {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+        
+        .sidebar .nav-link {
+            color: var(--text-secondary);
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-radius: 0;
+            margin: 2px 0;
+            transition: var(--transition);
+            border-left: 2px solid transparent;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .sidebar .nav-link:hover {
+            color: var(--text-primary);
+            background-color: var(--bg-subtle);
+            border-left-color: var(--border-hover);
+        }
+        
+        .sidebar .nav-link.active {
+            color: var(--primary);
+            background-color: var(--primary-light);
+            border-left-color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .sidebar .nav-link i {
+            width: 16px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .main-content {
+            padding: var(--spacing-xl);
+            min-height: 100vh;
+        }
+        
+        /* 卡片系统 */
+        .card {
+            border: var(--border-width) solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: var(--transition);
+            background: var(--bg-white);
+        }
+        
+        .card:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+            transform: translateY(-1px);
+        }
+        
+        .card-header {
+            background-color: var(--bg-white);
+            border-bottom: var(--border-width) solid var(--border);
+            padding: var(--spacing-md) var(--spacing-lg);
+        }
+        
+        .card-body {
+            padding: var(--spacing-lg);
+        }
+        
+        /* 按钮系统 */
+        .btn {
+            border-radius: var(--radius);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-weight: 500;
+            font-size: 14px;
+            transition: var(--transition);
+            border: var(--border-width) solid transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            height: 32px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-sm {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            font-size: 12px;
+            height: 28px;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: darken(var(--primary), 5%);
+            border-color: darken(var(--primary), 5%);
+        }
+        
+        .btn-outline-primary {
+            color: var(--primary);
+            border-color: var(--primary);
+            background-color: transparent;
+        }
+        
+        .btn-outline-primary:hover {
+            color: white;
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* 表单控件 */
+        .form-control {
+            border: var(--border-width) solid var(--border);
+            border-radius: var(--radius);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-size: 14px;
+            line-height: 1.5;
+            height: 36px;
+            transition: var(--transition);
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+            outline: none;
+        }
+        
+        .form-select {
+            border: var(--border-width) solid var(--border);
+            border-radius: var(--radius);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-size: 14px;
+            line-height: 1.5;
+            height: 36px;
+            transition: var(--transition);
+            background-position: right var(--spacing-sm) center;
+        }
+        
+        .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+            outline: none;
+        }
+        
+        /* 搜索框 */
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box .search-icon {
+            position: absolute;
+            left: var(--spacing-md);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        
+        .search-box .form-control {
+            padding-left: calc(var(--spacing-md) * 2 + 14px);
+        }
+        
+        /* 表格系统 */
+        .table {
+            margin-bottom: 0;
+        }
+        
+        .table th {
+            font-weight: 500;
+            color: var(--text-secondary);
+            border-top: none;
+            background-color: var(--bg-subtle);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .table td {
+            padding: var(--spacing-md);
+            color: var(--text-primary);
+            vertical-align: middle;
+            border-bottom: var(--border-width) solid var(--border);
+        }
+        
+        .table tr:hover {
+            background-color: var(--bg-subtle);
+        }
+        
+        /* 徽章系统 */
+        .badge {
+            font-weight: 500;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        
+        /* 分页系统 */
+        .pagination {
+            margin-bottom: 0;
+        }
+        
+        .page-link {
+            border: var(--border-width) solid var(--border);
+            color: var(--text-primary);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-size: 14px;
+            min-width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .page-item.active .page-link {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        
+        .page-item.disabled .page-link {
+            color: var(--text-muted);
+            background-color: var(--bg-subtle);
+            border-color: var(--border);
+        }
+        
+        /* 工具类 */
+        .shadow-sm {
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+        }
+        
+        .border-0 {
+            border: none !important;
+        }
+        
+        .rounded-circle {
+            border-radius: 50% !important;
+        }
+        
+        .text-primary {
+            color: var(--primary) !important;
+        }
+        
+        .text-success {
+            color: var(--success) !important;
+        }
+        
+        .text-warning {
+            color: var(--warning) !important;
+        }
+        
+        .text-danger {
+            color: var(--danger) !important;
+        }
+        
+        .text-info {
+            color: var(--info) !important;
+        }
+        
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+        
+        .bg-primary {
+            background-color: var(--primary) !important;
+        }
+        
+        .bg-success {
+            background-color: var(--success) !important;
+        }
+        
+        .bg-warning {
+            background-color: var(--warning) !important;
+        }
+        
+        .bg-danger {
+            background-color: var(--danger) !important;
+        }
+        
+        .bg-info {
+            background-color: var(--info) !important;
+        }
+        
+        .bg-opacity-10 {
+            --bs-bg-opacity: 0.1;
+        }
+
+        /* 顶部导航 */
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: var(--bg-white);
+            border-bottom: var(--border-width) solid var(--border);
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .admin-header-left {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+        
+        .admin-header-right {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+        
+        .notification-badge {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius);
+            background: var(--bg-subtle);
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+        
+        .notification-badge:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        
+        .notification-dot {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            background: var(--danger);
+            border-radius: 50%;
+            border: 2px solid var(--bg-white);
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- 侧边栏 -->
+            <div class="col-md-3 col-lg-2 px-0 position-fixed sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-brand">
+                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo">
+                        <h5>Agorix 管理后台</h5>
+                    </div>
+                    <a href="{{ url_for('main.index') }}" class="back-to-site">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>返回主站</span>
+                    </a>
+                </div>
+                <hr class="my-2">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}" 
+                           href="{{ url_for('admin.dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>仪表盘</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.users' %}active{% endif %}" 
+                           href="{{ url_for('admin.users') }}">
+                            <i class="fas fa-users"></i>
+                            <span>用户管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.conversations' %}active{% endif %}" 
+                           href="{{ url_for('admin.conversations') }}">
+                            <i class="fas fa-comments"></i>
+                            <span>对话管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.notifications' %}active{% endif %}" 
+                           href="{{ url_for('admin.notifications') }}">
+                            <i class="fas fa-bell"></i>
+                            <span>通知管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.feedbacks' %}active{% endif %}" 
+                           href="{{ url_for('admin.feedbacks') }}">
+                            <i class="fas fa-comment-dots"></i>
+                            <span>反馈管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.community' %}active{% endif %}" 
+                           href="{{ url_for('admin.community') }}">
+                            <i class="fas fa-users-line"></i>
+                            <span>论坛管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'admin.database_tools' %}active{% endif %}" 
+                           href="{{ url_for('admin.database_tools') }}">
+                            <i class="fas fa-database"></i>
+                            <span>数据库工具</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- 主要内容 -->
+            <div class="col-md-9 col-lg-10 ms-sm-auto px-4">
+                <div class="main-content">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

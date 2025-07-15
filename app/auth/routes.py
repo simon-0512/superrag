@@ -62,8 +62,17 @@ def login():
                 user = User.query.filter_by(username=username_or_email).first()
             
             if user and user.check_password(password):
-                if not user.is_active:
-                    message = '账号已被禁用'
+                # 检查用户是否被软删除
+                if user.is_deleted():
+                    message = '账号不存在或已被删除，请联系管理员'
+                    if request.is_json:
+                        return jsonify({'success': False, 'message': message}), 403
+                    flash(message, 'error')
+                    return render_template('auth/login.html')
+                
+                # 检查用户是否可以登录（删除用户不能登录，禁用用户可以登录但功能受限）
+                if not user.can_login():
+                    message = '账号无法登录，请联系管理员'
                     if request.is_json:
                         return jsonify({'success': False, 'message': message}), 403
                     flash(message, 'error')
@@ -184,6 +193,27 @@ def register():
             
             db.session.add(user)
             db.session.commit()
+            
+            # 处理头像上传（如果有）
+            if 'avatar' in request.files:
+                avatar_file = request.files['avatar']
+                if avatar_file and avatar_file.filename != '':
+                    try:
+                        from app.utils.file_utils import save_avatar
+                        avatar_url, avatar_message = save_avatar(avatar_file, user.id)
+                        if avatar_url:
+                            user.avatar_url = avatar_url
+                            db.session.commit()
+                    except Exception as e:
+                        print(f"头像上传失败: {str(e)}")
+                        # 头像上传失败不影响注册，继续流程
+            
+            # 设置默认角色（普通用户）
+            try:
+                user.set_role('user')
+                print(f"✅ 为用户 {username} 设置了默认角色 'user'")
+            except Exception as e:
+                print(f"⚠️  为用户 {username} 设置默认角色失败: {str(e)}")
             
             # 自动登录
             login_user(user)
@@ -367,4 +397,55 @@ def api_check_email(email):
     return jsonify({
         'available': user is None,
         'message': '邮箱可用' if user is None else '邮箱已被注册'
-    }) 
+    })
+
+@auth_bp.route('/upload_avatar', methods=['POST'])
+@login_required
+def upload_avatar():
+    """上传用户头像"""
+    try:
+        if 'avatar' not in request.files:
+            return jsonify({'success': False, 'message': '没有选择文件'})
+        
+        file = request.files['avatar']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': '没有选择文件'})
+        
+        # 导入头像处理函数
+        from app.utils.file_utils import save_avatar, delete_avatar
+        
+        # 删除旧头像
+        if current_user.avatar_url:
+            delete_avatar(current_user.avatar_url)
+        
+        # 保存新头像
+        avatar_url, message = save_avatar(file, current_user.id)
+        
+        if avatar_url:
+            current_user.avatar_url = avatar_url
+            db.session.commit()
+            return jsonify({'success': True, 'message': message, 'avatar_url': avatar_url})
+        else:
+            return jsonify({'success': False, 'message': message})
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'上传失败: {str(e)}'})
+
+@auth_bp.route('/remove_avatar', methods=['POST'])
+@login_required
+def remove_avatar():
+    """删除用户头像"""
+    try:
+        if current_user.avatar_url:
+            from app.utils.file_utils import delete_avatar
+            delete_avatar(current_user.avatar_url)
+            current_user.avatar_url = None
+            db.session.commit()
+            return jsonify({'success': True, 'message': '头像删除成功'})
+        else:
+            return jsonify({'success': False, 'message': '没有头像可删除'})
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}) 

@@ -1,0 +1,498 @@
+{% extends "base.html" %}
+
+{% block title %}智能问答 - Agorix{% endblock %}
+
+{% block extra_css %}
+<!-- 性能优化：延迟加载外部资源 -->
+<style>
+/* 先定义基础样式，避免FOUC */
+.chat-page-content {
+    padding: 0 !important;
+    margin: 0 !important;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+}
+
+.chat-container {
+    height: 100% !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* 加载指示器 */
+.external-resources-loading {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    background: rgba(0, 123, 255, 0.1);
+    border: 1px solid rgba(0, 123, 255, 0.3);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #007bff;
+    z-index: 1000;
+    display: none;
+}
+
+.external-resources-loading.show {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 外部资源加载指示器 -->
+<div id="externalResourcesLoading" class="external-resources-loading">
+    <i class="bi bi-cloud-download"></i> 正在加载渲染组件...
+</div>
+
+<div class="chat-page-content">
+    <div class="chat-container">
+        <!-- Chat 页面内容 -->
+        <div class="row h-100 g-0">
+            <!-- 侧边栏 -->
+            <div class="col-3 border-end chat-sidebar" id="chatSidebar">
+                <!-- 侧边栏头部 -->
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                    <h6 class="mb-0">对话历史</h6>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm" id="newChatBtn" title="新建对话">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm d-lg-none" id="toggleSidebar" title="隐藏侧边栏">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 搜索框 -->
+                <div class="p-3 border-bottom">
+                    <input type="text" class="form-control form-control-sm" 
+                           id="conversationSearch" placeholder="搜索对话...">
+                </div>
+                
+                <!-- 对话列表 -->
+                <div class="chat-conversations" id="conversationList">
+                    <!-- 对话项将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            
+            <!-- 主聊天区 -->
+            <div class="col-9 d-flex flex-column">
+                <!-- 聊天头部 -->
+                <div class="chat-header border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3">
+                            <button class="btn btn-link d-lg-none p-0" id="showSidebar" title="显示侧边栏">
+                                <i class="bi bi-list"></i>
+                            </button>
+                            <div>
+                                <h5 class="mb-0" id="conversationTitle">开始新对话</h5>
+                                <small class="text-muted" id="conversationInfo">选择知识库开始智能问答</small>
+                            </div>
+                        </div>
+                        
+                        <!-- 知识库选择 -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="knowledgeBaseSelect" class="form-label mb-0 small text-muted">知识库:</label>
+                            <select class="form-select form-select-sm" id="knowledgeBaseSelect" style="min-width: 150px;">
+                                <option value="">选择知识库...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 消息区域 -->
+                <div class="chat-messages" id="chatMessages">
+                    <div class="welcome-message">
+                        <i class="bi bi-chat-dots welcome-icon"></i>
+                        <h4>欢迎使用Agorix智能问答</h4>
+                        <p class="mb-3">请选择知识库并开始提问，我将基于您的知识库内容为您提供准确的答案。</p>
+                        <div class="welcome-features">
+                            <span class="badge bg-primary me-2">智能检索</span>
+                            <span class="badge bg-success me-2">上下文理解</span>
+                            <span class="badge bg-info">多格式支持</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 输入区域 -->
+                <div class="chat-input-area">
+                    <form id="chatForm" class="d-flex gap-2 align-items-end">
+                        <div class="flex-grow-1">
+                            <textarea class="form-control" id="messageInput" 
+                                    placeholder="输入您的问题..." rows="1"
+                                    style="resize: none; min-height: 38px; max-height: 120px;"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="sendBtn" disabled>
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 覆盖层 -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<script>
+// 性能优化：延迟加载外部资源
+let isLoading = false;
+let conversations = [];
+let currentConversationId = null;
+
+// 立即初始化基础功能
+document.addEventListener('DOMContentLoaded', function() {
+    console.log(`🔍 [DEBUG] 页面基础初始化开始 - ${new Date().toLocaleTimeString()}`);
+    
+    // 先设置基础事件监听器
+    setupBasicEventListeners();
+    
+    // 显示加载指示器
+    showResourcesLoading();
+    
+    // 异步加载外部资源和数据
+    loadExternalResourcesAndInitialize();
+});
+
+function showResourcesLoading() {
+    const indicator = document.getElementById('externalResourcesLoading');
+    if (indicator) {
+        indicator.classList.add('show');
+    }
+}
+
+function hideResourcesLoading() {
+    const indicator = document.getElementById('externalResourcesLoading');
+    if (indicator) {
+        indicator.classList.remove('show');
+        setTimeout(() => indicator.remove(), 300);
+    }
+}
+
+async function loadExternalResourcesAndInitialize() {
+    const startTime = performance.now();
+    
+    try {
+        // 1. 动态加载外部资源
+        await loadExternalResources();
+        
+        // 2. 并行加载数据
+        await Promise.all([
+            loadKnowledgeBases(),
+            loadConversationsAndInitialize()
+        ]);
+        
+        // 3. 完成初始化
+        hideResourcesLoading();
+        
+        const totalTime = performance.now() - startTime;
+        console.log(`🎉 [DEBUG] 页面完全初始化完成: ${totalTime.toFixed(3)}ms`);
+        
+    } catch (error) {
+        console.error(`❌ [DEBUG] 页面初始化失败:`, error);
+        hideResourcesLoading();
+        
+        // 即使外部资源加载失败，也要确保基础功能可用
+        setupBasicEventListeners();
+        loadKnowledgeBases();
+        loadConversationsAndInitialize();
+    }
+}
+
+function loadExternalResources() {
+    return new Promise((resolve, reject) => {
+        const resources = [
+            {
+                type: 'script',
+                src: 'https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js',
+                name: 'marked.js'
+            },
+            {
+                type: 'script', 
+                src: 'https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js',
+                name: 'highlight.js'
+            },
+            {
+                type: 'link',
+                href: 'https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/one-dark.min.css',
+                name: 'highlight.css'
+            }
+        ];
+        
+        let loadedCount = 0;
+        let hasError = false;
+        
+        function onResourceLoad(name) {
+            loadedCount++;
+            console.log(`✅ [DEBUG] ${name} 加载完成 (${loadedCount}/${resources.length})`);
+            
+            if (loadedCount === resources.length) {
+                console.log(`✅ [DEBUG] 所有外部资源加载完成`);
+                initializeMarkdown();
+                resolve();
+            }
+        }
+        
+        function onResourceError(name) {
+            console.warn(`⚠️ [DEBUG] ${name} 加载失败，将使用降级方案`);
+            hasError = true;
+            onResourceLoad(name); // 继续流程
+        }
+        
+        resources.forEach(resource => {
+            if (resource.type === 'script') {
+                const script = document.createElement('script');
+                script.src = resource.src;
+                script.onload = () => onResourceLoad(resource.name);
+                script.onerror = () => onResourceError(resource.name);
+                document.head.appendChild(script);
+            } else if (resource.type === 'link') {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = resource.href;
+                link.onload = () => onResourceLoad(resource.name);
+                link.onerror = () => onResourceError(resource.name);
+                document.head.appendChild(link);
+            }
+        });
+        
+        // 10秒超时
+        setTimeout(() => {
+            if (loadedCount < resources.length) {
+                console.warn(`⚠️ [DEBUG] 外部资源加载超时，使用已加载的资源继续`);
+                resolve();
+            }
+        }, 10000);
+    });
+}
+
+function initializeMarkdown() {
+    if (typeof marked !== 'undefined' && typeof hljs !== 'undefined') {
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            sanitize: false,
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    try {
+                        return hljs.highlight(code, { language: lang }).value;
+                    } catch (err) {}
+                }
+                return hljs.highlightAuto(code).value;
+            }
+        });
+        console.log(`✅ [DEBUG] Markdown解析器配置完成`);
+    } else {
+        console.warn(`⚠️ [DEBUG] Markdown解析器或代码高亮不可用，将使用纯文本显示`);
+    }
+}
+
+function setupBasicEventListeners() {
+    const messageInput = document.getElementById('messageInput');
+    const chatForm = document.getElementById('chatForm');
+    const newChatBtn = document.getElementById('newChatBtn');
+    
+    if (messageInput) {
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            updateSendButtonState();
+        });
+        
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!isLoading && this.value.trim()) {
+                    chatForm.dispatchEvent(new Event('submit'));
+                }
+            }
+        });
+    }
+    
+    if (chatForm) {
+        chatForm.addEventListener('submit', handleSendMessage);
+    }
+    
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', startNewConversation);
+    }
+}
+
+// 简化的发送按钮状态管理
+function updateSendButtonState() {
+    const sendBtn = document.getElementById('sendBtn');
+    const messageInput = document.getElementById('messageInput');
+    
+    if (!sendBtn || !messageInput) return;
+    
+    const hasContent = messageInput.value.trim().length > 0;
+    sendBtn.disabled = isLoading || !hasContent;
+    
+    if (isLoading) {
+        sendBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>';
+    } else {
+        sendBtn.innerHTML = '<i class="bi bi-send"></i>';
+    }
+}
+
+// 占位函数，实际实现将在外部资源加载完成后提供
+function handleSendMessage(e) {
+    e.preventDefault();
+    console.log('发送消息功能暂未就绪，请等待资源加载完成');
+}
+
+function startNewConversation() {
+    console.log('新建对话功能暂未就绪，请等待资源加载完成');
+}
+
+async function loadKnowledgeBases() {
+    // 简化版本，快速加载
+    try {
+        const response = await fetch('/api/knowledge_bases');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('knowledgeBaseSelect');
+            data.knowledge_bases.forEach(kb => {
+                const option = document.createElement('option');
+                option.value = kb.id;
+                option.textContent = kb.name;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('加载知识库失败:', error);
+    }
+}
+
+async function loadConversationsAndInitialize() {
+    // 简化版本，快速加载
+    try {
+        const response = await fetch('/api/conversations');
+        const data = await response.json();
+        
+        if (data.success) {
+            conversations = data.conversations;
+            renderConversationList(conversations);
+            
+            if (conversations.length > 0) {
+                // 延迟加载对话详情，优先显示页面
+                setTimeout(() => {
+                    const latestConversation = conversations[0];
+                    switchConversation(latestConversation.id);
+                }, 100);
+            }
+        }
+    } catch (error) {
+        console.error('加载对话列表失败:', error);
+    }
+}
+
+function renderConversationList(conversations) {
+    const container = document.getElementById('conversationList');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    conversations.forEach(conv => {
+        const item = document.createElement('div');
+        item.className = 'conversation-item';
+        item.innerHTML = `
+            <div class="conversation-content">
+                <div class="conversation-title">${conv.title}</div>
+                <div class="conversation-meta">
+                    <small class="text-muted">${conv.message_count} 条消息</small>
+                    <small class="text-muted">${new Date(conv.updated_at).toLocaleDateString()}</small>
+                </div>
+            </div>
+        `;
+        item.onclick = () => switchConversation(conv.id);
+        container.appendChild(item);
+    });
+}
+
+function switchConversation(conversationId) {
+    // 占位函数，实际实现需要更多依赖
+    console.log(`切换到对话: ${conversationId}`);
+    currentConversationId = conversationId;
+}
+</script>
+
+<style>
+/* 对话列表样式 */
+.chat-conversations {
+    overflow-y: auto;
+    height: calc(100% - 140px);
+}
+
+.conversation-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.conversation-item:hover {
+    background-color: #f8f9fa;
+}
+
+.conversation-item.active {
+    background-color: #e3f2fd;
+}
+
+.conversation-title {
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.conversation-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+}
+
+/* 响应式设计 */
+@media (max-width: 992px) {
+    .chat-sidebar {
+        position: fixed;
+        left: -100%;
+        top: 60px;
+        height: calc(100vh - 60px);
+        width: 300px;
+        z-index: 1040;
+        background: white;
+        transition: left 0.3s ease;
+    }
+    
+    .chat-sidebar.show {
+        left: 0;
+    }
+    
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1030;
+        display: none;
+    }
+    
+    .sidebar-overlay.show {
+        display: block;
+    }
+}
+</style>
+{% endblock %} 

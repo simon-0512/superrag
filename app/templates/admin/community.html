@@ -1,0 +1,295 @@
+{% extends "admin/base.html" %}
+
+{% block title %}社区管理 - Agorix 管理后台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-users-rectangle text-primary me-2"></i>
+        <span class="text-secondary">社区管理</span>
+    </div>
+</div>
+
+<!-- 搜索和过滤 -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="form-control" name="search" 
+                           placeholder="搜索帖子内容" 
+                           value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select name="user_id" class="form-select">
+                    <option value="">全部用户</option>
+                    {% for user in users %}
+                        <option value="{{ user.id }}" 
+                                {{ 'selected' if user_filter == user.id }}>
+                            {{ user.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="per_page" class="form-select">
+                    <option value="20" {{ 'selected' if posts.per_page == 20 }}>20条/页</option>
+                    <option value="50" {{ 'selected' if posts.per_page == 50 }}>50条/页</option>
+                    <option value="100" {{ 'selected' if posts.per_page == 100 }}>100条/页</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i>搜索
+                </button>
+                <a href="{{ url_for('admin.community') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i>清除
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 帖子列表 -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0">
+        <div class="d-flex align-items-center">
+            <span class="text-secondary">社区帖子</span>
+            <span class="badge bg-primary-light text-primary ms-2">{{ posts.total }}</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if posts.items %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>帖子内容</th>
+                            <th>用户</th>
+                            <th>统计</th>
+                            <th>创建时间</th>
+                            <th width="100">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for post in posts.items %}
+                        <tr id="post-{{ post.id }}">
+                            <td>
+                                <div>
+                                    <div class="content-preview">
+                                        {{ post.content[:100] }}{% if post.content|length > 100 %}...{% endif %}
+                                    </div>
+                                    <small class="text-muted">ID: {{ post.id }}</small>
+                                    {% if post.images %}
+                                        <div class="mt-1">
+                                            <small class="text-info">
+                                                <i class="fas fa-image me-1"></i>包含图片
+                                            </small>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-primary-light rounded-circle d-flex align-items-center justify-content-center me-2">
+                                        <i class="fas fa-user text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-body">{{ post.user.username if post.user else '未知用户' }}</div>
+                                        {% if post.user and post.user.email %}
+                                            <small class="text-muted">{{ post.user.email }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <span class="badge bg-primary-light text-primary">{{ post.interaction_count or 0 }} 互动</span>
+                                    <div class="mt-1">
+                                        {% set likes = post.interactions|selectattr("interaction_type", "equalto", "like")|list|length %}
+                                        {% set comments = post.interactions|selectattr("interaction_type", "equalto", "comment")|list|length %}
+                                        <small class="text-muted">
+                                            <i class="fas fa-heart me-1"></i>{{ likes }}
+                                            <i class="fas fa-comment ms-2 me-1"></i>{{ comments }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-body">{{ post.created_at.strftime('%Y-%m-%d %H:%M') if post.created_at else '-' }}</div>
+                                {% if post.updated_at and post.updated_at != post.created_at %}
+                                    <small class="text-muted">更新: {{ post.updated_at.strftime('%m-%d %H:%M') }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <a href="{{ url_for('admin.post_detail', post_id=post.id) }}" 
+                                       class="btn btn-sm btn-outline-primary" title="查看详情">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-danger delete-post-btn" 
+                                            data-post-id="{{ post.id }}"
+                                            data-post-content="{{ post.content[:20] }}"
+                                            title="删除">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页 -->
+            {% if posts.pages > 1 %}
+                <div class="card-footer border-0 bg-transparent">
+                    <nav aria-label="帖子列表分页">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if posts.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.community', page=posts.prev_num, search=search, user_id=user_filter, per_page=posts.per_page) }}">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page_num in posts.iter_pages() %}
+                                {% if page_num %}
+                                    {% if page_num != posts.page %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('admin.community', page=page_num, search=search, user_id=user_filter, per_page=posts.per_page) }}">{{ page_num }}</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">…</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if posts.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.community', page=posts.next_num, search=search, user_id=user_filter, per_page=posts.per_page) }}">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-comments-slash fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">没有找到帖子</h5>
+                <p class="text-muted">尝试调整搜索条件</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.content-preview {
+    line-height: 1.4;
+    max-height: 3em;
+    overflow: hidden;
+    word-wrap: break-word;
+}
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+.bg-primary-light {
+    background-color: var(--primary-light) !important;
+}
+
+.text-primary {
+    color: var(--primary) !important;
+}
+
+.table > :not(caption) > * > * {
+    padding: var(--spacing-md);
+}
+
+.table th {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-group-sm > .btn,
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 12px;
+    height: 28px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 删除帖子事件委托
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-post-btn')) {
+            const btn = e.target.closest('.delete-post-btn');
+            const postId = btn.dataset.postId;
+            const content = btn.dataset.postContent;
+            
+            Swal.fire({
+                title: '确认删除',
+                text: `确定要删除帖子 "${content}..." 吗？`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '确定删除',
+                cancelButtonText: '取消',
+                confirmButtonColor: '#dc3545',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/admin/community/${postId}/delete`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                title: '已删除',
+                                text: data.message,
+                                icon: 'success',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                            document.getElementById(`post-${postId}`).remove();
+                        } else {
+                            Swal.fire('错误', data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        Swal.fire('错误', '删除失败：网络错误', 'error');
+                    });
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %} 

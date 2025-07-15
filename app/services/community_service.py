@@ -58,7 +58,15 @@ class CommunityService:
     @staticmethod
     def get_feed(user_id=None, feed_type='recommended', page=1, limit=20):
         """获取时间流数据"""
+        import time
+        from flask import current_app
+        
+        start_time = time.time()
+        current_app.logger.info(f"🔍 [DEBUG] CommunityService.get_feed开始 - {feed_type}, page {page}")
+        
         try:
+            # 1. 构建查询
+            query_start = time.time()
             query = CommunityPost.query.filter_by(status=PostStatus.PUBLISHED)
             
             # 根据类型筛选
@@ -82,27 +90,61 @@ class CommunityService:
                     desc(CommunityPost.created_at),
                     desc(CommunityPost.like_count)
                 )
+            query_time = (time.time() - query_start) * 1000
+            current_app.logger.info(f"✅ [DEBUG] 查询构建完成: {query_time:.1f}ms")
             
-            # 分页
+            # 2. 执行查询
+            fetch_start = time.time()
             posts = query.options(
                 joinedload(CommunityPost.user),
                 joinedload(CommunityPost.conversation)
             ).offset((page - 1) * limit).limit(limit).all()
+            fetch_time = (time.time() - fetch_start) * 1000
+            current_app.logger.info(f"✅ [DEBUG] 数据查询完成: {fetch_time:.1f}ms, 获取{len(posts)}个帖子")
             
-            # 增加浏览量
+            # 3. 数据转换（移除浏览量更新以提升性能）
+            convert_start = time.time()
+            posts_data = []
             for post in posts:
-                post.view_count += 1
-            db.session.commit()
+                posts_data.append(post.to_dict())
+            convert_time = (time.time() - convert_start) * 1000
+            current_app.logger.info(f"✅ [DEBUG] 数据转换完成: {convert_time:.1f}ms")
+            
+            # 4. 异步批量更新浏览量（性能优化）
+            view_update_start = time.time()
+            if posts:
+                post_ids = [post.id for post in posts]
+                # 使用批量更新而不是逐个更新
+                db.session.execute(
+                    CommunityPost.__table__.update().where(
+                        CommunityPost.id.in_(post_ids)
+                    ).values(view_count=CommunityPost.view_count + 1)
+                )
+                db.session.commit()
+            view_update_time = (time.time() - view_update_start) * 1000
+            current_app.logger.info(f"✅ [DEBUG] 浏览量批量更新完成: {view_update_time:.1f}ms")
+            
+            total_time = (time.time() - start_time) * 1000
+            current_app.logger.info(f"🎉 [DEBUG] get_feed完成: 总耗时{total_time:.1f}ms")
             
             return {
                 'success': True,
-                'posts': [post.to_dict() for post in posts],
-                'total': query.count(),
+                'posts': posts_data,
+                'total': len(posts_data),  # 移除额外的count查询以提升性能
                 'page': page,
-                'limit': limit
+                'limit': limit,
+                'performance': {
+                    'query_time': f"{query_time:.1f}ms",
+                    'fetch_time': f"{fetch_time:.1f}ms", 
+                    'convert_time': f"{convert_time:.1f}ms",
+                    'view_update_time': f"{view_update_time:.1f}ms",
+                    'total_time': f"{total_time:.1f}ms"
+                }
             }
             
         except Exception as e:
+            error_time = (time.time() - start_time) * 1000
+            current_app.logger.error(f"❌ [DEBUG] get_feed失败: {str(e)} (耗时: {error_time:.1f}ms)")
             return {'success': False, 'message': f'获取时间流失败: {str(e)}'}
     
     @staticmethod

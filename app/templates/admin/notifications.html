@@ -1,0 +1,814 @@
+{% extends "admin/base.html" %}
+
+{% block title %}通知管理 - Agorix 管理后台{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-bell me-2"></i>通知管理</h2>
+                <button class="btn btn-primary" onclick="showCreateNotificationModal()">
+                    <i class="fas fa-plus me-2"></i>新建通知
+                </button>
+            </div>
+            
+            <!-- 快速统计 -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-info">总通知数</h5>
+                            <h3 class="card-text" id="totalNotifications">{{ total_notifications }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-success">已发布</h5>
+                            <h3 class="card-text" id="publishedNotifications">{{ published_notifications }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-warning">草稿</h5>
+                            <h3 class="card-text" id="draftNotifications">{{ draft_notifications }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">总查看数</h5>
+                            <h3 class="card-text" id="totalViews">{{ total_views }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 通知列表 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0">通知列表</h5>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="searchInput" placeholder="搜索通知...">
+                                <button class="btn btn-outline-secondary" onclick="searchNotifications()">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>标题</th>
+                                    <th>类型</th>
+                                    <th>状态</th>
+                                    <th>优先级</th>
+                                    <th>查看次数</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="notificationsTable">
+                                <!-- 动态加载内容 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 分页 -->
+                    <nav aria-label="通知分页">
+                        <ul class="pagination justify-content-center" id="paginationNav">
+                            <!-- 动态加载分页 -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建/编辑通知模态框 -->
+<div class="modal fade" id="notificationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="notificationModalTitle">新建通知</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="notificationForm">
+                    <input type="hidden" id="notificationId">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="notificationTitle" class="form-label">通知标题 *</label>
+                                <input type="text" class="form-control" id="notificationTitle" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="notificationType" class="form-label">类型</label>
+                                <select class="form-select" id="notificationType">
+                                    <option value="system">系统通知</option>
+                                    <option value="feature">功能更新</option>
+                                    <option value="maintenance">维护通知</option>
+                                    <option value="announcement">公告</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notificationContent" class="form-label">通知内容 *</label>
+                        <textarea class="form-control" id="notificationContent" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="notificationPriority" class="form-label">优先级</label>
+                                <input type="number" class="form-control" id="notificationPriority" value="0" min="0" max="10">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="notificationIcon" class="form-label">图标</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="notificationIcon" value="bi-bell" placeholder="bi-bell">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="showIconPicker()">
+                                        <i class="bi-grid-3x3-gap"></i>
+                                    </button>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">预览: </small>
+                                    <i id="iconPreview" class="bi-bell fs-5 text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="notificationColor" class="form-label">颜色主题</label>
+                                <select class="form-select" id="notificationColor">
+                                    <option value="primary">蓝色</option>
+                                    <option value="success">绿色</option>
+                                    <option value="warning">橙色</option>
+                                    <option value="danger">红色</option>
+                                    <option value="info">青色</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="notificationStatus" class="form-label">状态</label>
+                                <select class="form-select" id="notificationStatus">
+                                    <option value="draft">草稿</option>
+                                    <option value="published">发布</option>
+                                    <option value="archived">归档</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="publishAt" class="form-label">定时发布</label>
+                                <input type="datetime-local" class="form-control" id="publishAt">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="expireAt" class="form-label">过期时间</label>
+                                <input type="datetime-local" class="form-control" id="expireAt">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveNotification()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图标选择模态框 -->
+<div class="modal fade" id="iconPickerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">选择图标</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2" id="iconGrid">
+                    <!-- 动态生成图标网格 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+const pageSize = 10;
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadNotifications();
+    initializeIconPreview();
+});
+
+// 常用图标列表
+const commonIcons = [
+    'bi-bell', 'bi-info-circle', 'bi-exclamation-triangle', 'bi-check-circle',
+    'bi-x-circle', 'bi-gear', 'bi-shield-check', 'bi-lightning',
+    'bi-star', 'bi-heart', 'bi-chat-dots', 'bi-envelope',
+    'bi-calendar', 'bi-clock', 'bi-download', 'bi-upload',
+    'bi-file-text', 'bi-folder', 'bi-image', 'bi-music-note',
+    'bi-camera', 'bi-video', 'bi-mic', 'bi-volume-up',
+    'bi-wifi', 'bi-bluetooth', 'bi-battery', 'bi-phone',
+    'bi-laptop', 'bi-monitor', 'bi-printer', 'bi-mouse',
+    'bi-keyboard', 'bi-headphones', 'bi-cpu', 'bi-memory',
+    'bi-person', 'bi-people', 'bi-building', 'bi-house',
+    'bi-car-front', 'bi-airplane', 'bi-bicycle', 'bi-train-front',
+    'bi-sun', 'bi-moon', 'bi-cloud', 'bi-umbrella',
+    'bi-thermometer', 'bi-snow', 'bi-fire', 'bi-droplet'
+];
+
+// 初始化图标预览
+function initializeIconPreview() {
+    const iconInput = document.getElementById('notificationIcon');
+    iconInput.addEventListener('input', updateIconPreview);
+}
+
+// 更新图标预览
+function updateIconPreview() {
+    const iconInput = document.getElementById('notificationIcon');
+    const iconPreview = document.getElementById('iconPreview');
+    const iconClass = iconInput.value.trim();
+    
+    if (iconClass) {
+        iconPreview.className = `${iconClass} fs-5 text-primary`;
+    } else {
+        iconPreview.className = 'bi-bell fs-5 text-primary';
+    }
+}
+
+// 加载通知列表
+function loadNotifications(page = 1) {
+    currentPage = page;
+    const searchTerm = document.getElementById('searchInput').value;
+    
+    fetch(`/admin/api/notifications?page=${page}&per_page=${pageSize}&search=${encodeURIComponent(searchTerm)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderNotificationsTable(data.notifications);
+                renderPagination(data.pagination);
+                updateStats(data.stats);
+            } else {
+                safeShowAlert('加载通知列表失败', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            safeShowAlert('网络错误', 'danger');
+        });
+}
+
+// 渲染通知列表
+function renderNotificationsTable(notifications) {
+    const tbody = document.getElementById('notificationsTable');
+    tbody.innerHTML = '';
+    
+    notifications.forEach(notification => {
+        const statusBadge = getStatusBadge(notification.status);
+        const typeBadge = getTypeBadge(notification.type);
+        
+        const row = `
+            <tr>
+                <td>${notification.id}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <i class="${notification.icon} me-2 text-${notification.color}"></i>
+                        ${notification.title}
+                    </div>
+                </td>
+                <td>${typeBadge}</td>
+                <td>${statusBadge}</td>
+                <td><span class="badge bg-info">${notification.priority}</span></td>
+                <td>${notification.view_count}</td>
+                <td>${new Date(notification.created_at).toLocaleString()}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="editNotification(${notification.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteNotification(${notification.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
+
+// 获取状态徽章
+function getStatusBadge(status) {
+    const badges = {
+        'draft': '<span class="badge bg-secondary">草稿</span>',
+        'published': '<span class="badge bg-success">已发布</span>',
+        'archived': '<span class="badge bg-dark">已归档</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">未知</span>';
+}
+
+// 获取类型徽章
+function getTypeBadge(type) {
+    const badges = {
+        'system': '<span class="badge bg-primary">系统</span>',
+        'feature': '<span class="badge bg-info">功能</span>',
+        'maintenance': '<span class="badge bg-warning">维护</span>',
+        'announcement': '<span class="badge bg-success">公告</span>'
+    };
+    return badges[type] || '<span class="badge bg-secondary">未知</span>';
+}
+
+// 显示图标选择器
+function showIconPicker() {
+    const iconGrid = document.getElementById('iconGrid');
+    iconGrid.innerHTML = '';
+    
+    commonIcons.forEach(iconClass => {
+        const iconButton = document.createElement('div');
+        iconButton.className = 'col-2 col-md-1';
+        iconButton.innerHTML = `
+            <button type="button" class="btn btn-outline-light w-100 p-2 icon-picker-btn" onclick="selectIcon('${iconClass}')" title="${iconClass}">
+                <i class="${iconClass} fs-4"></i>
+            </button>
+        `;
+        iconGrid.appendChild(iconButton);
+    });
+    
+    new bootstrap.Modal(document.getElementById('iconPickerModal')).show();
+}
+
+// 选择图标
+function selectIcon(iconClass) {
+    document.getElementById('notificationIcon').value = iconClass;
+    updateIconPreview();
+    bootstrap.Modal.getInstance(document.getElementById('iconPickerModal')).hide();
+}
+
+// 显示创建通知模态框
+function showCreateNotificationModal() {
+    document.getElementById('notificationModalTitle').textContent = '新建通知';
+    document.getElementById('notificationForm').reset();
+    document.getElementById('notificationId').value = '';
+    updateIconPreview(); // 重置图标预览
+    new bootstrap.Modal(document.getElementById('notificationModal')).show();
+}
+
+// 编辑通知
+function editNotification(id) {
+    fetch(`/admin/api/notifications/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const notification = data.notification;
+                document.getElementById('notificationModalTitle').textContent = '编辑通知';
+                document.getElementById('notificationId').value = notification.id;
+                document.getElementById('notificationTitle').value = notification.title;
+                document.getElementById('notificationContent').value = notification.content;
+                document.getElementById('notificationType').value = notification.type;
+                document.getElementById('notificationPriority').value = notification.priority;
+                document.getElementById('notificationIcon').value = notification.icon;
+                document.getElementById('notificationColor').value = notification.color;
+                document.getElementById('notificationStatus').value = notification.status;
+                
+                if (notification.publish_at) {
+                    document.getElementById('publishAt').value = new Date(notification.publish_at).toISOString().slice(0, 16);
+                }
+                if (notification.expire_at) {
+                    document.getElementById('expireAt').value = new Date(notification.expire_at).toISOString().slice(0, 16);
+                }
+                
+                updateIconPreview(); // 更新图标预览
+                new bootstrap.Modal(document.getElementById('notificationModal')).show();
+            } else {
+                safeShowAlert('获取通知详情失败', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            safeShowAlert('网络错误', 'danger');
+        });
+}
+
+// 保存通知
+function saveNotification() {
+    const form = document.getElementById('notificationForm');
+    const id = document.getElementById('notificationId').value;
+    
+    const data = {
+        title: document.getElementById('notificationTitle').value,
+        content: document.getElementById('notificationContent').value,
+        type: document.getElementById('notificationType').value,
+        priority: parseInt(document.getElementById('notificationPriority').value),
+        icon: document.getElementById('notificationIcon').value,
+        color: document.getElementById('notificationColor').value,
+        status: document.getElementById('notificationStatus').value,
+        publish_at: document.getElementById('publishAt').value || null,
+        expire_at: document.getElementById('expireAt').value || null
+    };
+    
+    if (!data.title || !data.content) {
+        safeShowAlert('请填写标题和内容', 'warning');
+        return;
+    }
+    
+    const url = id ? `/admin/api/notifications/${id}` : '/admin/api/notifications';
+    const method = id ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            safeShowAlert(data.message, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('notificationModal')).hide();
+            loadNotifications(currentPage);
+        } else {
+            safeShowAlert(data.error || '保存失败', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        safeShowAlert('网络错误', 'danger');
+    });
+}
+
+// 删除通知
+function deleteNotification(id) {
+    const content = `
+        <div class="text-center">
+            <div class="mb-3">
+                <i class="bi bi-exclamation-triangle fs-1 text-warning"></i>
+            </div>
+            <h6 class="mb-2">确认删除</h6>
+            <p class="text-muted mb-0">确定要删除这个通知吗？此操作不可恢复。</p>
+        </div>
+    `;
+    
+    // 创建确认模态框
+    if (!document.getElementById('confirmDeleteModal')) {
+        const modalHtml = `
+            <div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+                <div class="modal-dialog modal-sm">
+                    <div class="modal-content">
+                        <div class="modal-body" id="confirmDeleteBody">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="button" class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
+    document.getElementById('confirmDeleteBody').innerHTML = content;
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+    modal.show();
+    
+    // 绑定确认删除事件
+    document.getElementById('confirmDeleteBtn').onclick = function() {
+        modal.hide();
+        
+        fetch(`/admin/api/notifications/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                safeShowAlert('通知删除成功', 'success');
+                loadNotifications(currentPage); // 自动刷新列表
+                updateStats(); // 更新统计数据
+            } else {
+                safeShowAlert(data.error || '删除失败', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            safeShowAlert('网络错误', 'danger');
+        });
+    };
+}
+
+// 搜索通知
+function searchNotifications() {
+    loadNotifications(1);
+}
+
+// 渲染分页
+function renderPagination(pagination) {
+    const nav = document.getElementById('paginationNav');
+    nav.innerHTML = '';
+    
+    if (pagination.pages <= 1) return;
+    
+    // 上一页
+    const prevDisabled = pagination.page === 1 ? 'disabled' : '';
+    nav.innerHTML += `
+        <li class="page-item ${prevDisabled}">
+            <a class="page-link" href="#" onclick="loadNotifications(${pagination.page - 1})">上一页</a>
+        </li>
+    `;
+    
+    // 页码
+    for (let i = 1; i <= pagination.pages; i++) {
+        const active = i === pagination.page ? 'active' : '';
+        nav.innerHTML += `
+            <li class="page-item ${active}">
+                <a class="page-link" href="#" onclick="loadNotifications(${i})">${i}</a>
+            </li>
+        `;
+    }
+    
+    // 下一页
+    const nextDisabled = pagination.page === pagination.pages ? 'disabled' : '';
+    nav.innerHTML += `
+        <li class="page-item ${nextDisabled}">
+            <a class="page-link" href="#" onclick="loadNotifications(${pagination.page + 1})">下一页</a>
+        </li>
+    `;
+}
+
+// 更新统计数据
+function updateStats(stats) {
+    if (stats) {
+        document.getElementById('totalNotifications').textContent = stats.total || 0;
+        document.getElementById('publishedNotifications').textContent = stats.published || 0;
+        document.getElementById('draftNotifications').textContent = stats.draft || 0;
+        document.getElementById('totalViews').textContent = stats.total_views || 0;
+    }
+}
+
+// 安全的Alert函数，适配后台管理页面
+function safeShowAlert(message, type = 'info') {
+    if (typeof showAlert !== 'undefined') {
+        showAlert(message, type);
+    } else {
+        // 创建简单的toast通知
+        const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+        const toast = createToast(message, type);
+        toastContainer.appendChild(toast);
+        
+        // 显示toast
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        // 自动移除
+        toast.addEventListener('hidden.bs.toast', () => {
+            toast.remove();
+        });
+    }
+}
+
+// 创建Toast容器
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '9999';
+    document.body.appendChild(container);
+    return container;
+}
+
+// 创建Toast
+function createToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.setAttribute('role', 'alert');
+    
+    const colorClass = type === 'success' ? 'success' : type === 'danger' ? 'danger' : type === 'warning' ? 'warning' : 'info';
+    
+    toast.innerHTML = `
+        <div class="toast-header">
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'x-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} text-${colorClass} me-2"></i>
+            <strong class="me-auto">通知</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            ${message}
+        </div>
+    `;
+    return toast;
+}
+
+// 添加图标选择器样式
+const iconPickerStyle = document.createElement('style');
+iconPickerStyle.textContent = `
+    .icon-picker-btn {
+        border: 1px solid #dee2e6;
+        transition: all 0.2s ease;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: white;
+    }
+    
+    .icon-picker-btn:hover {
+        border-color: #007bff;
+        background-color: #f8f9fa;
+        transform: scale(1.05);
+    }
+    
+    .icon-picker-btn:active {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    #iconPreview {
+        transition: all 0.3s ease;
+    }
+`;
+document.head.appendChild(iconPickerStyle);
+
+// 为后台管理页面添加额外的精致化样式
+const adminStyle = document.createElement('style');
+adminStyle.textContent = `
+    /* 后台管理精致化样式 */
+    .card {
+        border: 1px solid #d1d9e0;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(140, 149, 159, 0.1);
+        margin-bottom: 16px;
+    }
+    
+    .card-header {
+        background: #f6f8fa;
+        border-bottom: 1px solid #d1d9e0;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    .card-body {
+        padding: 16px;
+    }
+    
+    .table {
+        font-size: 14px;
+        margin-bottom: 0;
+    }
+    
+    .table th {
+        border-bottom: 1px solid #d1d9e0;
+        font-weight: 500;
+        color: #24292f;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 8px 12px;
+    }
+    
+    .table td {
+        border-bottom: 1px solid #eaeef2;
+        padding: 8px 12px;
+        vertical-align: middle;
+    }
+    
+    .table tbody tr:hover {
+        background-color: #f6f8fa;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 4px 8px;
+        font-size: 12px;
+        border-radius: 4px;
+    }
+    
+    .badge {
+        font-size: 11px;
+        font-weight: 500;
+        padding: 2px 6px;
+        border-radius: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+    
+    .badge.bg-success {
+        background-color: #1f883d !important;
+    }
+    
+    .badge.bg-warning {
+        background-color: #bf8700 !important;
+    }
+    
+    .badge.bg-danger {
+        background-color: #da3633 !important;
+    }
+    
+    .badge.bg-info {
+        background-color: #0969da !important;
+    }
+    
+    .badge.bg-secondary {
+        background-color: #656d76 !important;
+    }
+    
+    .badge.bg-primary {
+        background-color: #0969da !important;
+    }
+    
+    /* 统计卡片样式 */
+    .card.text-center {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    
+    .card.text-center:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(140, 149, 159, 0.15);
+    }
+    
+    .card-title {
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+    }
+    
+    .card-text {
+        font-size: 24px;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    /* 分页样式 */
+    .pagination .page-link {
+        color: #24292f;
+        background-color: white;
+        border: 1px solid #d1d9e0;
+        padding: 6px 12px;
+        font-size: 14px;
+        border-radius: 6px;
+        margin: 0 2px;
+    }
+    
+    .pagination .page-link:hover {
+        background-color: #f6f8fa;
+        border-color: #d1d9e0;
+        color: #24292f;
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: #0969da;
+        border-color: #0969da;
+        color: white;
+    }
+    
+    .pagination .page-item.disabled .page-link {
+        color: #8c959f;
+        background-color: #f6f8fa;
+        border-color: #d1d9e0;
+    }
+`;
+document.head.appendChild(adminStyle);
+
+// 搜索框回车事件
+document.getElementById('searchInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        searchNotifications();
+    }
+});
+</script>
+{% endblock %} 

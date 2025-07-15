@@ -1,0 +1,282 @@
+{% extends "admin/base.html" %}
+
+{% block title %}编辑用户 - Agorix 管理后台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('admin.users') }}">
+                        <i class="fas fa-users me-1"></i>用户管理
+                    </a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('admin.user_detail', user_id=user.id) }}">
+                        {{ user.username }}
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">编辑</li>
+            </ol>
+        </nav>
+        <h1 class="h3 mb-0">编辑用户</h1>
+    </div>
+    <div>
+        <a href="{{ url_for('admin.user_detail', user_id=user.id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>返回详情
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-edit me-2"></i>用户信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="editUserForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="username" class="form-label">
+                                用户名 <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="username" 
+                                   name="username" 
+                                   value="{{ user.username }}" 
+                                   required>
+                            <div class="form-text">用户名必须唯一</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="email" class="form-label">
+                                邮箱 <span class="text-danger">*</span>
+                            </label>
+                            <input type="email" 
+                                   class="form-control" 
+                                   id="email" 
+                                   name="email" 
+                                   value="{{ user.email }}" 
+                                   required>
+                            <div class="form-text">邮箱必须唯一</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="is_active" class="form-label">状态</label>
+                            <select class="form-select" id="is_active" name="is_active">
+                                <option value="true" {{ 'selected' if user.is_active }}>活跃</option>
+                                <option value="false" {{ 'selected' if not user.is_active }}>已禁用</option>
+                            </select>
+                            <div class="form-text">禁用用户将无法登录系统</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="is_admin" class="form-label">角色</label>
+                            <select class="form-select" id="is_admin" name="is_admin">
+                                <option value="false" {{ 'selected' if not user.is_admin }}>普通用户</option>
+                                <option value="true" {{ 'selected' if user.is_admin }}>管理员</option>
+                            </select>
+                            <div class="form-text">管理员拥有系统管理权限</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">新密码</label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="password" 
+                               name="password"
+                               placeholder="留空则不修改密码">
+                        <div class="form-text">密码长度至少6位</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">确认新密码</label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="confirm_password" 
+                               name="confirm_password"
+                               placeholder="再次输入新密码">
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>保存修改
+                            </button>
+                            <a href="{{ url_for('admin.user_detail', user_id=user.id) }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>取消
+                            </a>
+                        </div>
+                        {% if not user.is_admin %}
+                            <button type="button" class="btn btn-outline-danger delete-user-btn" 
+                                    data-user-id="{{ user.id }}"
+                                    data-username="{{ user.username }}">
+                                <i class="fas fa-trash me-1"></i>删除用户
+                            </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>当前信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless table-sm">
+                    <tr>
+                        <td class="text-muted">用户ID:</td>
+                        <td><code>{{ user.id }}</code></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">注册时间:</td>
+                        <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">最后登录:</td>
+                        <td>{{ user.last_login.strftime('%Y-%m-%d') if user.last_login else '从未登录' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">更新时间:</td>
+                        <td>{{ user.updated_at.strftime('%Y-%m-%d') if user.updated_at else '-' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>活动统计
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless table-sm">
+                    <tr>
+                        <td class="text-muted">对话数量:</td>
+                        <td><span class="badge bg-primary">{{ user.conversations.count() }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">知识库:</td>
+                        <td><span class="badge bg-success">{{ user.knowledge_bases.count() }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">社区帖子:</td>
+                        <td><span class="badge bg-info">{{ user.community_posts.count() }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">社区互动:</td>
+                        <td><span class="badge bg-warning">{{ user.community_interactions.count() }}</span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>注意事项
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <small>
+                        <i class="fas fa-info-circle me-1"></i>
+                        修改用户信息后，用户需要重新登录才能生效。
+                    </small>
+                </div>
+                {% if user.is_admin %}
+                    <div class="alert alert-danger">
+                        <small>
+                            <i class="fas fa-shield-alt me-1"></i>
+                            此用户是管理员，请谨慎操作。
+                        </small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('editUserForm');
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm_password');
+
+    // 表单提交验证
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // 密码确认验证
+        if (passwordInput.value || confirmPasswordInput.value) {
+            if (passwordInput.value !== confirmPasswordInput.value) {
+                showNotification('两次输入的密码不一致', 'danger');
+                return;
+            }
+            if (passwordInput.value.length < 6) {
+                showNotification('密码长度至少6位', 'danger');
+                return;
+            }
+        }
+
+        // 提交表单
+        const formData = new FormData(form);
+        
+        makeRequest(form.action, 'POST', formData)
+            .then(response => {
+                if (response.success) {
+                    showNotification('用户信息更新成功', 'success');
+                    setTimeout(() => {
+                        window.location.href = "{{ url_for('admin.user_detail', user_id=user.id) }}";
+                    }, 1500);
+                } else {
+                    showNotification(response.message || '更新失败', 'danger');
+                }
+            })
+            .catch(error => {
+                showNotification('更新失败：网络错误', 'danger');
+            });
+    });
+
+    // 删除用户事件委托
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-user-btn')) {
+            const btn = e.target.closest('.delete-user-btn');
+            const userId = btn.dataset.userId;
+            const username = btn.dataset.username;
+            
+            confirmDelete(`确定要删除用户 "${username}" 吗？`, function() {
+                                 makeRequest(`/admin/users/${userId}/delete`, 'POST')
+                    .then(response => {
+                        if (response.success) {
+                            showNotification(response.message, 'success');
+                            // 跳转回列表页
+                            setTimeout(() => {
+                                window.location.href = "{{ url_for('admin.users') }}";
+                            }, 1500);
+                        } else {
+                            showNotification(response.message, 'danger');
+                        }
+                    })
+                    .catch(error => {
+                        showNotification('删除失败：网络错误', 'danger');
+                    });
+            });
+        }
+    });
+});
+</script>
+{% endblock %} 

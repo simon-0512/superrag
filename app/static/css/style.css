@@ -1265,13 +1265,15 @@ footer a:hover {
 }
 
 .input-wrapper {
+    position: relative;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--spacing-sm);
     background: var(--bg-subtle);
     border: var(--border-width) solid var(--border);
     border-radius: 6px; /* 🔥 缩小：从8px改为6px */
     padding: var(--spacing-xs); /* 🔥 缩小：从sm改为xs */
+    padding-right: 44px; /* 为右下角的发送按钮留出空间 */
     transition: var(--transition);
 }
 
@@ -1298,27 +1300,30 @@ footer a:hover {
 }
 
 .send-btn {
-    background: var(--accent);
-    color: white;
+    background: transparent;
+    color: var(--accent);
     border: none;
-    border-radius: 6px; /* 🔥 缩小：从8px改为6px */
-    width: 36px; /* 🔥 缩小：从40px改为36px */
-    height: 36px; /* 🔥 缩小：从40px改为36px */
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: var(--transition);
     flex-shrink: 0;
-    margin-top: 2px;
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
 }
 
 .send-btn:hover:not(:disabled) {
-    background: var(--accent);
-    transform: scale(1.05);
+    background: var(--accent-light);
+    color: var(--accent);
+    transform: scale(1.1);
 }
 
 .send-btn:disabled {
-    background: var(--text-muted);
+    color: var(--text-muted);
     cursor: not-allowed;
     transform: none;
 }
