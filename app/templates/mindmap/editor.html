@@ -1,0 +1,5527 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if mindmap %}编辑思维导图 - {{ mindmap.title }}{% else %}思维导图编辑器{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="mindmap-page-content">
+    <!-- 操作说明tips - 全局位置 -->
+    <div id="operationTips" class="operation-tips" style="position: fixed; top: 120px; left: 280px; z-index: 99999; display: block; visibility: visible;">
+        <div class="tips-header">
+            <i class="fas fa-lightbulb tips-icon"></i>
+            <h6 class="tips-title">操作说明</h6>
+            <button class="tips-close" onclick="hideTips()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="tips-content">
+            <ul class="tips-list">
+                <li><span class="tips-key">双击</span> 节点编辑文字</li>
+                <li><span class="tips-key">Tab</span> 创建子节点</li>
+                <li><span class="tips-key">Enter</span> 创建同级节点</li>
+                <li><span class="tips-key">Delete</span> 删除选中节点</li>
+                <li><span class="tips-key">拖拽</span> 移动节点位置</li>
+                <li>点击节点<span class="tips-key">扇形按钮</span>进行更多操作</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="mindmap-container">
+        <!-- 思维导图侧边栏展开触发器 -->
+        <div class="sidebar-trigger-mindmap" id="sidebarTriggerMindmap" title="显示导图列表">
+            <i class="fas fa-project-diagram"></i>
+        </div>
+        
+        <!-- 左侧边栏 - 思维导图列表 -->
+        <div class="mindmap-sidebar" id="mindmapSidebar">
+            <div class="sidebar-header">
+                <button class="btn btn-primary w-100" onclick="createNewMindmap()">
+                    <i class="fas fa-plus"></i> 新建思维导图
+                </button>
+            </div>
+            
+            <div class="sidebar-search">
+                <div class="search-input-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="form-control search-input" placeholder="搜索思维导图..." id="mindmapSearch">
+                </div>
+            </div>
+            
+            <div class="sidebar-content">
+                <div class="mindmap-list" id="mindmapList">
+                    {% if mindmaps %}
+                        {% for m in mindmaps %}
+                        <div class="mindmap-item {% if mindmap and m.id == mindmap.id %}active{% endif %}" 
+                             data-mindmap-id="{{ m.id }}"
+                             onclick="switchMindmap('{{ m.id }}')">
+                            <div class="mindmap-content">
+                                <div class="mindmap-title">{{ m.title }}</div>
+                                <div class="mindmap-preview">
+                                    {% if m.description %}{{ m.description[:50] }}...{% else %}暂无描述{% endif %}
+                                </div>
+                                <div class="mindmap-meta">
+                                    <span class="mindmap-date">{{ m.updated_at[:10] if m.updated_at else '' }}</span>
+                                    {% if m.is_public %}
+                                    <span class="mindmap-public">公开</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="mindmap-actions">
+                                <button class="btn btn-sm btn-outline-info" onclick="shareMindmap('{{ m.id }}', event)" title="分享">
+                                    <i class="fas fa-share"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteMindmap('{{ m.id }}', event)" title="删除">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-mindmaps text-center py-4">
+                            <i class="fas fa-project-diagram fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">还没有创建思维导图</p>
+                            <button class="btn btn-primary btn-sm" onclick="createNewMindmap()">
+                                创建第一个思维导图
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <button class="btn btn-outline-secondary btn-sm w-100" id="toggleSidebar">
+                    <i class="fas fa-chevron-left"></i> 收起
+                </button>
+            </div>
+        </div>
+        
+        <!-- 主编辑区域 -->
+        <div class="mindmap-main">
+            <!-- 顶部工具栏 -->
+            <div class="mindmap-header">
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <div class="mindmap-title-section">
+                        {% if mindmap %}
+                        <input type="text" id="mindmap-title" class="mindmap-title-input" value="{{ mindmap.title }}" placeholder="思维导图标题">
+                        <small class="text-muted ms-2">
+                            最后修改：{{ mindmap.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                        </small>
+                        {% else %}
+                        <input type="text" id="mindmap-title" class="mindmap-title-input" value="新建思维导图" placeholder="思维导图标题">
+                        {% endif %}
+                    </div>
+                    <div class="mindmap-tools">
+                        <button class="btn btn-outline-primary btn-sm me-2" onclick="createNewMindmap()" title="新建思维导图">
+                            <i class="fas fa-file-plus me-1"></i>新建
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="addRootNode()" title="添加节点">
+                            <i class="fas fa-plus me-1"></i>节点
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="saveMindmap()" title="保存">
+                            <i class="fas fa-save"></i>
+                        </button>
+                        <div class="dropdown d-inline-block me-2">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" title="导出">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="exportMindmap('json')">
+                                    <i class="fas fa-file-code me-2"></i>导出JSON
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="exportMindmap('png')">
+                                    <i class="fas fa-image me-2"></i>导出PNG图像
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="exportMindmap('pdf')">
+                                    <i class="fas fa-file-pdf me-2"></i>导出PDF
+                                </a></li>
+                            </ul>
+                        </div>
+                        <div class="dropdown d-inline-block">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" title="分享">
+                                <i class="fas fa-share"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="togglePublic()">
+                                    <i class="fas fa-{% if mindmap and mindmap.is_public %}eye-slash{% else %}eye{% endif %} me-2"></i>
+                                    {% if mindmap and mindmap.is_public %}设为私有{% else %}设为公开{% endif %}
+                                </a></li>
+                                {% if mindmap %}
+                                <li><a class="dropdown-item" href="{{ url_for('mindmap.view', mindmap_id=mindmap.id) }}" target="_blank">
+                                    <i class="fas fa-external-link-alt me-2"></i>查看链接
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" onclick="copyShareLink()">
+                                    <i class="fas fa-copy me-2"></i>复制链接
+                                </a></li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 画布区域 -->
+            <div class="mindmap-canvas-container">
+                <div id="mindmap-canvas">
+                    {% if not mindmap %}
+                    <div class="welcome-mindmap">
+                        <div class="text-center">
+                            <i class="fas fa-project-diagram fa-4x text-muted mb-4"></i>
+                            <h3 class="text-muted">开始创建您的思维导图</h3>
+                            <p class="text-muted">点击画布中央开始添加节点，或选择左侧的思维导图进行编辑</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- 浮动工具栏 -->
+                <div class="floating-toolbar">
+                    <button class="btn btn-sm btn-primary" onclick="addNode()" title="添加节点">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="showTips()" title="操作说明">
+                        <i class="fas fa-question-circle"></i>
+                    </button>
+                    <div class="toolbar-separator"></div>
+                    <button class="btn btn-sm btn-warning" onclick="showThemePanel()" title="主题设置">
+                        <i class="fas fa-palette"></i>
+                    </button>
+                    <div class="toolbar-separator"></div>
+                    <button class="btn btn-sm btn-info" onclick="zoomIn()" title="放大">
+                        <i class="fas fa-search-plus"></i>
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="zoomOut()" title="缩小">
+                        <i class="fas fa-search-minus"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="resetView()" title="重置视图">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="showAIPanel()" title="AI扩展">
+                        <i class="fas fa-brain"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI功能面板模态框 -->
+<div class="modal fade" id="aiModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-robot me-2"></i>AI智能扩展
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="ai-panel">
+                    <div class="mb-3">
+                        <label class="form-label">选择扩展类型</label>
+                        <select class="form-select" id="ai-type">
+                            <option value="expand">概念扩展</option>
+                            <option value="learn">学习路径</option>
+                            <option value="supplement">知识补充</option>
+                            <option value="relate">关联推荐</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">当前节点内容</label>
+                        <input type="text" class="form-control" id="current-node" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">补充信息（可选）</label>
+                        <textarea class="form-control" id="ai-context" rows="3" 
+                                  placeholder="您可以提供更多上下文信息来帮助AI生成更准确的内容"></textarea>
+                    </div>
+                    <div class="ai-result d-none">
+                        <h6>AI生成结果</h6>
+                        <div id="ai-result-content" class="border rounded p-3 bg-light">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="generateAIContent()">
+                    <i class="fas fa-magic me-2"></i>生成内容
+                </button>
+                <button type="button" class="btn btn-success d-none" id="apply-ai-result" onclick="applyAIResult()">
+                    <i class="fas fa-check me-2"></i>应用到思维导图
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 主题设置模态框 -->
+<div class="modal fade" id="themeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 600px;">
+        <div class="modal-content">
+            <div class="modal-header py-3">
+                <h5 class="modal-title mb-0">
+                    <i class="fas fa-palette me-2"></i>主题设置
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-3">
+                <div class="theme-panel">
+                    <!-- 预设主题 -->
+                    <div class="mb-3">
+                        <h6 class="mb-2 fw-bold">预设主题</h6>
+                        <div class="theme-presets" style="grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;">
+                            <div class="theme-preset active" data-theme="default" onclick="applyTheme('default')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview default-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">默认</span>
+                            </div>
+                            <div class="theme-preset" data-theme="ocean" onclick="applyTheme('ocean')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview ocean-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">海洋</span>
+                            </div>
+                            <div class="theme-preset" data-theme="forest" onclick="applyTheme('forest')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview forest-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">森林</span>
+                            </div>
+                            <div class="theme-preset" data-theme="sunset" onclick="applyTheme('sunset')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview sunset-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">日落</span>
+                            </div>
+                            <div class="theme-preset" data-theme="minimal" onclick="applyTheme('minimal')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview minimal-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">极简</span>
+                            </div>
+                            <div class="theme-preset" data-theme="dark" onclick="applyTheme('dark')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview dark-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">暗色</span>
+                            </div>
+                            <div class="theme-preset" data-theme="vscode" onclick="applyTheme('vscode')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview vscode-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">VS Code</span>
+                            </div>
+                            <div class="theme-preset" data-theme="github" onclick="applyTheme('github')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview github-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">GitHub</span>
+                            </div>
+                            <div class="theme-preset" data-theme="monokai" onclick="applyTheme('monokai')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview monokai-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">Monokai</span>
+                            </div>
+                            <div class="theme-preset" data-theme="dracula" onclick="applyTheme('dracula')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview dracula-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">Dracula</span>
+                            </div>
+                            <div class="theme-preset" data-theme="one-dark" onclick="applyTheme('one-dark')" style="padding: 8px 6px; font-size: 11px;">
+                                <div class="theme-preview one-dark-theme" style="width: 45px; height: 30px;">
+                                    <div class="preview-node"></div>
+                                    <div class="preview-connection"></div>
+                                    <div class="preview-node secondary"></div>
+                                </div>
+                                <span style="margin-top: 4px; font-weight: 500;">One Dark</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 自定义配色 -->
+                    <div class="mb-3">
+                        <h6 class="mb-2 fw-bold">自定义配色</h6>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <label class="form-label small mb-1">主节点</label>
+                                <input type="color" class="form-control form-control-color form-control-sm" id="primaryColor" value="#007bff">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small mb-1">子节点</label>
+                                <input type="color" class="form-control form-control-color form-control-sm" id="secondaryColor" value="#6c757d">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small mb-1">连接线</label>
+                                <input type="color" class="form-control form-control-color form-control-sm" id="connectionColor" value="#495057">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 背景设置 -->
+                    <div class="mb-2">
+                        <h6 class="mb-2 fw-bold">背景设置</h6>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-6">
+                                <label class="form-label small mb-1">背景颜色</label>
+                                <input type="color" class="form-control form-control-color form-control-sm" id="backgroundColor" value="#ffffff">
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check form-switch mb-1">
+                                    <input class="form-check-input" type="checkbox" id="showGrid" checked>
+                                    <label class="form-check-label small" for="showGrid">显示网格</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-sm btn-warning" onclick="resetTheme()">重置</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="applyCustomTheme()">应用自定义</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 形状设置模态框 -->
+<div class="modal fade" id="shapeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-shapes me-2"></i>形状设置
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="shape-panel">
+                    <!-- 节点形状 -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">节点形状</h6>
+                        <div class="shape-options">
+                            <div class="shape-option active" data-shape="rounded" onclick="selectNodeShape('rounded')">
+                                <div class="shape-preview rounded-shape"></div>
+                                <span>圆角矩形</span>
+                            </div>
+                            <div class="shape-option" data-shape="circle" onclick="selectNodeShape('circle')">
+                                <div class="shape-preview circle-shape"></div>
+                                <span>圆形</span>
+                            </div>
+                            <div class="shape-option" data-shape="square" onclick="selectNodeShape('square')">
+                                <div class="shape-preview square-shape"></div>
+                                <span>方形</span>
+                            </div>
+                            <div class="shape-option" data-shape="diamond" onclick="selectNodeShape('diamond')">
+                                <div class="shape-preview diamond-shape"></div>
+                                <span>菱形</span>
+                            </div>
+                            <div class="shape-option" data-shape="hexagon" onclick="selectNodeShape('hexagon')">
+                                <div class="shape-preview hexagon-shape"></div>
+                                <span>六边形</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 连接线样式 -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">连接线样式</h6>
+                        <div class="connection-options">
+                            <div class="connection-option active" data-connection="curved" onclick="selectConnectionStyle('curved')">
+                                <div class="connection-preview curved-connection"></div>
+                                <span>曲线</span>
+                            </div>
+                            <div class="connection-option" data-connection="straight" onclick="selectConnectionStyle('straight')">
+                                <div class="connection-preview straight-connection"></div>
+                                <span>直线</span>
+                            </div>
+                            <div class="connection-option" data-connection="orthogonal" onclick="selectConnectionStyle('orthogonal')">
+                                <div class="connection-preview orthogonal-connection"></div>
+                                <span>直角</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 尺寸设置 -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">尺寸设置</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">节点大小</label>
+                                <input type="range" class="form-range" id="nodeSize" min="80" max="200" value="120" onchange="updateNodeSize(this.value)">
+                                <div class="text-center"><small id="nodeSizeValue">120px</small></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">连接线粗细</label>
+                                <input type="range" class="form-range" id="connectionWidth" min="1" max="5" value="2" onchange="updateConnectionWidth(this.value)">
+                                <div class="text-center"><small id="connectionWidthValue">2px</small></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-warning" onclick="resetShapes()">重置</button>
+                <button type="button" class="btn btn-primary" onclick="applyShapeSettings()">应用</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除这个思维导图吗？此操作不可恢复。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 操作成功提示 -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+    <div id="successToast" class="toast" role="alert">
+        <div class="toast-header">
+            <i class="fas fa-check-circle text-success me-2"></i>
+            <strong class="me-auto">成功</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            操作成功！
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 思维导图页面样式 - 参考chat页面设计 */
+
+/* 隐藏页脚，为编辑区域释放空间 */
+footer {
+    display: none !important;
+}
+
+/* 调整主内容区域高度 */
+.main-content {
+    min-height: calc(100vh - 60px) !important;
+    padding-bottom: 0 !important;
+}
+
+/* 思维导图页面内容容器 */
+.mindmap-page-content {
+    padding: 0 !important;
+    margin: 0 !important;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+}
+
+/* 思维导图容器 */
+.mindmap-container {
+    height: 100% !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    display: flex;
+}
+
+/* 思维导图侧边栏 - 参考chat侧边栏样式 */
+.mindmap-sidebar {
+    width: 260px;
+    background: var(--bg-subtle);
+    border-right: var(--border-width) solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease;
+    transform: translateX(0);
+    border-radius: var(--radius) 0 0 var(--radius);
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+}
+
+.mindmap-sidebar.hidden {
+    transform: translateX(-100%);
+}
+
+.mindmap-sidebar.show {
+    transform: translateX(0) !important;
+}
+
+/* 侧边栏头部 */
+.sidebar-header {
+    padding: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    background: var(--bg-white);
+}
+
+/* 新建思维导图按钮 */
+.sidebar-header .btn {
+    font-weight: 500;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+}
+
+/* 搜索框 */
+.sidebar-search {
+    padding: 0 var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    background: var(--bg-white);
+    border-bottom: var(--border-width) solid var(--border);
+}
+
+.search-input-wrapper {
+    position: relative;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.search-input {
+    padding-left: 35px !important;
+    background: var(--bg-subtle);
+    border: var(--border-width) solid var(--border);
+    font-size: 0.8rem;
+}
+
+/* 侧边栏内容 */
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-sm);
+}
+
+/* 思维导图项目 - 参考conversation-item样式 */
+.mindmap-item {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg-white);
+    border: var(--border-width) solid transparent;
+    position: relative;
+    margin-bottom: var(--spacing-xs);
+}
+
+.mindmap-item:hover {
+    background: var(--bg-white);
+    border-color: var(--border);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.mindmap-item.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.mindmap-item.active .mindmap-title {
+    color: white;
+}
+
+.mindmap-item.active .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.mindmap-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.mindmap-title {
+    font-weight: 500;
+    margin-bottom: var(--spacing-xs);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mindmap-preview {
+    margin-bottom: var(--spacing-xs);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.mindmap-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+}
+
+.mindmap-date {
+    color: var(--text-tertiary);
+}
+
+.mindmap-public {
+    background: var(--success);
+    color: white;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+}
+
+/* 思维导图操作按钮 - 参考chat页面的悬停效果 */
+.mindmap-actions {
+    display: flex;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    gap: 4px;
+    margin-left: 8px;
+}
+
+.mindmap-item:hover .mindmap-actions {
+    opacity: 1;
+}
+
+.mindmap-actions .btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    min-width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mindmap-actions .btn:hover {
+    transform: scale(1.05);
+}
+
+/* 侧边栏底部 */
+.sidebar-footer {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-white);
+    border-top: var(--border-width) solid var(--border);
+}
+
+/* 思维导图侧边栏展开触发器 */
+.sidebar-trigger-mindmap {
+    position: fixed;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: none; /* 默认隐藏，只在侧边栏收起时显示 */
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2000;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+.sidebar-trigger-mindmap:hover {
+    transform: translateY(-50%) scale(1.1);
+}
+
+.mindmap-container.sidebar-hidden .sidebar-trigger-mindmap {
+    display: flex;
+}
+
+/* 主编辑区域 */
+.mindmap-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-white);
+}
+
+/* 思维导图头部工具栏 */
+.mindmap-header {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-subtle);
+    border-bottom: var(--border-width) solid var(--border);
+    height: 60px;
+    display: flex;
+    align-items: center;
+}
+
+.mindmap-title-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.mindmap-title-input {
+    background: transparent;
+    border: none;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+    max-width: 400px;
+}
+
+.mindmap-title-input:focus {
+    outline: none;
+    background: var(--bg-white);
+    box-shadow: 0 0 0 2px var(--accent-alpha);
+}
+
+.mindmap-tools {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* 画布容器 */
+.mindmap-canvas-container {
+    position: fixed;
+    top: 120px;
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - 120px);
+    background: var(--bg-white);
+    overflow: hidden;
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+#mindmap-canvas {
+    width: 100%;
+    height: 100%;
+    background-color: #fff;
+    background-image: 
+        linear-gradient(90deg, #f1f3f4 1px, transparent 1px),
+        linear-gradient(#f1f3f4 1px, transparent 1px);
+    background-size: 20px 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* 欢迎界面 */
+.welcome-mindmap {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+}
+
+/* 浮动工具栏 */
+.floating-toolbar {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-white);
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border: var(--border-width) solid var(--border);
+}
+
+.floating-toolbar .btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 0.875rem;
+}
+
+.toolbar-separator {
+    width: 20px;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.1);
+    margin: 4px 0;
+}
+
+/* 主题设置面板样式 */
+.theme-presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.theme-preset {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.theme-preset:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.theme-preset.active {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+}
+
+.theme-preview {
+    width: 60px;
+    height: 40px;
+    position: relative;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.preview-node {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    position: absolute;
+}
+
+.preview-node:first-child {
+    top: 8px;
+    left: 8px;
+}
+
+.preview-node.secondary {
+    top: 16px;
+    right: 8px;
+}
+
+.preview-connection {
+    position: absolute;
+    top: 16px;
+    left: 24px;
+    width: 20px;
+    height: 2px;
+}
+
+/* 主题配色 */
+.default-theme .preview-node { background: #007bff; }
+.default-theme .preview-node.secondary { background: #6c757d; }
+.default-theme .preview-connection { background: #495057; }
+
+.ocean-theme .preview-node { background: #0077be; }
+.ocean-theme .preview-node.secondary { background: #17a2b8; }
+.ocean-theme .preview-connection { background: #20c997; }
+
+.forest-theme .preview-node { background: #28a745; }
+.forest-theme .preview-node.secondary { background: #20c997; }
+.forest-theme .preview-connection { background: #6f7634; }
+
+.sunset-theme .preview-node { background: #fd7e14; }
+.sunset-theme .preview-node.secondary { background: #e83e8c; }
+.sunset-theme .preview-connection { background: #dc3545; }
+
+.minimal-theme .preview-node { background: #495057; }
+.minimal-theme .preview-node.secondary { background: #868e96; }
+.minimal-theme .preview-connection { background: #adb5bd; }
+
+.dark-theme .preview-node { background: #6c757d; }
+.dark-theme .preview-node.secondary { background: #495057; }
+.dark-theme .preview-connection { background: #343a40; }
+
+.vscode-theme .preview-node { background: #007acc; }
+.vscode-theme .preview-node.secondary { background: #4fc3f7; }
+.vscode-theme .preview-connection { background: #569cd6; }
+
+.github-theme .preview-node { background: #0969da; }
+.github-theme .preview-node.secondary { background: #8b949e; }
+.github-theme .preview-connection { background: #d0d7de; }
+
+.monokai-theme .preview-node { background: #a6e22e; }
+.monokai-theme .preview-node.secondary { background: #f92672; }
+.monokai-theme .preview-connection { background: #66d9ef; }
+
+.dracula-theme .preview-node { background: #bd93f9; }
+.dracula-theme .preview-node.secondary { background: #50fa7b; }
+.dracula-theme .preview-connection { background: #8be9fd; }
+
+.one-dark-theme .preview-node { background: #61afef; }
+.one-dark-theme .preview-node.secondary { background: #98c379; }
+.one-dark-theme .preview-connection { background: #e06c75; }
+
+/* 形状设置面板样式 */
+.shape-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.shape-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.shape-option:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.shape-option.active {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+}
+
+.shape-preview {
+    width: 24px;
+    height: 24px;
+    background: #007bff;
+    margin-bottom: 8px;
+}
+
+.rounded-shape { border-radius: 6px; }
+.circle-shape { border-radius: 50%; }
+.square-shape { border-radius: 0; }
+.diamond-shape { 
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); transform: none; 
+    border-radius: 2px;
+}
+.hexagon-shape {
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+/* 连接线样式预览 */
+.connection-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.connection-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.connection-option:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.connection-option.active {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+}
+
+.connection-preview {
+    width: 40px;
+    height: 20px;
+    position: relative;
+    margin-bottom: 8px;
+}
+
+.curved-connection {
+    border-top: 2px solid #007bff;
+    border-radius: 10px 10px 0 0;
+}
+
+.straight-connection {
+    border-top: 2px solid #007bff;
+}
+
+.orthogonal-connection {
+    border-left: 2px solid #007bff;
+    border-top: 2px solid #007bff;
+    width: 20px;
+    height: 10px;
+    border-radius: 2px 0 0 0;
+}
+
+/* 工具栏分隔符 */
+.toolbar-separator {
+    width: 20px;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.1);
+    margin: 4px 0;
+}
+
+/* 主题设置面板样式 */
+.theme-presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.theme-preset {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.theme-preset:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.theme-preset.active {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+}
+
+.theme-preview {
+    width: 60px;
+    height: 40px;
+    position: relative;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.preview-node {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    position: absolute;
+}
+
+.preview-node:first-child {
+    top: 8px;
+    left: 8px;
+}
+
+.preview-node.secondary {
+    top: 16px;
+    right: 8px;
+}
+
+.preview-connection {
+    position: absolute;
+    top: 16px;
+    left: 24px;
+    width: 20px;
+    height: 2px;
+}
+
+/* 主题配色 */
+.default-theme .preview-node { background: #007bff; }
+.default-theme .preview-node.secondary { background: #6c757d; }
+.default-theme .preview-connection { background: #495057; }
+
+.ocean-theme .preview-node { background: #0077be; }
+.ocean-theme .preview-node.secondary { background: #17a2b8; }
+.ocean-theme .preview-connection { background: #20c997; }
+
+.forest-theme .preview-node { background: #28a745; }
+.forest-theme .preview-node.secondary { background: #20c997; }
+.forest-theme .preview-connection { background: #6f7634; }
+
+.sunset-theme .preview-node { background: #fd7e14; }
+.sunset-theme .preview-node.secondary { background: #e83e8c; }
+.sunset-theme .preview-connection { background: #dc3545; }
+
+.minimal-theme .preview-node { background: #495057; }
+.minimal-theme .preview-node.secondary { background: #868e96; }
+.minimal-theme .preview-connection { background: #adb5bd; }
+
+.dark-theme .preview-node { background: #6c757d; }
+.dark-theme .preview-node.secondary { background: #495057; }
+.dark-theme .preview-connection { background: #343a40; }
+
+.vscode-theme .preview-node { background: #007acc; }
+.vscode-theme .preview-node.secondary { background: #4fc3f7; }
+.vscode-theme .preview-connection { background: #569cd6; }
+
+.github-theme .preview-node { background: #0969da; }
+.github-theme .preview-node.secondary { background: #8b949e; }
+.github-theme .preview-connection { background: #d0d7de; }
+
+.monokai-theme .preview-node { background: #a6e22e; }
+.monokai-theme .preview-node.secondary { background: #f92672; }
+.monokai-theme .preview-connection { background: #66d9ef; }
+
+.dracula-theme .preview-node { background: #bd93f9; }
+.dracula-theme .preview-node.secondary { background: #50fa7b; }
+.dracula-theme .preview-connection { background: #8be9fd; }
+
+.one-dark-theme .preview-node { background: #61afef; }
+.one-dark-theme .preview-node.secondary { background: #98c379; }
+.one-dark-theme .preview-connection { background: #e06c75; }
+
+/* 形状设置面板样式 */
+.shape-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.shape-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.shape-option:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.shape-option.active {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+}
+
+.shape-preview {
+    width: 24px;
+    height: 24px;
+    background: #007bff;
+    margin-bottom: 8px;
+}
+
+.rounded-shape { border-radius: 6px; }
+.circle-shape { border-radius: 50%; }
+.square-shape { border-radius: 0; }
+.diamond-shape { 
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); transform: none; 
+    border-radius: 2px;
+}
+.hexagon-shape {
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+/* 连接线样式预览 */
+.connection-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.connection-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.connection-option:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.connection-option.active {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+}
+
+.connection-preview {
+    width: 40px;
+    height: 20px;
+    position: relative;
+    margin-bottom: 8px;
+}
+
+.curved-connection {
+    border-top: 2px solid #007bff;
+    border-radius: 10px 10px 0 0;
+}
+
+.straight-connection {
+    border-top: 2px solid #007bff;
+}
+
+.orthogonal-connection {
+    border-left: 2px solid #007bff;
+    border-top: 2px solid #007bff;
+    width: 20px;
+    height: 10px;
+    border-radius: 2px 0 0 0;
+}
+
+/* 节点扇形按钮样式 */
+.node-buttons {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+    z-index: 20;
+    pointer-events: none;
+}
+
+.node-buttons.show {
+    display: block;
+}
+
+.node-btn-fan {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 21;
+    pointer-events: auto;
+}
+
+.node-btn-fan:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* 扇形按钮位置 */
+.node-btn-fan:nth-child(1) { /* 编辑 */
+    background: #007bff;
+    color: white;
+    transform: translate(0, -50px);
+}
+
+.node-btn-fan:nth-child(2) { /* 删除 */
+    background: #dc3545;
+    color: white;
+    transform: translate(35px, -35px);
+}
+
+.node-btn-fan:nth-child(3) { /* 连接 */
+    background: #28a745;
+    color: white;
+    transform: translate(50px, 0);
+}
+
+.node-btn-fan:nth-child(4) { /* 样式 */
+    background: #fd7e14;
+    color: white;
+    transform: translate(35px, 35px);
+}
+
+.node-btn-fan:nth-child(5) { /* AI扩展 */
+    background: #6f42c1;
+    color: white;
+    transform: translate(0, 50px);
+}
+
+.node-btn-fan:nth-child(6) { /* AI说明 */
+    background: #20c997;
+    color: white;
+    transform: translate(-35px, 35px);
+}
+
+/* 动画展开效果 */
+.node-buttons.show .node-btn-fan {
+    animation: fanOut 0.3s ease-out forwards;
+}
+
+@keyframes fanOut {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.node-buttons.show .node-btn-fan:nth-child(1) {
+    animation-delay: 0.05s;
+}
+.node-buttons.show .node-btn-fan:nth-child(2) {
+    animation-delay: 0.1s;
+}
+.node-buttons.show .node-btn-fan:nth-child(3) {
+    animation-delay: 0.15s;
+}
+.node-buttons.show .node-btn-fan:nth-child(4) {
+    animation-delay: 0.2s;
+}
+.node-buttons.show .node-btn-fan:nth-child(5) {
+    animation-delay: 0.25s;
+}
+.node-buttons.show .node-btn-fan:nth-child(6) {
+    animation-delay: 0.3s;
+}
+
+.node-btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.add-btn {
+    background: #28a745;
+    color: white;
+}
+
+.note-btn {
+    background: #ffc107;
+    color: white;
+}
+
+.connect-btn {
+    background: #17a2b8;
+    color: white;
+}
+
+.node-btn:hover {
+    transform: scale(1.1);
+}
+
+/* 移除旧的hover显示，现在使用点击显示 */
+/* .mindmap-node:hover .node-buttons {
+    display: flex;
+} */
+
+/* 连接线样式 */
+.mindmap-connection {
+    transition: all 0.2s ease;
+    position: absolute;
+    height: 2px;
+    background: #d1d9e0;
+    z-index: 0;
+    pointer-events: all;
+    cursor: pointer;
+}
+
+.mindmap-connection:hover {
+    height: 4px;
+    background: #0969da;
+    box-shadow: 0 2px 8px rgba(9, 105, 218, 0.3);
+    z-index: 1;
+}
+
+.mindmap-connection.selected {
+    height: 4px;
+    background: #28a745;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    z-index: 1;
+}
+
+/* 节点形状样式 */
+.shape-rounded {
+    border-radius: 15px !important;
+}
+
+.shape-circle {
+    border-radius: 50% !important;
+    width: 60px !important;
+    height: 60px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.shape-diamond {
+    border-radius: 0 !important;
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    width: 60px !important;
+    height: 60px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transform: none !important;
+}
+
+.shape-diamond .node-text {
+    transform: none !important;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.2;
+    overflow: hidden;
+    max-width: 40px;
+}
+
+/* 连接中的节点高亮 */
+.mindmap-node.connecting {
+    box-shadow: 0 0 15px #007bff;
+    border: 2px solid #007bff;
+}
+
+/* 节点样式面板 */
+.style-section {
+    margin-bottom: 20px;
+}
+
+.style-section h4 {
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.color-picker-group {
+    margin-bottom: 15px;
+}
+
+.color-picker-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.preset-colors {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.color-preset {
+    width: 30px;
+    height: 30px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.color-preset:hover {
+    transform: scale(1.1);
+    border-color: #007bff;
+}
+
+.shape-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.shape-btn {
+    padding: 8px 16px;
+    border: 2px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.shape-btn:hover {
+    border-color: #007bff;
+    background: #f8f9fa;
+}
+
+/* 思维导图节点样式 */
+.mindmap-node {
+    transition: all 0.2s ease;
+    user-select: none;
+    position: absolute;
+    background: #f8f9fa;
+    border: 2px solid #d1d9e0;
+    color: #24292f;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    min-width: 80px;
+    text-align: center;
+    word-wrap: break-word;
+    max-width: 200px;
+    line-height: 1.4;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mindmap-node:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+.mindmap-node.selected {
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3) !important;
+}
+
+.mindmap-node.center-node, .mindmap-node.root-node {
+    background: #24292e;
+    color: white;
+    border-color: #24292e;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 16px 28px;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+.mindmap-node.ai-generated {
+    background: #e6f3ff;
+    border-color: #0969da;
+    color: #0969da;
+}
+
+.mindmap-node.note-node {
+    background: #fff9c4;
+    color: #856404;
+    border: 1px solid #ffd60a;
+    font-style: italic;
+    border-radius: 4px;
+    font-size: 12px;
+    padding: 8px 12px;
+    position: relative;
+    max-width: 150px;
+}
+
+.mindmap-node.note-node::before {
+    content: "💡";
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    background: #ffd60a;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-style: normal;
+}
+
+.mindmap-node.connection-source {
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.5);
+    transform: scale(1.05);
+}
+
+.mindmap-node.connection-target {
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.5);
+    cursor: crosshair;
+}
+
+.mindmap-node.connection-target:hover {
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.8);
+    transform: scale(1.1);
+}
+
+.mindmap-node.editing {
+    background: white;
+    color: #24292f;
+    border: 2px solid #0969da;
+}
+
+.mindmap-connection {
+    transition: all 0.2s ease;
+    position: absolute;
+    height: 2px;
+    background: #d1d9e0;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .mindmap-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 1000;
+        transform: translateX(-100%);
+        width: 240px;
+    }
+    
+    .mindmap-sidebar.show {
+        transform: translateX(0);
+    }
+    
+    .mindmap-sidebar.hidden {
+        transform: translateX(-100%);
+    }
+    
+    .mindmap-main {
+        width: 100%;
+    }
+    
+    .mindmap-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-sm);
+    }
+    
+    .mindmap-tools {
+        justify-content: center;
+    }
+    
+    .floating-toolbar {
+        flex-direction: row;
+        bottom: 10px;
+        right: 10px;
+        left: 10px;
+        justify-content: center;
+    }
+}
+
+/* 空状态 */
+.empty-mindmaps {
+    padding: var(--spacing-xl);
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.empty-mindmaps i {
+    font-size: 2.5rem;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-tertiary);
+}
+
+/* 编辑气泡样式 */
+.edit-bubble {
+    position: absolute;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(249, 250, 251, 0.95));
+    border: 1px solid rgba(209, 213, 219, 0.6);
+    border-radius: 12px;
+    box-shadow: 
+        0 12px 28px rgba(0, 0, 0, 0.12),
+        0 4px 12px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px) saturate(1.8);
+    padding: 0;
+    animation: bubbleAppear 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: bottom center;
+    width: 240px;
+}
+
+@keyframes bubbleAppear {
+    0% {
+        opacity: 0;
+        transform: scale(0.8) translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.edit-bubble-arrow {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(249, 250, 251, 0.95));
+    border: 1px solid rgba(209, 213, 219, 0.6);
+    border-top: none;
+    border-left: none;
+    transform: translateX(-50%) rotate(45deg);
+    backdrop-filter: blur(12px);
+}
+
+.edit-bubble-content {
+    padding: 16px;
+    position: relative;
+    z-index: 1;
+}
+
+.edit-bubble-input {
+    width: 100%;
+    border: 1px solid rgba(9, 105, 218, 0.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: rgba(255, 255, 255, 0.8);
+    color: #24292f;
+    outline: none;
+    transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    margin-bottom: 12px;
+}
+
+.edit-bubble-input:focus {
+    border-color: #0969da;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 
+        0 0 0 3px rgba(9, 105, 218, 0.1),
+        0 2px 8px rgba(9, 105, 218, 0.08);
+    transform: scale(1.01);
+}
+
+.edit-bubble-input::placeholder {
+    color: #656d76;
+    font-weight: 400;
+}
+
+.edit-bubble-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.edit-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(209, 213, 219, 0.6);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.8);
+    color: #656d76;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.edit-btn:hover {
+    background: rgba(255, 255, 255, 0.95);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.edit-confirm {
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #22c55e;
+}
+
+.edit-confirm:hover {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    color: #16a34a;
+}
+
+.edit-cancel {
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+}
+
+.edit-cancel:hover {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+/* 操作说明tips样式 */
+.operation-tips {
+    position: fixed;
+    top: 120px;
+    left: 280px;
+    width: 280px;
+    transition: left 0.3s ease;
+    background: linear-gradient(135deg, rgba(255, 252, 220, 0.95), rgba(254, 249, 195, 0.92));
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 
+        0 8px 24px rgba(245, 158, 11, 0.1),
+        0 4px 12px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(8px) saturate(1.5);
+    z-index: 9999;
+    animation: tipsSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+@keyframes tipsSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateX(-20px) scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+.tips-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    color: #92400e;
+}
+
+.tips-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+.tips-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.tips-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #92400e;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.tips-close:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+
+.tips-content {
+    color: #78350f;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.tips-list {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.tips-list li {
+    margin-bottom: 6px;
+}
+
+.tips-list li:last-child {
+    margin-bottom: 0;
+}
+
+.tips-key {
+    background: rgba(245, 158, 11, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* GitHub风格精致模态框 - 通用样式 */
+.github-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(31, 35, 40, 0.5);
+    backdrop-filter: blur(3px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: modalFadeIn 0.15s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.github-modal-content {
+    background: #ffffff;
+    border: 1px solid #d0d7de;
+    border-radius: 12px;
+    box-shadow: 
+        0 16px 32px rgba(31, 35, 40, 0.12),
+        0 0 0 1px rgba(0, 0, 0, 0.05);
+    max-width: 320px;
+    width: calc(100vw - 32px);
+    animation: modalSlideIn 0.15s ease-out;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+@keyframes modalSlideIn {
+    from { 
+        opacity: 0;
+        transform: scale(0.9) translateY(-10px);
+    }
+    to { 
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.github-modal-header {
+    padding: 16px 16px 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.github-modal-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #24292f;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.github-modal-close {
+    background: none;
+    border: none;
+    color: #656d76;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.github-modal-close:hover {
+    background: #f6f8fa;
+    color: #24292f;
+}
+
+.github-modal-body {
+    padding: 8px 16px 16px 16px;
+}
+
+.github-form-group {
+    margin-bottom: 12px;
+}
+
+.github-form-group:last-child {
+    margin-bottom: 0;
+}
+
+.github-form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #656d76;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.github-options {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.github-color-option {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.github-color-option:hover {
+    transform: scale(1.1);
+    border-color: rgba(31, 35, 40, 0.15);
+}
+
+.github-color-option.active {
+    border-color: #0969da;
+    box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
+}
+
+.github-size-option,
+.github-style-option {
+    padding: 4px 8px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    background: #f6f8fa;
+    color: #24292f;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.github-size-option:hover,
+.github-style-option:hover {
+    border-color: #0969da;
+    background: #dbeafe;
+}
+
+.github-size-option.active,
+.github-style-option.active {
+    border-color: #0969da;
+    background: #0969da;
+    color: white;
+}
+
+.github-modal-actions {
+    padding: 12px 16px 16px 16px;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    border-top: 1px solid #f6f8fa;
+}
+
+.github-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.github-btn-primary {
+    background: #1f883d;
+    border-color: #1f883d;
+    color: white;
+}
+
+.github-btn-primary:hover {
+    background: #1a7f37;
+    border-color: #1a7f37;
+}
+
+.github-btn-danger {
+    background: #da3633;
+    border-color: #da3633;
+    color: white;
+}
+
+.github-btn-danger:hover {
+    background: #b62324;
+    border-color: #b62324;
+}
+
+.github-btn-secondary {
+    background: #f6f8fa;
+    border-color: #d0d7de;
+    color: #24292f;
+}
+
+.github-btn-secondary:hover {
+    background: #f3f4f6;
+    border-color: #afb8c1;
+}
+
+/* 选中的连接线样式 */
+.selected-connection {
+    box-shadow: 0 0 0 2px #0969da !important;
+    opacity: 0.8 !important;
+}
+
+/* 主题设置样式 */
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.theme-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: #f6f8fa;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.theme-option:hover {
+    border-color: #0969da;
+    background: #dbeafe;
+}
+
+.theme-option.active {
+    border-color: #0969da;
+    background: #0969da;
+    color: white;
+}
+
+.theme-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* 主题颜色 */
+.default-theme .theme-dot { background: #007bff; }
+.ocean-theme .theme-dot { background: #0077be; }
+.forest-theme .theme-dot { background: #28a745; }
+.sunset-theme .theme-dot { background: #fd7e14; }
+.minimal-theme .theme-dot { background: #495057; }
+.dark-theme .theme-dot { background: #6c757d; }
+.vscode-theme .theme-dot { background: #007acc; }
+.github-theme .theme-dot { background: #0969da; }
+
+/* 节点形状选项样式 */
+.github-shape-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: #f6f8fa;
+    font-size: 10px;
+    font-weight: 500;
+    flex: 1;
+}
+
+.github-shape-option:hover {
+    border-color: #0969da;
+    background: #dbeafe;
+}
+
+.github-shape-option.active {
+    border-color: #0969da;
+    background: #0969da;
+    color: white;
+}
+
+.shape-preview {
+    width: 16px;
+    height: 12px;
+    background: currentColor;
+    opacity: 0.6;
+}
+
+.rect-preview {
+    border-radius: 2px;
+}
+
+.rounded-preview {
+    border-radius: 4px;
+}
+
+.circle-preview {
+    border-radius: 50%;
+    width: 12px;
+    height: 12px;
+}
+
+.diamond-preview {
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); transform: none;
+    border-radius: 2px;
+}
+
+/* 节点形状应用样式 */
+.mindmap-node.shape-rounded {
+    border-radius: 12px !important;
+}
+
+.mindmap-node.shape-circle {
+    border-radius: 50% !important;
+    width: 60px !important;
+    height: 60px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}
+
+.mindmap-node.shape-diamond {
+    transform: rotate(45deg) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}
+
+/* 颜色选择器样式 */
+.color-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.color-picker-wrapper {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    border: 2px solid #d0d7de;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(45deg, 
+        #ff0000 0%, #ff0000 16.67%, 
+        #ff8800 16.67%, #ff8800 33.33%, 
+        #ffff00 33.33%, #ffff00 50%, 
+        #00ff00 50%, #00ff00 66.67%, 
+        #0088ff 66.67%, #0088ff 83.33%, 
+        #8800ff 83.33%, #8800ff 100%);
+}
+
+.color-picker-wrapper:hover {
+    border-color: #0969da;
+    transform: scale(1.05);
+}
+
+.color-picker-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    text-shadow: 0 0 2px rgba(255,255,255,0.8);
+    pointer-events: none;
+}
+
+.github-color-picker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
+}
+
+.github-color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.github-color-picker::-webkit-color-swatch {
+    border: none;
+    border-radius: 6px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 全局变量
+let currentMindmapId = '{% if mindmap %}{{ mindmap.id }}{% endif %}';
+let mindmapData = {% if mindmap %}{{ mindmap.to_dict() | tojson }}{% else %}null{% endif %};
+let selectedNode = null;
+let aiResultData = null;
+let connections = [];
+let nodes = [];
+let nodeCounter = 0;
+let mindmaps = {{ mindmaps | tojson if mindmaps else '[]' }};
+
+// 撤销/重做功能
+let undoStack = [];
+let redoStack = [];
+const MAX_UNDO_STACK = 50;
+
+// 连接模式和编辑状态
+let isConnectionMode = false;
+let connectionStart = null;
+let isConnecting = false;
+let connectionLine = null;
+let currentEditingNode = null;
+let selectedConnection = null;
+
+// 操作说明tips控制
+function showTips() {
+    let tips = document.getElementById('operationTips');
+    if (!tips) {
+        console.log('Tips element not found! Creating fallback...');
+        // 创建备用tips
+        tips = createFallbackTips();
+    }
+    
+    if (tips) {
+        tips.style.display = 'block';
+        tips.style.visibility = 'visible';
+        tips.style.opacity = '1';
+        tips.style.animation = 'tipsSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        
+        // 根据侧边栏状态调整位置
+        adjustTipsPosition();
+        console.log('Tips should be visible now');
+    } else {
+        console.log('Tips element still not found!');
+    }
+}
+
+function hideTips() {
+    const tips = document.getElementById('operationTips');
+    if (tips) {
+        tips.style.animation = 'none';
+        tips.style.display = 'none';
+        tips.style.visibility = 'hidden';
+        tips.style.opacity = '0';
+        console.log('Tips hidden');
+    }
+}
+
+// 确保函数在全局作用域可访问
+window.hideTips = hideTips;
+window.showTips = showTips;
+
+// 根据侧边栏状态调整tips位置
+function adjustTipsPosition() {
+    const tips = document.getElementById('operationTips');
+    const sidebar = document.getElementById('mindmapSidebar');
+    
+    if (tips) {
+        let sidebarVisible = false;
+        
+        if (sidebar) {
+            sidebarVisible = sidebar.classList.contains('show');
+            if (window.innerWidth > 768) {
+                sidebarVisible = true;
+            }
+        }
+        
+        tips.style.left = sidebarVisible ? '300px' : '20px';
+        tips.style.top = '80px';
+        tips.style.position = 'fixed';
+        tips.style.zIndex = '99999';
+    }
+}
+
+// 调整画布容器位置
+function adjustCanvasLayout() {
+    const sidebar = document.getElementById('mindmapSidebar');
+    const canvasContainer = document.querySelector('.mindmap-canvas-container');
+    
+    if (canvasContainer) {
+        // 检查侧边栏是否可见
+        let sidebarVisible = false;
+        
+        if (sidebar) {
+            // 只检查Bootstrap offcanvas的show类，不考虑屏幕宽度
+            sidebarVisible = sidebar.classList.contains('show');
+            
+            // 额外检查：如果侧边栏元素实际可见
+            const sidebarRect = sidebar.getBoundingClientRect();
+            const isActuallyVisible = sidebarRect.width > 0 && sidebarRect.left >= 0;
+            
+            // 调试信息
+            console.log('Sidebar classes:', sidebar.className);
+            console.log('Sidebar rect:', sidebarRect);
+            console.log('Actually visible:', isActuallyVisible);
+            
+            // 使用实际可见性作为最终判断
+            sidebarVisible = isActuallyVisible;
+        }
+        
+        // 调试信息
+        console.log('Final sidebar visible:', sidebarVisible, 'Window width:', window.innerWidth);
+        
+        if (sidebarVisible) {
+            canvasContainer.style.marginLeft = '280px';
+            canvasContainer.style.width = 'calc(100vw - 280px)';
+        } else {
+            canvasContainer.style.marginLeft = '0';
+            canvasContainer.style.width = '100vw';
+        }
+        
+        // 强制重新渲染
+        canvasContainer.style.position = 'fixed';
+        canvasContainer.style.top = '120px'; // 考虑头部导航栏和工具栏高度
+        canvasContainer.style.left = '0';
+        canvasContainer.style.height = 'calc(100vh - 120px)';
+    }
+}
+
+// 监听侧边栏状态变化
+document.addEventListener('DOMContentLoaded', function() {
+    // 查找所有可能的侧边栏切换按钮
+    const sidebarToggles = [
+        document.getElementById('sidebarTriggerMindmap'),
+        document.querySelector('[data-bs-toggle="offcanvas"]'),
+        document.querySelector('.navbar-toggler')
+    ].filter(Boolean);
+    
+    sidebarToggles.forEach(toggle => {
+        toggle.addEventListener('click', function() {
+            console.log('Sidebar toggle clicked');
+            setTimeout(() => {
+                adjustTipsPosition();
+                adjustCanvasLayout();
+            }, 350); // 等待动画完成
+        });
+    });
+    
+    // 监听Bootstrap offcanvas事件
+    const sidebar = document.getElementById('mindmapSidebar');
+    if (sidebar) {
+        sidebar.addEventListener('shown.bs.offcanvas', function() {
+            console.log('Bootstrap event: Sidebar shown');
+            setTimeout(adjustCanvasLayout, 50);
+            setTimeout(adjustTipsPosition, 50);
+        });
+        
+        sidebar.addEventListener('hidden.bs.offcanvas', function() {
+            console.log('Bootstrap event: Sidebar hidden');
+            setTimeout(adjustCanvasLayout, 50);
+            setTimeout(adjustTipsPosition, 50);
+        });
+        
+        // 监听类名变化（MutationObserver）
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    console.log('Sidebar class changed:', sidebar.className);
+                    setTimeout(adjustCanvasLayout, 50);
+                    setTimeout(adjustTipsPosition, 50);
+                }
+            });
+        });
+        
+        observer.observe(sidebar, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    }
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', () => {
+        adjustTipsPosition();
+        adjustCanvasLayout();
+    });
+    
+    // 初始调整
+    setTimeout(() => {
+        adjustCanvasLayout();
+    }, 100);
+    
+    // 定期检查（作为后备）
+    setInterval(adjustCanvasLayout, 500);
+    
+    // 强制在页面完全加载后再检查一次
+    window.addEventListener('load', function() {
+        setTimeout(adjustCanvasLayout, 200);
+    });
+});
+
+function createFallbackTips() {
+    const tips = document.createElement('div');
+    tips.id = 'operationTips';
+    tips.className = 'operation-tips';
+    tips.style.cssText = 'position: fixed; top: 120px; left: 20px; z-index: 99999; display: block; visibility: visible;';
+    tips.innerHTML = `
+        <div class="tips-header">
+            <i class="fas fa-lightbulb tips-icon"></i>
+            <h6 class="tips-title">操作说明</h6>
+            <button class="tips-close" onclick="hideTips()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="tips-content">
+            <ul class="tips-list">
+                <li><span class="tips-key">双击</span> 节点编辑文字</li>
+                <li><span class="tips-key">Tab</span> 创建子节点</li>
+                <li><span class="tips-key">Enter</span> 创建同级节点</li>
+                <li><span class="tips-key">Delete</span> 删除选中节点</li>
+                <li><span class="tips-key">拖拽</span> 移动节点位置</li>
+                <li>点击节点<span class="tips-key">扇形按钮</span>进行更多操作</li>
+            </ul>
+        </div>
+    `;
+    document.body.appendChild(tips);
+    console.log('Fallback tips created');
+    return tips;
+}
+
+// 用户第一次操作后自动隐藏tips
+let hasUserInteracted = false;
+
+function markUserInteraction() {
+    if (!hasUserInteracted) {
+        hasUserInteracted = true;
+        setTimeout(() => {
+            hideTips();
+        }, 1000); // 1秒后隐藏
+    }
+}
+
+// 初始化页面
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('初始化思维导图编辑器');
+    initializeMindmapEditor();
+    bindEventListeners();
+    
+    // 显示操作说明tips
+    console.log('Checking for tips element...');
+    const tipsElement = document.getElementById('operationTips');
+    console.log('Tips element found:', tipsElement);
+    console.log('Document ready state:', document.readyState);
+    console.log('All elements with operation-tips class:', document.querySelectorAll('.operation-tips'));
+    if (tipsElement) {
+        console.log('Tips computed style:', window.getComputedStyle(tipsElement));
+        console.log('Tips parent:', tipsElement.parentElement);
+        console.log('Tips position:', tipsElement.getBoundingClientRect());
+    }
+    showTips();
+    
+    // 如果有思维导图数据，渲染它
+    if (mindmapData) {
+        renderMindmapData(mindmapData.canvas_data);
+    } else {
+        createWelcomeNode();
+    }
+});
+
+// 初始化思维导图编辑器
+function initializeMindmapEditor() {
+    console.log('当前思维导图ID:', currentMindmapId);
+    console.log('思维导图数据:', mindmapData);
+}
+
+// 绑定事件监听器
+function bindEventListeners() {
+    bindKeyboardShortcuts();
+    
+    // 侧边栏控制
+    const toggleSidebar = document.getElementById('toggleSidebar');
+    const sidebarTrigger = document.getElementById('sidebarTriggerMindmap');
+    
+    if (toggleSidebar) {
+        toggleSidebar.addEventListener('click', hideSidebar);
+    }
+    
+    if (sidebarTrigger) {
+        sidebarTrigger.addEventListener('click', showSidebar);
+    }
+    
+    // 搜索功能
+    const mindmapSearch = document.getElementById('mindmapSearch');
+    if (mindmapSearch) {
+        mindmapSearch.addEventListener('input', filterMindmaps);
+    }
+    
+    // 标题编辑
+    const titleInput = document.getElementById('mindmap-title');
+    if (titleInput) {
+        titleInput.addEventListener('blur', saveMindmapTitle);
+        titleInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                this.blur();
+            }
+        });
+    }
+    
+    // 画布事件
+    const canvas = document.getElementById('mindmap-canvas');
+    if (canvas) {
+        canvas.addEventListener('click', (e) => {
+            if (e.target === canvas) {
+                selectNode(null);
+                hideAllNodeButtons();
+                
+                // 如果没有思维导图，点击画布创建新的
+                if (!currentMindmapId) {
+                    createNewMindmapFromCanvas(e);
+                }
+            }
+        });
+        
+        // 启用画布拖拽
+        enableCanvasDragging(canvas);
+    }
+}
+
+// 添加键盘快捷键支持
+function bindKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        // Ctrl+Z 撤销
+        if (e.ctrlKey && e.key === 'z') {
+            e.preventDefault();
+            undoAction();
+            return;
+        }
+        
+        // Ctrl+Y 重做
+        if (e.ctrlKey && e.key === 'y') {
+            e.preventDefault();
+            redoAction();
+            return;
+        }
+        
+        switch(e.key) {
+            case 'Tab':
+                e.preventDefault();
+                if (selectedNode) {
+                    addChildNode(selectedNode);
+                }
+                break;
+            case 'i':
+            case 'I':
+                e.preventDefault();
+                if (selectedNode) {
+                    addNoteNode(selectedNode);
+                }
+                break;
+            case 'Delete':
+            case 'Backspace':
+                e.preventDefault();
+                deleteSelected();
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (selectedNode) {
+                    editNode(selectedNode);
+                }
+                break;
+        }
+    });
+}
+
+// 切换思维导图
+function switchMindmap(mindmapId) {
+    if (mindmapId === currentMindmapId) return;
+    
+    window.location.href = `/mindmap/${mindmapId}`;
+}
+
+// 创建新思维导图
+function createNewMindmap() {
+    if (confirm('确定要创建新的思维导图吗？当前未保存的内容将丢失。')) {
+        // 显示加载状态
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>创建中...';
+        btn.disabled = true;
+        
+        // 发送请求创建新思维导图
+        fetch('/mindmap/api/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                title: '新建思维导图',
+                description: '',
+                canvas_data: {
+                    nodes: [],
+                    connections: [],
+                    version: '1.0'
+                }
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 跳转到新创建的思维导图编辑页面
+                window.location.href = `/mindmap/${data.data.id}`;
+            } else {
+                showToast('创建失败：' + (data.message || data.error || '未知错误'), 'error');
+                // 恢复按钮状态
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('创建思维导图失败:', error);
+            showToast('创建失败，请稍后重试', 'error');
+            // 恢复按钮状态
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    }
+}
+
+// 清空画布
+function clearCanvas() {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    // 移除所有节点
+    document.querySelectorAll('.mindmap-node').forEach(node => {
+        node.remove();
+    });
+    
+    // 清空节点和连接数组
+    nodes = [];
+    connections = [];
+    
+    // 重置计数器
+    nodeCounter = 1;
+    
+    // 清空SVG连接线
+    const svg = document.querySelector('#connections-svg');
+    if (svg) {
+        svg.innerHTML = '';
+    }
+    
+    // 重置选择状态
+    selectedNode = null;
+    
+    // 隐藏所有按钮
+    hideAllNodeButtons();
+}
+
+// 从画布创建新思维导图
+function createNewMindmapFromCanvas(event) {
+    const rect = event.target.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // 隐藏欢迎界面
+    const welcome = document.querySelector('.welcome-mindmap');
+    if (welcome) {
+        welcome.style.display = 'none';
+    }
+    
+    // 创建中心节点
+    createCenterNodeAt(x, y);
+    
+    // 自动保存新思维导图
+    setTimeout(() => {
+        saveMindmap();
+    }, 500);
+}
+
+// 在指定位置创建中心节点
+function createCenterNodeAt(x, y) {
+    const canvas = document.getElementById('mindmap-canvas');
+    const centerNode = document.createElement('div');
+    centerNode.className = 'mindmap-node center-node';
+    centerNode.id = 'center-node';
+    centerNode.style.left = (x - 60) + 'px';
+    centerNode.style.top = (y - 20) + 'px';
+    centerNode.textContent = document.getElementById('mindmap-title').value || '中心主题';
+    
+    centerNode.onclick = () => selectNode(centerNode);
+    centerNode.ondblclick = () => editNode(centerNode);
+    
+    enableNodeDragging(centerNode);
+    
+    canvas.appendChild(centerNode);
+    selectedNode = centerNode;
+}
+
+// 创建欢迎节点
+function createWelcomeNode() {
+    // 欢迎界面已经在HTML中定义，这里不需要额外创建
+}
+
+// 显示/隐藏侧边栏
+function showSidebar() {
+    const sidebar = document.getElementById('mindmapSidebar');
+    const container = document.querySelector('.mindmap-container');
+    
+    sidebar.classList.remove('hidden');
+    sidebar.classList.add('show');
+    container.classList.remove('sidebar-hidden');
+}
+
+function hideSidebar() {
+    const sidebar = document.getElementById('mindmapSidebar');
+    const container = document.querySelector('.mindmap-container');
+    
+    sidebar.classList.remove('show');
+    sidebar.classList.add('hidden');
+    container.classList.add('sidebar-hidden');
+}
+
+// 过滤思维导图
+function filterMindmaps() {
+    const searchTerm = document.getElementById('mindmapSearch').value.toLowerCase();
+    const items = document.querySelectorAll('.mindmap-item');
+    
+    items.forEach(item => {
+        const title = item.querySelector('.mindmap-title').textContent.toLowerCase();
+        const preview = item.querySelector('.mindmap-preview').textContent.toLowerCase();
+        
+        if (title.includes(searchTerm) || preview.includes(searchTerm)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// 分享思维导图
+function shareMindmap(mindmapId, event) {
+    event.stopPropagation();
+    
+    if (confirm('确定要分享这个思维导图到社区吗？')) {
+        fetch(`/mindmap/api/share/${mindmapId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('思维导图已分享到社区');
+                // 更新UI状态
+                location.reload();
+            } else {
+                alert('分享失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('分享失败，请重试');
+        });
+    }
+}
+
+// 删除思维导图
+function deleteMindmap(mindmapId, event) {
+    event.stopPropagation();
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    
+    document.getElementById('confirmDeleteBtn').onclick = function() {
+        fetch(`/mindmap/api/delete/${mindmapId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('思维导图已删除');
+                
+                // 如果删除的是当前编辑的思维导图
+                if (mindmapId === currentMindmapId) {
+                    window.location.href = '/mindmap';
+                } else {
+                    location.reload();
+                }
+            } else {
+                alert('删除失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除失败，请重试');
+        });
+        
+        modal.hide();
+    };
+    
+    modal.show();
+}
+
+// 保存思维导图标题
+function saveMindmapTitle() {
+    if (!currentMindmapId) return;
+    
+    const title = document.getElementById('mindmap-title').value;
+    if (!title.trim()) return;
+    
+    fetch(`/mindmap/api/update/${currentMindmapId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            title: title
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 更新侧边栏中的标题
+            const activeItem = document.querySelector('.mindmap-item.active .mindmap-title');
+            if (activeItem) {
+                activeItem.textContent = title;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+// 显示Toast提示
+function showToast(message) {
+    const toast = document.getElementById('successToast');
+    toast.querySelector('.toast-body').textContent = message;
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+}
+
+// 保存思维导图
+function saveMindmap() {
+    const title = document.getElementById('mindmap-title').value;
+    const canvasData = extractCanvasData();
+    
+    if (!currentMindmapId) {
+        // 创建新思维导图
+        const data = {
+            title: title || '新建思维导图',
+            canvas_data: canvasData
+        };
+        
+        fetch('/mindmap/api/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentMindmapId = data.data.id;
+                mindmapData = data.data;
+                showToast('思维导图已创建');
+                // 更新URL
+                history.replaceState(null, null, `/mindmap/${currentMindmapId}`);
+            } else {
+                alert('创建失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('创建失败，请重试');
+        });
+    } else {
+        // 更新现有思维导图
+        const data = {
+            title: title,
+            canvas_data: canvasData
+        };
+        
+        fetch(`/mindmap/api/update/${currentMindmapId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('思维导图已保存');
+            } else {
+                alert('保存失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('保存失败，请重试');
+        });
+    }
+}
+
+// 导出思维导图
+function exportMindmap(format = 'json') {
+    if (!currentMindmapId) {
+        showToast('请先保存思维导图');
+        return;
+    }
+    
+    const title = document.getElementById('mindmap-title').value || '思维导图';
+    
+    if (format === 'json') {
+        const canvasData = extractCanvasData();
+        const exportData = {
+            title: title,
+            canvasData: canvasData,
+            exportTime: new Date().toISOString(),
+            version: '1.0'
+        };
+        
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = title + '.json';
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+        
+        showToast('JSON文件已导出');
+    } else if (format === 'pdf') {
+        exportToPDF(title);
+    } else if (format === 'png') {
+        exportToPNG(title);
+    }
+}
+
+// 导出PDF
+function exportToPDF(title) {
+    // 使用html2canvas + jsPDF来生成PDF
+    if (typeof html2canvas === 'undefined') {
+        loadPDFLibraries().then(() => {
+            generatePDF(title);
+        });
+    } else {
+        generatePDF(title);
+    }
+}
+
+// 加载PDF所需的库
+function loadPDFLibraries() {
+    return new Promise((resolve) => {
+        if (typeof html2canvas !== 'undefined' && typeof jsPDF !== 'undefined') {
+            resolve();
+            return;
+        }
+        
+        // 加载html2canvas
+        const html2canvasScript = document.createElement('script');
+        html2canvasScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        document.head.appendChild(html2canvasScript);
+        
+        // 加载jsPDF
+        const jsPDFScript = document.createElement('script');
+        jsPDFScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        document.head.appendChild(jsPDFScript);
+        
+        // 等待两个库都加载完成
+        let loadedCount = 0;
+        const checkLoaded = () => {
+            loadedCount++;
+            if (loadedCount === 2) {
+                resolve();
+            }
+        };
+        
+        html2canvasScript.onload = checkLoaded;
+        jsPDFScript.onload = checkLoaded;
+    });
+
+}
+
+// 生成PDF
+function generatePDF(title) {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    // 临时隐藏按钮
+    document.querySelectorAll('.node-buttons').forEach(btn => {
+        btn.style.display = 'none';
+    });
+    
+    // 设置canvas背景为白色
+    canvas.style.backgroundColor = 'white';
+    
+    html2canvas(canvas, {
+        backgroundColor: 'white',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
+    }).then(canvasImg => {
+        const imgData = canvasImg.toDataURL('image/png');
+        
+        // 正确引用 jsPDF
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+        });
+        
+        const imgWidth = 297; // A4 landscape width
+        const imgHeight = (canvasImg.height * imgWidth) / canvasImg.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.save(title + '.pdf');
+        
+        // 恢复按钮显示 - 现在使用新的扇形按钮系统
+        hideAllNodeButtons();
+        
+        showToast('PDF文件已导出');
+    }).catch(error => {
+        console.error('PDF导出错误:', error);
+        showToast('PDF导出失败');
+        
+        // 恢复按钮显示 - 现在使用新的扇形按钮系统
+        hideAllNodeButtons();
+    });
+}
+
+// 导出PNG
+function exportToPNG(title) {
+    // 使用html2canvas生成PNG
+    if (typeof html2canvas === 'undefined') {
+        loadPDFLibraries().then(() => {
+            generatePNG(title);
+        });
+    } else {
+        generatePNG(title);
+    }
+}
+
+function generatePNG(title) {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    // 临时隐藏按钮
+    document.querySelectorAll('.node-buttons').forEach(btn => {
+        btn.style.display = 'none';
+    });
+    
+    // 设置canvas背景为白色
+    canvas.style.backgroundColor = 'white';
+    
+    html2canvas(canvas, {
+        backgroundColor: 'white',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        width: canvas.scrollWidth,
+        height: canvas.scrollHeight
+    }).then(canvasImg => {
+        // 创建下载链接
+        const link = document.createElement('a');
+        link.download = title + '.png';
+        link.href = canvasImg.toDataURL('image/png');
+        
+        // 触发下载
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // 恢复按钮显示
+        hideAllNodeButtons();
+        
+        showToast('PNG图像已导出');
+    }).catch(error => {
+        console.error('PNG导出错误:', error);
+        showToast('PNG导出失败');
+        
+        // 恢复按钮显示
+        hideAllNodeButtons();
+    });
+}
+
+// 切换公开状态
+function togglePublic() {
+    if (!currentMindmapId) {
+        alert('请先保存思维导图');
+        return;
+    }
+    
+    const currentStatus = mindmapData ? mindmapData.is_public : false;
+    const newStatus = !currentStatus;
+    
+    fetch(`/mindmap/api/update/${currentMindmapId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            is_public: newStatus
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (mindmapData) {
+                mindmapData.is_public = newStatus;
+            }
+            showToast(`思维导图已设为${newStatus ? '公开' : '私有'}`);
+        } else {
+            alert('操作失败：' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('操作失败，请重试');
+    });
+}
+
+// 复制分享链接
+function copyShareLink() {
+    if (!currentMindmapId) {
+        alert('请先保存思维导图');
+        return;
+    }
+    
+    const shareUrl = `${window.location.origin}/mindmap/view/${currentMindmapId}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+        showToast('链接已复制到剪贴板');
+    }).catch(err => {
+        console.error('复制失败:', err);
+        alert('复制失败，请手动复制：' + shareUrl);
+    });
+}
+
+// 添加节点（用于浮动工具栏）
+function addNode() {
+    if (!selectedNode) {
+        // 如果没有选中节点，创建根节点
+        addRootNode();
+        return;
+    }
+    
+    addChildNode(selectedNode);
+}
+
+// 添加根节点
+function addRootNode() {
+    const canvas = document.getElementById('mindmap-canvas');
+    const rootNode = createNode('新根节点', 'root-node');
+    
+    // 随机位置
+    const x = Math.random() * (canvas.offsetWidth - 200) + 100;
+    const y = Math.random() * (canvas.offsetHeight - 100) + 50;
+    
+    rootNode.style.left = x + 'px';
+    rootNode.style.top = y + 'px';
+    
+    canvas.appendChild(rootNode);
+    selectNode(rootNode);
+    setTimeout(() => {
+        editNode(rootNode);
+        saveState();
+    }, 100);
+}
+
+// 创建节点
+function createNode(text, className = '') {
+    const node = document.createElement('div');
+    node.className = `mindmap-node ${className}`;
+    node.textContent = text;
+    node.id = `node-${nodeCounter++}`;
+    
+    // 添加节点按钮
+    const buttonGroup = createNodeButtons(node);
+    node.appendChild(buttonGroup);
+    
+    // 绑定事件
+    node.addEventListener('click', (e) => {
+        console.log('节点主div被点击，e.target:', e.target, 'node:', node);
+        selectNode(node);
+        showNodeButtons(node);
+    });
+    node.addEventListener('dblclick', () => editNode(node));
+    
+    // 添加拖拽功能
+    enableNodeDragging(node);
+    
+    // 记录节点
+    nodes.push(node);
+    
+    return node;
+}
+
+// 创建节点扇形按钮组
+function createNodeButtons(node) {
+    const buttonGroup = document.createElement('div');
+    buttonGroup.className = 'node-buttons';
+    
+    // 按钮配置
+    const buttons = [
+        { icon: 'fas fa-sticky-note', title: '添加说明', action: () => addNoteNode(node) },
+        { icon: 'fas fa-trash', title: '删除节点', action: () => deleteNode(node) },
+        { icon: 'fas fa-link', title: '连接节点', action: () => startNodeConnection(node) },
+        { icon: 'fas fa-palette', title: '节点样式', action: () => showNodeStylePanel(node) },
+        { icon: 'fas fa-brain', title: 'AI智能扩展', action: () => showAIExpansionPanel(node) },
+        { icon: 'fas fa-info-circle', title: 'AI智能说明', action: () => showAIExplanationPanel(node) }
+    ];
+    
+    // 创建扇形按钮
+    buttons.forEach((btnConfig, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'node-btn-fan';
+        btn.innerHTML = `<i class="${btnConfig.icon}"></i>`;
+        btn.title = btnConfig.title;
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            btnConfig.action();
+            hideNodeButtons();
+        };
+        buttonGroup.appendChild(btn);
+    });
+    
+    return buttonGroup;
+}
+
+// 添加子节点
+function addChildNode(parentNode) {
+    const canvas = document.getElementById('mindmap-canvas');
+    const childNode = createNode('新节点');
+    
+    // 计算子节点位置
+    const parentRect = parentNode.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    const childCount = getChildCount(parentNode);
+    const baseDistance = 180;
+    const distance = baseDistance + (childCount * 20);
+    
+    let angle;
+    if (childCount === 0) {
+        angle = 0;
+    } else if (childCount === 1) {
+        angle = Math.PI;
+    } else {
+        const totalAngle = Math.PI * 2;
+        const angleStep = totalAngle / Math.max(6, childCount + 2);
+        angle = angleStep * (childCount - 1);
+    }
+    
+    const nodeWidth = 120;
+    const nodeHeight = 40;
+    const actualDistance = Math.max(distance, nodeWidth + nodeHeight);
+    
+    const x = (parentRect.left - canvasRect.left) + Math.cos(angle) * actualDistance;
+    const y = (parentRect.top - canvasRect.top) + Math.sin(angle) * actualDistance;
+    
+    const minX = 20;
+    const minY = 20;
+    const maxX = canvas.offsetWidth - nodeWidth - 20;
+    const maxY = canvas.offsetHeight - nodeHeight - 20;
+    
+    const finalX = Math.max(minX, Math.min(maxX, x));
+    const finalY = Math.max(minY, Math.min(maxY, y));
+    
+    childNode.style.left = finalX + 'px';
+    childNode.style.top = finalY + 'px';
+    
+    canvas.appendChild(childNode);
+    
+    // 创建连接线
+    createConnection(parentNode, childNode);
+    
+    // 选中新节点并进入编辑模式
+    selectNode(childNode);
+    setTimeout(() => {
+        editNode(childNode);
+        saveState();
+        markUserInteraction();
+    }, 100);
+}
+
+// 添加说明节点
+function addNoteNode(parentNode) {
+    const canvas = document.getElementById('mindmap-canvas');
+    const noteNode = createNode('说明内容', 'note-node');
+    
+    // 移除说明节点的按钮
+    const buttons = noteNode.querySelector('.node-buttons');
+    if (buttons) {
+        buttons.remove();
+    }
+    
+    // 添加说明节点样式
+    noteNode.style.cssText += `
+        background: #fff9c4;
+        color: #856404;
+        border: 1px solid #ffd60a;
+        font-style: italic;
+        font-size: 12px;
+        padding: 8px 12px;
+        max-width: 150px;
+    `;
+    
+    // 计算说明节点位置
+    const parentRect = parentNode.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    const offsetX = 100;
+    const offsetY = 60;
+    
+    const x = (parentRect.left - canvasRect.left) + offsetX;
+    const y = (parentRect.top - canvasRect.top) + offsetY;
+    
+    const minX = 20;
+    const minY = 20;
+    const maxX = canvas.offsetWidth - 200 - 20;
+    const maxY = canvas.offsetHeight - 50 - 20;
+    
+    const finalX = Math.max(minX, Math.min(maxX, x));
+    const finalY = Math.max(minY, Math.min(maxY, y));
+    
+    noteNode.style.left = finalX + 'px';
+    noteNode.style.top = finalY + 'px';
+    
+    canvas.appendChild(noteNode);
+    
+    // 创建连接线
+    createConnection(parentNode, noteNode);
+    
+    selectNode(noteNode);
+    setTimeout(() => {
+        editNode(noteNode);
+        saveState();
+    }, 100);
+}
+
+// 获取子节点数量
+function getChildCount(parentNode) {
+    return connections.filter(conn => conn.from === parentNode).length;
+}
+
+// 开始连接模式
+function startConnection(node) {
+    document.querySelectorAll('.mindmap-node').forEach(n => {
+        n.classList.remove('connection-source', 'connection-target');
+    });
+    
+    node.classList.add('connection-source');
+    connectionStart = node;
+    
+    showToast('请点击目标节点创建连接');
+    
+    document.querySelectorAll('.mindmap-node').forEach(n => {
+        if (n !== node) {
+            n.classList.add('connection-target');
+        }
+    });
+    
+    isConnectionMode = true;
+}
+
+// 完成连接
+function finishConnection(targetNode) {
+    if (connectionStart && targetNode !== connectionStart) {
+        createConnection(connectionStart, targetNode);
+        showToast('连接已创建');
+    }
+    
+    document.querySelectorAll('.mindmap-node').forEach(n => {
+        n.classList.remove('connection-source', 'connection-target');
+    });
+    
+    connectionStart = null;
+    isConnectionMode = false;
+}
+
+// 删除选中节点 - 统一调用deleteNode
+function deleteSelected() {
+    if (!selectedNode) {
+        showToast('请先选择一个节点');
+        return;
+    }
+    
+    // 直接调用deleteNode函数，统一删除逻辑
+    deleteNode(selectedNode);
+}
+
+// 放大
+function zoomIn() {
+    const canvas = document.getElementById('mindmap-canvas');
+    const currentScale = getCanvasScale();
+    const newScale = Math.min(currentScale * 1.1, 2);
+    canvas.style.transform = `scale(${newScale})`;
+}
+
+// 缩小
+function zoomOut() {
+    const canvas = document.getElementById('mindmap-canvas');
+    const currentScale = getCanvasScale();
+    const newScale = Math.max(currentScale / 1.1, 0.5);
+    canvas.style.transform = `scale(${newScale})`;
+}
+
+// 获取画布缩放比例
+function getCanvasScale() {
+    const canvas = document.getElementById('mindmap-canvas');
+    const transform = canvas.style.transform;
+    const match = transform.match(/scale\(([^)]+)\)/);
+    return match ? parseFloat(match[1]) : 1;
+}
+
+// 重置视图
+function resetView() {
+    const canvas = document.getElementById('mindmap-canvas');
+    canvas.style.transform = 'scale(1)';
+    showToast('视图已重置');
+}
+
+// AI功能 - 显示AI面板
+function showAIPanel() {
+    if (!selectedNode) {
+        showToast('请先选择一个节点');
+        return;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('aiModal'));
+    document.getElementById('current-node').value = selectedNode.dataset.originalText || selectedNode.textContent;
+    document.getElementById('ai-context').value = '';
+    
+    document.querySelector('.ai-result').classList.add('d-none');
+    document.getElementById('apply-ai-result').classList.add('d-none');
+    
+    modal.show();
+}
+
+// 生成AI内容
+function generateAIContent() {
+    const aiType = document.getElementById('ai-type').value;
+    const nodeText = document.getElementById('current-node').value;
+    const context = document.getElementById('ai-context').value;
+    
+    if (!nodeText.trim()) {
+        alert('请先选择一个节点');
+        return;
+    }
+    
+    // 显示加载状态
+    const generateBtn = document.querySelector('[onclick="generateAIContent()"]');
+    const originalText = generateBtn.innerHTML;
+    generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+    generateBtn.disabled = true;
+    
+    fetch('/mindmap/api/ai_expand', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            node_text: nodeText,
+            type: aiType,
+            context: context
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            aiResultData = data.data;
+            displayAIResult(data.data, aiType);
+            
+            document.querySelector('.ai-result').classList.remove('d-none');
+            document.getElementById('apply-ai-result').classList.remove('d-none');
+        } else {
+            alert('AI生成失败：' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('网络错误，请重试');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        generateBtn.innerHTML = originalText;
+        generateBtn.disabled = false;
+    });
+}
+
+// 显示AI结果
+function displayAIResult(data, type) {
+    const resultContainer = document.getElementById('ai-result-content');
+    
+    if (type === 'expand' && data.nodes) {
+        let html = '<h6>推荐的子节点：</h6>';
+        html += '<ul class="list-unstyled">';
+        data.nodes.forEach(node => {
+            html += `<li class="mb-2">
+                <span class="badge bg-primary me-2">节点</span>
+                ${node}
+            </li>`;
+        });
+        html += '</ul>';
+        resultContainer.innerHTML = html;
+    } else if (data.explanation) {
+        resultContainer.innerHTML = `
+            <h6>详细说明：</h6>
+            <p class="text-muted">${data.explanation}</p>
+        `;
+    }
+}
+
+// 应用AI结果
+function applyAIResult() {
+    if (!aiResultData || !selectedNode) {
+        alert('没有可应用的AI结果');
+        return;
+    }
+    
+    const aiType = document.getElementById('ai-type').value;
+    
+    if (aiType === 'expand' && aiResultData.nodes) {
+        // 为选中节点添加子节点
+        aiResultData.nodes.forEach((nodeText, index) => {
+            setTimeout(() => {
+                const childNode = createNode(nodeText, 'ai-generated');
+                const canvas = document.getElementById('mindmap-canvas');
+                
+                // 计算位置
+                const parentRect = selectedNode.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+                
+                const angle = (index * 60) * Math.PI / 180;
+                const distance = 180;
+                const x = (parentRect.left - canvasRect.left) + Math.cos(angle) * distance;
+                const y = (parentRect.top - canvasRect.top) + Math.sin(angle) * distance;
+                
+                childNode.style.left = Math.max(20, x) + 'px';
+                childNode.style.top = Math.max(20, y) + 'px';
+                
+                // 添加AI生成样式
+                childNode.style.background = '#e6f3ff';
+                childNode.style.borderColor = '#0969da';
+                childNode.style.color = '#0969da';
+                
+                canvas.appendChild(childNode);
+                createConnection(selectedNode, childNode);
+            }, index * 200); // 逐个动画效果
+        });
+        
+        setTimeout(() => {
+            saveState();
+        }, aiResultData.nodes.length * 200 + 100);
+        
+        showToast(`已添加${aiResultData.nodes.length}个AI生成节点`);
+        
+    } else if (aiResultData.explanation) {
+        // 添加说明节点
+        const noteNode = createNode(aiResultData.explanation, 'note-node ai-generated');
+        const canvas = document.getElementById('mindmap-canvas');
+        
+        // 移除说明节点的按钮
+        const buttons = noteNode.querySelector('.node-buttons');
+        if (buttons) {
+            buttons.remove();
+        }
+        
+        // 计算位置
+        const parentRect = selectedNode.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        
+        const x = (parentRect.left - canvasRect.left) + 120;
+        const y = (parentRect.top - canvasRect.top) + 80;
+        
+        noteNode.style.left = x + 'px';
+        noteNode.style.top = y + 'px';
+        noteNode.style.background = '#fff9c4';
+        noteNode.style.border = '1px solid #0969da';
+        
+        canvas.appendChild(noteNode);
+        createConnection(selectedNode, noteNode);
+        
+        saveState();
+        showToast('已添加AI说明节点');
+    }
+    
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('aiModal'));
+    modal.hide();
+    
+    // 清空结果
+    aiResultData = null;
+}
+
+// 选择节点
+function selectNode(node) {
+    document.querySelectorAll('.mindmap-node').forEach(n => {
+        n.classList.remove('selected');
+    });
+    
+    if (node) {
+        node.classList.add('selected');
+        selectedNode = node;
+        
+        // 连接模式处理
+        if (isConnectionMode) {
+            if (node.classList.contains('connection-target')) {
+                finishConnection(node);
+            }
+        }
+    } else {
+        selectedNode = null;
+        // 如果点击空白处，取消连接模式
+        if (isConnectionMode) {
+            document.querySelectorAll('.mindmap-node').forEach(n => {
+                n.classList.remove('connection-source', 'connection-target');
+            });
+            connectionStart = null;
+            isConnectionMode = false;
+        }
+    }
+    
+    // 显示/隐藏节点按钮
+    document.querySelectorAll('.mindmap-node').forEach(n => {
+        const buttons = n.querySelector('.node-buttons');
+        if (buttons) {
+            buttons.style.display = 'none';
+        }
+    });
+    
+    if (node) {
+        const buttons = node.querySelector('.node-buttons');
+        if (buttons) {
+            buttons.style.display = 'flex';
+        }
+    }
+}
+
+// 编辑节点
+function editNode(node) {
+    if (node.classList.contains('editing')) return;
+    
+    node.classList.add('editing');
+    const originalText = node.dataset.originalText || node.textContent;
+    
+    // 创建美观的编辑气泡
+    const bubble = document.createElement('div');
+    bubble.className = 'edit-bubble';
+    bubble.innerHTML = `
+        <div class="edit-bubble-arrow"></div>
+        <div class="edit-bubble-content">
+            <input type="text" class="edit-bubble-input" value="${originalText}" placeholder="输入节点文字...">
+            <div class="edit-bubble-actions">
+                <button class="edit-btn edit-confirm" title="确认">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button class="edit-btn edit-cancel" title="取消">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // 定位气泡
+    const nodeRect = node.getBoundingClientRect();
+    const canvas = document.getElementById('mindmap-canvas');
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    const nodeLeft = parseInt(node.style.left) || 0;
+    const nodeTop = parseInt(node.style.top) || 0;
+    const nodeWidth = node.offsetWidth;
+    const nodeHeight = node.offsetHeight;
+    
+    // 气泡位置 - 在节点上方
+    bubble.style.position = 'absolute';
+    bubble.style.left = (nodeLeft + nodeWidth / 2 - 120) + 'px';
+    bubble.style.top = (nodeTop - 80) + 'px';
+    bubble.style.zIndex = '1001';
+    
+    canvas.appendChild(bubble);
+    
+    const input = bubble.querySelector('.edit-bubble-input');
+    input.focus();
+    input.select();
+    
+    // 处理输入完成
+    const finishEditing = () => {
+        const newText = input.value.trim() || originalText;
+        
+        // 处理菱形节点
+        if (node.style.clipPath && node.style.clipPath.includes('polygon')) {
+            node.dataset.originalText = newText;
+            const textSpan = node.querySelector('span');
+            if (textSpan) {
+                textSpan.textContent = newText;
+            }
+        } else {
+            node.textContent = newText;
+        }
+        
+        node.classList.remove('editing');
+        
+        // 重新添加按钮（除了说明节点）
+        if (!node.classList.contains('note-node')) {
+            const existingButtons = node.querySelector('.node-buttons');
+            if (existingButtons) {
+                existingButtons.remove();
+            }
+            
+            const buttonGroup = createNodeButtons(node);
+            node.appendChild(buttonGroup);
+        }
+        
+        // 调整节点大小
+        adjustNodeSize(node);
+        
+        // 更新连接线
+        updateNodeConnections(node);
+        
+        canvas.removeChild(bubble);
+        saveState();
+        
+        // 第一次操作后隐藏说明tips
+        markUserInteraction();
+    };
+    
+    const cancelEditing = () => {
+        node.classList.remove('editing');
+        
+        if (!node.classList.contains('note-node')) {
+            const existingButtons = node.querySelector('.node-buttons');
+            if (existingButtons) {
+                existingButtons.remove();
+            }
+            
+            const buttonGroup = createNodeButtons(node);
+            node.appendChild(buttonGroup);
+        }
+        
+        canvas.removeChild(bubble);
+    };
+    
+    // 绑定按钮事件
+    bubble.querySelector('.edit-confirm').addEventListener('click', finishEditing);
+    bubble.querySelector('.edit-cancel').addEventListener('click', cancelEditing);
+    
+    // 移除blur事件，使用按钮控制
+    // input.addEventListener('blur', finishEditing);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            finishEditing();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEditing();
+        }
+    });
+}
+
+// 调整节点大小
+function adjustNodeSize(node) {
+    const text = node.dataset.originalText || node.textContent;
+    const minWidth = 80;
+    const maxWidth = 200;
+    const minHeight = 36;
+    
+    // 创建临时元素测量文本宽度
+    const temp = document.createElement('div');
+    temp.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        white-space: nowrap;
+        font-size: 14px;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-family: inherit;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+    `;
+    temp.textContent = text;
+    document.body.appendChild(temp);
+    
+    const textWidth = temp.offsetWidth;
+    const textHeight = temp.offsetHeight;
+    document.body.removeChild(temp);
+    
+    // 设置节点宽度和高度
+    const newWidth = Math.min(Math.max(textWidth, minWidth), maxWidth);
+    const newHeight = Math.max(textHeight, minHeight);
+    
+    node.style.width = newWidth + 'px';
+    node.style.height = newHeight + 'px';
+    node.style.minHeight = minHeight + 'px';
+    
+    // 如果超过最大宽度，启用换行
+    if (textWidth > maxWidth) {
+        node.style.whiteSpace = 'normal';
+        node.style.wordBreak = 'break-word';
+        node.style.width = maxWidth + 'px';
+        // 重新计算换行后的高度
+        temp.style.cssText = `
+            position: absolute;
+            visibility: hidden;
+            white-space: normal;
+            word-break: break-word;
+            width: ${maxWidth}px;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        `;
+        temp.textContent = text;
+        document.body.appendChild(temp);
+        const wrappedHeight = Math.max(temp.offsetHeight, minHeight);
+        document.body.removeChild(temp);
+        node.style.height = wrappedHeight + 'px';
+    } else {
+        node.style.whiteSpace = 'nowrap';
+    }
+    
+    // 确保文本居中
+    node.style.display = 'flex';
+    node.style.alignItems = 'center';
+    node.style.justifyContent = 'center';
+    node.style.textAlign = 'center';
+}
+
+// 启用节点拖拽
+function enableNodeDragging(node) {
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+    
+    node.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = parseInt(node.style.left) || 0;
+        startTop = parseInt(node.style.top) || 0;
+        
+        node.style.cursor = 'grabbing';
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const onMouseMove = (e) => {
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            node.style.left = (startLeft + deltaX) + 'px';
+            node.style.top = (startTop + deltaY) + 'px';
+            
+            updateNodeConnections(node);
+        };
+        
+        const onMouseUp = () => {
+            isDragging = false;
+            node.style.cursor = 'pointer';
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+}
+
+// 启用画布拖拽
+function enableCanvasDragging(canvas) {
+    let isDragging = false;
+    let startX, startY;
+    
+    canvas.addEventListener('mousedown', function(e) {
+        if (e.target === canvas) {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            canvas.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        document.querySelectorAll('.mindmap-node').forEach(node => {
+            const currentLeft = parseInt(node.style.left) || 0;
+            const currentTop = parseInt(node.style.top) || 0;
+            node.style.left = (currentLeft + deltaX) + 'px';
+            node.style.top = (currentTop + deltaY) + 'px';
+        });
+        
+        connections.forEach(conn => {
+            updateConnectionLine(conn.from, conn.to, conn.line);
+        });
+        
+        startX = e.clientX;
+        startY = e.clientY;
+    });
+    
+    document.addEventListener('mouseup', function() {
+        if (isDragging) {
+            isDragging = false;
+            canvas.style.cursor = 'default';
+        }
+    });
+}
+
+// 渲染思维导图数据
+function renderMindmapData(canvasData) {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    if (!canvasData || !canvasData.nodes || canvasData.nodes.length === 0) {
+        return;
+    }
+    
+    canvas.innerHTML = '';
+    const nodeMap = new Map();
+    
+    // 渲染节点
+    canvasData.nodes.forEach(nodeData => {
+        const node = createNodeFromData(nodeData);
+        canvas.appendChild(node);
+        nodeMap.set(nodeData.id, node);
+    });
+    
+    // 重建连接
+    if (canvasData.connections && canvasData.connections.length > 0) {
+        canvasData.connections.forEach(connection => {
+            const fromNode = nodeMap.get(connection.from);
+            const toNode = nodeMap.get(connection.to);
+            if (fromNode && toNode) {
+                createConnection(fromNode, toNode);
+            }
+        });
+    }
+    
+    // 保存初始状态
+    setTimeout(() => {
+        saveState();
+    }, 100);
+}
+
+// 更新节点的所有连接线
+function updateNodeConnections(node) {
+    connections.forEach(conn => {
+        if (conn.from === node || conn.to === node) {
+            updateConnectionLine(conn.from, conn.to, conn.line);
+        }
+    });
+}
+
+// 创建连接线
+function createConnection(fromNode, toNode) {
+    console.log('[连接] createConnection 被调用，fromNode:', fromNode, 'toNode:', toNode);
+    const canvas = document.getElementById('mindmap-canvas');
+    const line = document.createElement('div');
+    
+    // 检查是否是说明节点连接
+    const isNoteConnection = toNode.classList.contains('note-node');
+    
+    if (isNoteConnection) {
+        line.className = 'mindmap-connection note-connection';
+        line.style.cssText = `
+            position: absolute;
+            height: 1px;
+            background: #ffd60a;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0.8;
+            border-style: dashed;
+        `;
+    } else {
+        line.className = 'mindmap-connection';
+        line.style.cssText = `
+            position: absolute;
+            height: 2px;
+            background: #d1d9e0;
+            z-index: 1;
+            pointer-events: all;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        `;
+        line.dataset.width = '2'; // 保存原始粗细
+        line.dataset.color = '#d1d9e0'; // 保存原始颜色
+        line.dataset.style = 'solid'; // 保存原始样式
+    }
+    
+    // 添加连接线点击事件
+    line.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectConnection(line);
+        showConnectionEditModal(line);
+    });
+    
+    // 记录连接关系
+    connections.push({ from: fromNode, to: toNode, line: line });
+    console.log('[连接] 连接线已创建并添加到connections数组，当前连接数:', connections.length);
+    
+    // 更新连接线位置
+    updateConnectionLine(fromNode, toNode, line);
+    
+    canvas.appendChild(line);
+    console.log('[连接] 连接线已添加到画布');
+}
+
+// 更新连接线位置
+function updateConnectionLine(fromNode, toNode, line) {
+    const fromLeft = parseInt(fromNode.style.left) || 0;
+    const fromTop = parseInt(fromNode.style.top) || 0;
+    const fromWidth = fromNode.offsetWidth;
+    const fromHeight = fromNode.offsetHeight;
+    
+    const toLeft = parseInt(toNode.style.left) || 0;
+    const toTop = parseInt(toNode.style.top) || 0;
+    const toWidth = toNode.offsetWidth;
+    const toHeight = toNode.offsetHeight;
+    
+    const fromX = fromLeft + fromWidth / 2;
+    const fromY = fromTop + fromHeight / 2;
+    const toX = toLeft + toWidth / 2;
+    const toY = toTop + toHeight / 2;
+    
+    const length = Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2));
+    const angle = Math.atan2(toY - fromY, toX - fromX) * 180 / Math.PI;
+    
+    line.style.left = fromX + 'px';
+    line.style.top = fromY + 'px';
+    line.style.width = length + 'px';
+    line.style.transform = `rotate(${angle}deg)`;
+    line.style.transformOrigin = '0 50%';
+}
+
+// 保存状态到撤销栈
+function saveState() {
+    const state = extractCanvasData();
+    undoStack.push(JSON.stringify(state));
+    
+    // 限制撤销栈大小
+    if (undoStack.length > MAX_UNDO_STACK) {
+        undoStack.shift();
+    }
+    
+    // 清空重做栈
+    redoStack = [];
+}
+
+// 撤销操作
+function undoAction() {
+    if (undoStack.length <= 1) {
+        showToast('没有可撤销的操作');
+        return;
+    }
+    
+    // 当前状态推入重做栈
+    const currentState = extractCanvasData();
+    redoStack.push(JSON.stringify(currentState));
+    
+    // 从撤销栈获取前一个状态
+    undoStack.pop(); // 移除当前状态
+    const prevState = undoStack[undoStack.length - 1];
+    
+    restoreState(JSON.parse(prevState));
+    showToast('撤销成功');
+}
+
+// 重做操作
+function redoAction() {
+    if (redoStack.length === 0) {
+        showToast('没有可重做的操作');
+        return;
+    }
+    
+    // 当前状态推入撤销栈
+    const currentState = extractCanvasData();
+    undoStack.push(JSON.stringify(currentState));
+    
+    // 从重做栈获取状态
+    const nextState = redoStack.pop();
+    
+    restoreState(JSON.parse(nextState));
+    showToast('重做成功');
+}
+
+// 恢复状态
+function restoreState(state) {
+    // 清空当前画布
+    const canvas = document.getElementById('mindmap-canvas');
+    canvas.querySelectorAll('.mindmap-node, .mindmap-connection').forEach(el => el.remove());
+    
+    // 重置变量
+    nodes = [];
+    connections = [];
+    nodeCounter = 0;
+    selectedNode = null;
+    
+    // 恢复节点
+    if (state.nodes) {
+        state.nodes.forEach(nodeData => {
+            const node = createNodeFromData(nodeData);
+            canvas.appendChild(node);
+        });
+    }
+    
+    // 恢复连接
+    if (state.connections) {
+        state.connections.forEach(connData => {
+            const fromNode = document.getElementById(connData.from);
+            const toNode = document.getElementById(connData.to);
+            if (fromNode && toNode) {
+                createConnection(fromNode, toNode);
+            }
+        });
+    }
+}
+
+// 从数据创建节点
+function createNodeFromData(nodeData) {
+    const node = document.createElement('div');
+    node.className = nodeData.className || 'mindmap-node';
+    node.id = nodeData.id;
+    node.style.left = nodeData.x + 'px';
+    node.style.top = nodeData.y + 'px';
+    
+    // 应用样式
+    if (nodeData.style) {
+        Object.assign(node.style, nodeData.style);
+    }
+    
+    // 处理菱形节点的特殊情况
+    if (nodeData.style && nodeData.style.clipPath && nodeData.style.clipPath.includes('polygon')) {
+        if (nodeData.originalText) {
+            node.dataset.originalText = nodeData.originalText;
+        }
+        
+        const textSpan = document.createElement('span');
+        textSpan.style.fontSize = '12px';
+        textSpan.style.textAlign = 'center';
+        textSpan.style.lineHeight = '1';
+        textSpan.style.maxWidth = '50px';
+        textSpan.style.wordBreak = 'break-all';
+        textSpan.textContent = nodeData.text;
+        node.appendChild(textSpan);
+    } else {
+        node.textContent = nodeData.text;
+    }
+    
+    // 添加按钮和事件
+    if (!node.classList.contains('note-node')) {
+        const buttonGroup = createNodeButtons(node);
+        node.appendChild(buttonGroup);
+    }
+    
+    node.addEventListener('click', (e) => {
+        console.log('节点主div被点击(createNodeFromData)，e.target:', e.target, 'node:', node);
+        selectNode(node);
+        showNodeButtons(node);
+    });
+    node.addEventListener('dblclick', () => editNode(node));
+    enableNodeDragging(node);
+    
+    nodes.push(node);
+    
+    // 更新计数器
+    const nodeId = parseInt(nodeData.id.replace('node-', ''));
+    if (nodeId >= nodeCounter) {
+        nodeCounter = nodeId + 1;
+    }
+    
+    return node;
+}
+
+// 提取画布数据
+function extractCanvasData() {
+    const nodeElements = document.querySelectorAll('.mindmap-node');
+    const nodeData = Array.from(nodeElements).map((node, index) => {
+        // 获取真实的文本内容
+        let text = node.textContent;
+        if (node.dataset.originalText) {
+            text = node.dataset.originalText; // 菱形节点使用原始文本
+        }
+        
+        return {
+            id: node.id || `node-${index}`,
+            text: text,
+            x: parseFloat(node.style.left) || 0,
+            y: parseFloat(node.style.top) || 0,
+            className: node.className,
+            style: {
+                background: node.style.background || node.style.backgroundColor,
+                color: node.style.color,
+                borderRadius: node.style.borderRadius,
+                clipPath: node.style.clipPath,
+                width: node.style.width,
+                height: node.style.height,
+                fontSize: node.style.fontSize
+            },
+            originalText: node.dataset.originalText || null
+        };
+    });
+    
+    const connectionData = connections.map(conn => ({
+        from: conn.from.id,
+        to: conn.to.id
+    }));
+    
+    return {
+        nodes: nodeData,
+        connections: connectionData,
+        version: '1.0'
+    };
+}
+// 全局主题和样式配置
+let currentTheme = 'default';
+let currentNodeShape = 'rounded';
+let currentConnectionStyle = 'curved';
+let currentNodeSize = 120;
+let currentConnectionWidth = 2;
+
+// 主题配置
+const themes = {
+    default: {
+        primaryColor: '#007bff',
+        secondaryColor: '#6c757d',
+        connectionColor: '#495057',
+        backgroundColor: '#ffffff'
+    },
+    ocean: {
+        primaryColor: '#0077be',
+        secondaryColor: '#17a2b8',
+        connectionColor: '#20c997',
+        backgroundColor: '#f0f9ff'
+    },
+    forest: {
+        primaryColor: '#28a745',
+        secondaryColor: '#20c997',
+        connectionColor: '#6f7634',
+        backgroundColor: '#f8fff8'
+    },
+    sunset: {
+        primaryColor: '#fd7e14',
+        secondaryColor: '#e83e8c',
+        connectionColor: '#dc3545',
+        backgroundColor: '#fff8f0'
+    },
+    minimal: {
+        primaryColor: '#495057',
+        secondaryColor: '#868e96',
+        connectionColor: '#adb5bd',
+        backgroundColor: '#ffffff'
+    },
+    dark: {
+        primaryColor: '#6c757d',
+        secondaryColor: '#495057',
+        connectionColor: '#343a40',
+        backgroundColor: '#2d3748'
+    },
+    vscode: {
+        primaryColor: '#007acc',
+        secondaryColor: '#005a9e',
+        connectionColor: '#1e1e1e',
+        backgroundColor: '#1e1e1e'
+    },
+    github: {
+        primaryColor: '#24292f',
+        secondaryColor: '#0969da',
+        connectionColor: '#d0d7de',
+        backgroundColor: '#ffffff'
+    },
+    monokai: {
+        primaryColor: '#f92672',
+        secondaryColor: '#a6e22e',
+        connectionColor: '#66d9ef',
+        backgroundColor: '#272822'
+    },
+    dracula: {
+        primaryColor: '#bd93f9',
+        secondaryColor: '#50fa7b',
+        connectionColor: '#ff79c6',
+        backgroundColor: '#282a36'
+    },
+    'one-dark': {
+        primaryColor: '#61afef',
+        secondaryColor: '#98c379',
+        connectionColor: '#e06c75',
+        backgroundColor: '#282c34'
+    }
+};
+
+// 显示主题设置面板
+function showThemePanel() {
+    const modal = new bootstrap.Modal(document.getElementById('themeModal'));
+    modal.show();
+}
+
+// 显示形状设置面板
+function showShapePanel() {
+    const modal = new bootstrap.Modal(document.getElementById('shapeModal'));
+    modal.show();
+}
+
+// 应用预设主题
+function applyTheme(themeName) {
+    currentTheme = themeName;
+    const theme = themes[themeName];
+    
+    // 更新主题选择状态
+    document.querySelectorAll('.theme-preset').forEach(preset => {
+        preset.classList.remove('active');
+    });
+    const targetPreset = document.querySelector(`[data-theme="${themeName}"]`);
+    if (targetPreset) {
+        targetPreset.classList.add('active');
+    }
+    
+    // 更新颜色选择器的值
+    if (document.getElementById('primaryColor')) {
+        document.getElementById('primaryColor').value = theme.primaryColor;
+        document.getElementById('secondaryColor').value = theme.secondaryColor;
+        document.getElementById('connectionColor').value = theme.connectionColor;
+        document.getElementById('backgroundColor').value = theme.backgroundColor;
+    }
+    
+    // 应用主题到画布
+    applyThemeToCanvas(theme);
+}
+
+// 应用自定义主题
+function applyCustomTheme() {
+    const customTheme = {
+        primaryColor: document.getElementById('primaryColor').value,
+        secondaryColor: document.getElementById('secondaryColor').value,
+        connectionColor: document.getElementById('connectionColor').value,
+        backgroundColor: document.getElementById('backgroundColor').value
+    };
+    
+    applyThemeToCanvas(customTheme);
+    
+    // 清除预设主题的选中状态
+    document.querySelectorAll('.theme-preset').forEach(preset => {
+        preset.classList.remove('active');
+    });
+    
+    // 关闭模态框
+    bootstrap.Modal.getInstance(document.getElementById('themeModal')).hide();
+    
+    showToast('自定义主题已应用');
+}
+
+// 将主题应用到画布
+function applyThemeToCanvas(theme) {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    // 设置背景色
+    canvas.style.backgroundColor = theme.backgroundColor;
+    
+    // 更新所有节点的颜色
+    const nodes = canvas.querySelectorAll('.mindmap-node');
+    nodes.forEach((node, index) => {
+        if (index === 0) {
+            // 主节点使用主色
+            node.style.backgroundColor = theme.primaryColor;
+            node.style.borderColor = theme.primaryColor;
+        } else {
+            // 子节点使用次色
+            node.style.backgroundColor = theme.secondaryColor;
+            node.style.borderColor = theme.secondaryColor;
+        }
+    });
+    
+    // 更新所有连接线的颜色
+    const connections = canvas.querySelectorAll('.connection-line');
+    connections.forEach(line => {
+        line.style.borderColor = theme.connectionColor;
+        line.style.backgroundColor = theme.connectionColor;
+    });
+    
+    // 更新网格显示
+    const showGridCheckbox = document.getElementById('showGrid');
+    if (showGridCheckbox) {
+        const showGrid = showGridCheckbox.checked;
+        if (showGrid) {
+            canvas.style.backgroundImage = `
+                linear-gradient(${theme.connectionColor}20 1px, transparent 1px),
+                linear-gradient(90deg, ${theme.connectionColor}20 1px, transparent 1px)
+            `;
+            canvas.style.backgroundSize = '20px 20px';
+        } else {
+            canvas.style.backgroundImage = 'none';
+        }
+    }
+}
+
+// 重置主题
+function resetTheme() {
+    applyTheme('default');
+    showToast('主题已重置');
+}
+
+// 选择节点形状
+function selectNodeShape(shape) {
+    currentNodeShape = shape;
+    
+    // 更新形状选择状态
+    document.querySelectorAll('.shape-option').forEach(option => {
+        option.classList.remove('active');
+    });
+    document.querySelector(`[data-shape="${shape}"]`).classList.add('active');
+}
+
+// 选择连接线样式
+function selectConnectionStyle(style) {
+    currentConnectionStyle = style;
+    
+    // 更新连接线选择状态
+    document.querySelectorAll('.connection-option').forEach(option => {
+        option.classList.remove('active');
+    });
+    document.querySelector(`[data-connection="${style}"]`).classList.add('active');
+}
+
+// 更新节点大小
+function updateNodeSize(value) {
+    currentNodeSize = parseInt(value);
+    document.getElementById('nodeSizeValue').textContent = value + 'px';
+}
+
+// 更新连接线粗细
+function updateConnectionWidth(value) {
+    currentConnectionWidth = parseInt(value);
+    document.getElementById('connectionWidthValue').textContent = value + 'px';
+}
+
+// 应用形状设置
+function applyShapeSettings() {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    // 应用节点形状
+    const nodes = canvas.querySelectorAll('.mindmap-node');
+    nodes.forEach(node => {
+        applyNodeShape(node, currentNodeShape);
+        node.style.width = currentNodeSize + 'px';
+        node.style.minHeight = (currentNodeSize * 0.6) + 'px';
+    });
+    
+    // 应用连接线样式
+    const connections = canvas.querySelectorAll('.connection-line');
+    connections.forEach(line => {
+        applyConnectionStyle(line, currentConnectionStyle);
+        line.style.borderWidth = currentConnectionWidth + 'px';
+    });
+    
+    // 关闭模态框
+    bootstrap.Modal.getInstance(document.getElementById('shapeModal')).hide();
+    
+    showToast('形状设置已应用');
+}
+
+// 应用节点形状
+function applyNodeShape(node, shape) {
+    // 移除所有形状类
+    node.classList.remove('shape-rounded', 'shape-circle', 'shape-square', 'shape-diamond', 'shape-hexagon');
+    
+    // 添加新形状类
+    node.classList.add(`shape-${shape}`);
+    
+    // 应用对应的CSS样式
+    switch(shape) {
+        case 'rounded':
+            node.style.borderRadius = '8px';
+            node.style.clipPath = 'none';
+            node.style.transform = 'none';
+            break;
+        case 'circle':
+            node.style.borderRadius = '50%';
+            node.style.clipPath = 'none';
+            node.style.transform = 'none';
+            break;
+        case 'square':
+            node.style.borderRadius = '0';
+            node.style.clipPath = 'none';
+            node.style.transform = 'none';
+            break;
+        case 'diamond':
+            node.style.borderRadius = '0';
+            node.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
+            node.style.transform = 'none';
+            break;
+        case 'hexagon':
+            node.style.borderRadius = '0';
+            node.style.transform = 'none';
+            node.style.clipPath = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+            break;
+    }
+}
+
+// 应用连接线样式
+function applyConnectionStyle(line, style) {
+    // 移除所有连接线样式类
+    line.classList.remove('connection-curved', 'connection-straight', 'connection-orthogonal');
+    
+    // 添加新连接线样式类
+    line.classList.add(`connection-${style}`);
+}
+
+// 重置形状设置
+function resetShapes() {
+    currentNodeShape = 'rounded';
+    currentConnectionStyle = 'curved';
+    currentNodeSize = 120;
+    currentConnectionWidth = 2;
+    
+    // 重置UI控件
+    selectNodeShape('rounded');
+    selectConnectionStyle('curved');
+    document.getElementById('nodeSize').value = 120;
+    document.getElementById('connectionWidth').value = 2;
+    updateNodeSize(120);
+    updateConnectionWidth(2);
+    
+    showToast('形状设置已重置');
+}
+
+
+
+// 显示/隐藏节点按钮
+function showNodeButtons(node) {
+    hideAllNodeButtons();
+    const buttons = node.querySelector('.node-buttons');
+    if (buttons) {
+        buttons.classList.add('show');
+    }
+}
+
+function hideNodeButtons() {
+    document.querySelectorAll('.node-buttons').forEach(buttons => {
+        buttons.classList.remove('show');
+    });
+}
+
+function hideAllNodeButtons() {
+    hideNodeButtons();
+}
+
+// 新增功能函数
+function showNodeStylePanel(node) {
+    const modal = document.createElement('div');
+    modal.className = 'github-modal';
+    modal.innerHTML = `
+        <div class="github-modal-content">
+            <div class="github-modal-header">
+                <h6 class="github-modal-title">
+                    <i class="fas fa-palette" style="font-size: 12px;"></i>
+                    节点样式
+                </h6>
+                <button onclick="closeNodeStyleModal()" class="github-modal-close">×</button>
+            </div>
+            <div class="github-modal-body">
+                <div class="github-form-group">
+                    <label class="github-form-label">背景颜色</label>
+                    <div class="github-options color-row">
+                        <!-- 常用颜色一排 -->
+                        <div class="github-color-option" data-color="#ffffff" style="background: #ffffff; border: 1px solid #d0d7de;"></div>
+                        <div class="github-color-option" data-color="#007bff" style="background: #007bff"></div>
+                        <div class="github-color-option" data-color="#1f883d" style="background: #1f883d"></div>
+                        <div class="github-color-option" data-color="#da3633" style="background: #da3633"></div>
+                        <div class="github-color-option" data-color="#fb8500" style="background: #fb8500"></div>
+                        <div class="github-color-option" data-color="#8b5cf6" style="background: #8b5cf6"></div>
+                        <div class="github-color-option" data-color="#6c757d" style="background: #6c757d"></div>
+                        <div class="github-color-option" data-color="#f8f9fa" style="background: #f8f9fa"></div>
+                        <!-- 自定义色盘 -->
+                        <div class="color-picker-wrapper">
+                            <input type="color" class="github-color-picker" id="nodeColorPicker" title="自定义颜色">
+                            <div class="color-picker-icon">🎨</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="github-form-group">
+                    <label class="github-form-label">形状</label>
+                    <div class="github-options">
+                        <div class="github-shape-option active" data-shape="rectangle">
+                            <div class="shape-preview rect-preview"></div>
+                            <span>矩形</span>
+                        </div>
+                        <div class="github-shape-option" data-shape="rounded">
+                            <div class="shape-preview rounded-preview"></div>
+                            <span>圆角</span>
+                        </div>
+                        <div class="github-shape-option" data-shape="circle">
+                            <div class="shape-preview circle-preview"></div>
+                            <span>圆形</span>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            <div class="github-modal-actions">
+                <button onclick="closeNodeStyleModal()" class="github-btn github-btn-secondary">完成</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    currentNodeStyleModal = modal;
+    
+    // 绑定颜色选择事件
+    modal.querySelectorAll('.github-color-option').forEach(option => {
+        option.addEventListener('click', () => {
+            modal.querySelectorAll('.github-color-option').forEach(o => o.classList.remove('active'));
+            option.classList.add('active');
+            const color = option.dataset.color;
+            node.style.backgroundColor = color;
+        });
+    });
+    
+    // 绑定自定义颜色选择器事件
+    const colorPicker = modal.querySelector('#nodeColorPicker');
+    if (colorPicker) {
+        colorPicker.addEventListener('change', () => {
+            modal.querySelectorAll('.github-color-option').forEach(o => o.classList.remove('active'));
+            const color = colorPicker.value;
+            node.style.backgroundColor = color;
+        });
+    }
+    
+    // 绑定形状选择事件
+    modal.querySelectorAll('.github-shape-option').forEach(option => {
+        option.addEventListener('click', () => {
+            modal.querySelectorAll('.github-shape-option').forEach(o => o.classList.remove('active'));
+            option.classList.add('active');
+            const shape = option.dataset.shape;
+            
+            // 清除之前的形状类
+            node.classList.remove('shape-rounded', 'shape-circle');
+            
+            // 应用新形状
+            if (shape === 'rounded') {
+                node.classList.add('shape-rounded');
+                node.style.borderRadius = '12px';
+                node.style.transform = 'none';
+            } else if (shape === 'circle') {
+                node.classList.add('shape-circle');
+                node.style.borderRadius = '50%';
+                node.style.transform = 'none';
+            } else {
+                node.style.borderRadius = '4px';
+                node.style.transform = 'none';
+            }
+        });
+    });
+}
+
+function showAIExpansionPanel(node) {
+    // TODO: 实现AI扩展面板
+    showToast('AI智能扩展功能开发中');
+}
+
+function showAIExplanationPanel(node) {
+    // TODO: 实现AI说明面板
+    showToast('AI智能说明功能开发中');
+}
+
+// 创建SVG连接线容器
+function createConnectionsSvg() {
+    const canvas = document.getElementById('mindmap-canvas');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'connections-svg';
+    svg.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+    `;
+    canvas.appendChild(svg);
+}
+
+function deleteNode(node) {
+    if (confirm('确定要删除这个节点吗？')) {
+        // 删除相关连接线
+        connections = connections.filter(conn => {
+            if (conn.from === node || conn.to === node) {
+                conn.line.remove();
+                return false;
+            }
+            return true;
+        });
+        
+        // 删除节点
+        node.remove();
+        nodes = nodes.filter(n => n !== node);
+        
+        // 如果删除的是选中节点，清除选中状态
+        if (selectedNode === node) {
+            selectedNode = null;
+        }
+        
+        saveState();
+        showToast('节点已删除');
+        markUserInteraction();
+    }
+}
+
+// 编辑节点文本
+function editNodeText(node) {
+    editNode(node);
+}
+
+
+
+// 节点连接功能
+function startNodeConnection(node) {
+    console.log('[连接] startNodeConnection 被调用，node:', node, 'isConnecting:', isConnecting);
+    if (isConnecting) {
+        // 如果已经在连接模式，取消连接
+        console.log('[连接] 已在连接模式，取消连接');
+        cancelConnection();
+        return;
+    }
+    
+    isConnecting = true;
+    connectionStart = node;
+    console.log('[连接] 进入连接模式，起点节点:', node, 'isConnecting:', isConnecting);
+    
+    // 创建临时连接线
+    connectionLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    connectionLine.setAttribute('stroke', '#007bff');
+    connectionLine.setAttribute('stroke-width', '2');
+    connectionLine.setAttribute('stroke-dasharray', '5,5');
+    connectionLine.classList.add('temp-connection');
+    
+    const svg = document.querySelector('#connections-svg');
+    if (!svg) {
+        createConnectionsSvg();
+    }
+    document.querySelector('#connections-svg').appendChild(connectionLine);
+    
+    // 高亮起始节点
+    node.classList.add('connecting');
+    
+    // 添加鼠标移动监听
+    document.addEventListener('mousemove', updateTempConnection);
+    document.addEventListener('click', handleConnectionClick);
+    
+    showToast('请点击目标节点建立连接，再次点击连接按钮取消');
+}
+
+function updateTempConnection(e) {
+    if (!isConnecting || !connectionLine || !connectionStart) return;
+    
+    const startRect = connectionStart.getBoundingClientRect();
+    const canvas = document.getElementById('mindmap-canvas');
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    const startX = startRect.left + startRect.width / 2 - canvasRect.left;
+    const startY = startRect.top + startRect.height / 2 - canvasRect.top;
+    const endX = e.clientX - canvasRect.left;
+    const endY = e.clientY - canvasRect.top;
+    
+    connectionLine.setAttribute('x1', startX);
+    connectionLine.setAttribute('y1', startY);
+    connectionLine.setAttribute('x2', endX);
+    connectionLine.setAttribute('y2', endY);
+}
+
+function handleConnectionClick(e) {
+    if (!isConnecting) {
+        console.log('[连接] 非连接模式，忽略点击');
+        return;
+    }
+    const targetNode = e.target.closest('.mindmap-node');
+    console.log('[连接] handleConnectionClick 触发，targetNode:', targetNode, 'connectionStart:', connectionStart);
+
+    if (targetNode && targetNode !== connectionStart) {
+        console.log('[连接] 建立连接：', connectionStart, '->', targetNode);
+        createConnection(connectionStart, targetNode);
+        showToast('节点连接已创建');
+        cancelConnection();
+    } else if (!targetNode) {
+        console.log('[连接] 点击空白处，取消连接');
+        cancelConnection();
+    } else {
+        console.log('[连接] 点击起点节点本身，等待下次点击');
+    }
+}
+
+function cancelConnection() {
+    console.log('[连接] cancelConnection 被调用，isConnecting:', isConnecting);
+    isConnecting = false;
+    
+    if (connectionStart) {
+        connectionStart.classList.remove('connecting');
+        connectionStart = null;
+    }
+    
+    if (connectionLine) {
+        connectionLine.remove();
+        connectionLine = null;
+    }
+    
+    document.removeEventListener('mousemove', updateTempConnection);
+    document.removeEventListener('click', handleConnectionClick);
+    console.log('[连接] 连接模式已取消');
+}
+
+
+
+// 创建节点样式编辑模态框
+function createNodeStyleModal() {
+    const modal = document.createElement('div');
+    modal.id = 'nodeStyleModal';
+    modal.className = 'theme-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>节点样式设置</h3>
+                <span class="close" onclick="closeNodeStyleModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="style-section">
+                    <h4>颜色设置</h4>
+                    <div class="color-picker-group">
+                        <label for="nodeColorPicker">节点颜色:</label>
+                        <input type="color" id="nodeColorPicker" value="#ffffff" onchange="updateNodeColor()">
+                    </div>
+                    <div class="preset-colors">
+                        <div class="color-preset" style="background: #ffffff" onclick="setNodePresetColor('#ffffff')"></div>
+                        <div class="color-preset" style="background: #e3f2fd" onclick="setNodePresetColor('#e3f2fd')"></div>
+                        <div class="color-preset" style="background: #f3e5f5" onclick="setNodePresetColor('#f3e5f5')"></div>
+                        <div class="color-preset" style="background: #e8f5e8" onclick="setNodePresetColor('#e8f5e8')"></div>
+                        <div class="color-preset" style="background: #fff3e0" onclick="setNodePresetColor('#fff3e0')"></div>
+                        <div class="color-preset" style="background: #ffebee" onclick="setNodePresetColor('#ffebee')"></div>
+                    </div>
+                </div>
+                <div class="style-section">
+                    <h4>形状设置</h4>
+                    <div class="shape-options">
+                        <button class="shape-btn" onclick="setNodeShape('rectangle')">矩形</button>
+                        <button class="shape-btn" onclick="setNodeShape('rounded')">圆角</button>
+                        <button class="shape-btn" onclick="setNodeShape('circle')">圆形</button>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function closeNodeStyleModal() {
+    document.getElementById('nodeStyleModal').style.display = 'none';
+}
+
+function updateNodeColor() {
+    if (!currentEditingNode) return;
+    const color = document.getElementById('nodeColorPicker').value;
+    setNodePresetColor(color);
+}
+
+function setNodePresetColor(color) {
+    if (!currentEditingNode) return;
+    currentEditingNode.style.backgroundColor = color;
+    document.getElementById('nodeColorPicker').value = color;
+    saveState();
+}
+
+function setNodeShape(shape) {
+    if (!currentEditingNode) return;
+    
+    // 移除所有形状类
+    currentEditingNode.classList.remove('shape-rounded', 'shape-circle');
+    
+    switch(shape) {
+        case 'rounded':
+            currentEditingNode.classList.add('shape-rounded');
+            break;
+        case 'circle':
+            currentEditingNode.classList.add('shape-circle');
+            break;
+
+        default:
+            // 矩形是默认形状
+            break;
+    }
+    saveState();
+}
+
+// RGB转HEX工具函数
+function rgbToHex(rgb) {
+    if (rgb.startsWith('#')) return rgb;
+    const result = rgb.match(/\d+/g);
+    if (!result) return '#ffffff';
+    return '#' + result.map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+}
+
+// 连接线选择和编辑功能
+function selectConnection(line) {
+    // 取消之前选中的连接线
+    if (selectedConnection) {
+        selectedConnection.classList.remove('selected-connection');
+    }
+    
+    selectedConnection = line;
+    line.classList.add('selected-connection');
+    
+    // 显示连接线编辑面板
+    showConnectionStylePanel(line);
+}
+
+function showConnectionStylePanel(line) {
+    const modal = document.getElementById('connectionStyleModal');
+    if (!modal) {
+        createConnectionStyleModal();
+    }
+    
+    document.getElementById('connectionStyleModal').style.display = 'block';
+}
+
+function createConnectionStyleModal() {
+    const modal = document.createElement('div');
+    modal.id = 'connectionStyleModal';
+    modal.className = 'theme-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>连接线样式设置</h3>
+                <span class="close" onclick="closeConnectionStyleModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="style-section">
+                    <h4>线条样式</h4>
+                    <div class="line-style-options">
+                        <button class="line-style-btn" onclick="setConnectionStyle('solid')">实线</button>
+                        <button class="line-style-btn" onclick="setConnectionStyle('dashed')">虚线</button>
+                        <button class="line-style-btn" onclick="setConnectionStyle('dotted')">点线</button>
+                    </div>
+                </div>
+                <div class="style-section">
+                    <h4>线条颜色</h4>
+                    <div class="color-picker-group">
+                        <input type="color" id="connectionColorPicker" value="#d1d9e0" onchange="updateConnectionColor()">
+                    </div>
+                    <div class="preset-colors">
+                        <div class="color-preset" style="background: #d1d9e0" onclick="setConnectionColor('#d1d9e0')"></div>
+                        <div class="color-preset" style="background: #007bff" onclick="setConnectionColor('#007bff')"></div>
+                        <div class="color-preset" style="background: #28a745" onclick="setConnectionColor('#28a745')"></div>
+                        <div class="color-preset" style="background: #dc3545" onclick="setConnectionColor('#dc3545')"></div>
+                        <div class="color-preset" style="background: #ffc107" onclick="setConnectionColor('#ffc107')"></div>
+                        <div class="color-preset" style="background: #6f42c1" onclick="setConnectionColor('#6f42c1')"></div>
+                    </div>
+                </div>
+                <div class="style-section">
+                    <h4>线条粗细</h4>
+                    <div class="line-width-options">
+                        <button class="line-width-btn" onclick="setConnectionWidth(1)">细</button>
+                        <button class="line-width-btn" onclick="setConnectionWidth(2)">中</button>
+                        <button class="line-width-btn" onclick="setConnectionWidth(4)">粗</button>
+                    </div>
+                </div>
+                <div class="style-section">
+                    <button class="delete-btn" onclick="deleteConnection()">删除连接线</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function closeConnectionStyleModal() {
+    document.getElementById('connectionStyleModal').style.display = 'none';
+    if (selectedConnection) {
+        selectedConnection.classList.remove('selected');
+        selectedConnection = null;
+    }
+}
+
+function setConnectionStyle(style) {
+    if (!selectedConnection) return;
+    
+    switch(style) {
+        case 'dashed':
+            selectedConnection.style.borderTop = selectedConnection.style.height + ' dashed ' + 
+                (selectedConnection.style.background || '#d1d9e0');
+            selectedConnection.style.background = 'transparent';
+            break;
+        case 'dotted':
+            selectedConnection.style.borderTop = selectedConnection.style.height + ' dotted ' + 
+                (selectedConnection.style.background || '#d1d9e0');
+            selectedConnection.style.background = 'transparent';
+            break;
+        default: // solid
+            selectedConnection.style.borderTop = '';
+            selectedConnection.style.background = selectedConnection.dataset.color || '#d1d9e0';
+            break;
+    }
+    saveState();
+}
+
+function updateConnectionColor() {
+    const color = document.getElementById('connectionColorPicker').value;
+    setConnectionColor(color);
+}
+
+function setConnectionColor(color) {
+    if (!selectedConnection) return;
+    
+    selectedConnection.dataset.color = color;
+    if (selectedConnection.style.borderTop) {
+        // 如果是虚线或点线样式
+        const borderStyle = selectedConnection.style.borderTop.split(' ')[1];
+        selectedConnection.style.borderTop = selectedConnection.style.height + ' ' + borderStyle + ' ' + color;
+    } else {
+        selectedConnection.style.background = color;
+    }
+    
+    document.getElementById('connectionColorPicker').value = color;
+    saveState();
+}
+
+function setConnectionWidth(width) {
+    if (!selectedConnection) return;
+    
+    selectedConnection.style.height = width + 'px';
+    if (selectedConnection.style.borderTop) {
+        const borderParts = selectedConnection.style.borderTop.split(' ');
+        selectedConnection.style.borderTop = width + 'px ' + borderParts[1] + ' ' + borderParts[2];
+    }
+    saveState();
+}
+
+function deleteConnection() {
+    if (!selectedConnection) return;
+    
+    if (confirm('确定要删除这条连接线吗？')) {
+        // 从connections数组中移除
+        const index = connections.findIndex(conn => conn.line === selectedConnection);
+        if (index > -1) {
+            connections.splice(index, 1);
+        }
+        
+        selectedConnection.remove();
+        selectedConnection = null;
+        closeConnectionStyleModal();
+        saveState();
+                 showToast('连接线已删除');
+     }
+}
+
+// AI功能占位函数
+function showAIExpansionPanel(node) {
+    showToast('AI智能扩展功能开发中');
+}
+
+function showAIExplanationPanel(node) {
+    showToast('AI智能说明功能开发中');
+}
+
+// 连接线编辑功能
+let currentConnectionModal = null;
+let currentNodeStyleModal = null;
+
+// 显示连接线编辑模态框
+function showConnectionEditModal(line) {
+    console.log('[连接线] 显示连接线编辑模态框, line:', line);
+    
+    // 先关闭已存在的模态框
+    if (currentConnectionModal) {
+        currentConnectionModal.remove();
+        currentConnectionModal = null;
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'github-modal';
+    modal.innerHTML = `
+        <div class="github-modal-content">
+            <div class="github-modal-header">
+                <h6 class="github-modal-title">
+                    <i class="fas fa-link" style="font-size: 12px;"></i>
+                    连接线设置
+                </h6>
+                <button onclick="closeConnectionModal()" class="github-modal-close">×</button>
+            </div>
+            <div class="github-modal-body">
+                <div class="github-form-group">
+                    <label class="github-form-label">颜色</label>
+                    <div class="github-options">
+                        <div class="github-color-option" data-color="#d1d9e0" style="background: #d1d9e0"></div>
+                        <div class="github-color-option" data-color="#0969da" style="background: #0969da"></div>
+                        <div class="github-color-option" data-color="#1f883d" style="background: #1f883d"></div>
+                        <div class="github-color-option" data-color="#da3633" style="background: #da3633"></div>
+                        <div class="github-color-option" data-color="#fb8500" style="background: #fb8500"></div>
+                        <div class="github-color-option" data-color="#8b5cf6" style="background: #8b5cf6"></div>
+                        <div class="github-color-option" data-color="#6c757d" style="background: #6c757d"></div>
+                        <div class="github-color-option" data-color="#495057" style="background: #495057"></div>
+                        <!-- 自定义色盘 -->
+                        <div class="color-picker-wrapper">
+                            <input type="color" class="github-color-picker" id="connectionColorPicker" title="自定义颜色">
+                            <div class="color-picker-icon">🎨</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="github-form-group">
+                    <label class="github-form-label">粗细</label>
+                    <div class="github-options">
+                        <div class="github-size-option" data-width="1">细</div>
+                        <div class="github-size-option" data-width="2">中</div>
+                        <div class="github-size-option" data-width="3">粗</div>
+                    </div>
+                </div>
+                <div class="github-form-group">
+                    <label class="github-form-label">样式</label>
+                    <div class="github-options">
+                        <div class="github-style-option" data-style="solid">实线</div>
+                        <div class="github-style-option" data-style="dashed">虚线</div>
+                    </div>
+                </div>
+            </div>
+            <div class="github-modal-actions">
+                <button onclick="deleteConnection()" class="github-btn github-btn-danger">删除</button>
+                <button onclick="closeConnectionModal()" class="github-btn github-btn-secondary">完成</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    currentConnectionModal = modal;
+    
+    // 根据当前连接线状态设置UI回显
+    const currentColor = line.dataset.color || '#d1d9e0';
+    const currentWidth = line.dataset.width || '2';
+    const currentStyle = line.dataset.style || 'solid';
+    
+    console.log('[连接线] 当前状态 - 颜色:', currentColor, '粗细:', currentWidth, '样式:', currentStyle);
+    
+    // 设置颜色active状态
+    modal.querySelectorAll('.github-color-option').forEach(option => {
+        if (option.dataset.color === currentColor) {
+            option.classList.add('active');
+        }
+    });
+    
+    // 设置粗细active状态
+    modal.querySelectorAll('.github-size-option').forEach(option => {
+        if (option.dataset.width === currentWidth) {
+            option.classList.add('active');
+        }
+    });
+    
+    // 设置样式active状态
+    modal.querySelectorAll('.github-style-option').forEach(option => {
+        if (option.dataset.style === currentStyle) {
+            option.classList.add('active');
+        }
+    });
+    
+    // 绑定颜色选择事件
+    modal.querySelectorAll('.github-color-option').forEach(option => {
+        option.addEventListener('click', () => {
+            try {
+                console.log('[连接线] 颜色选择被点击，color:', option.dataset.color);
+                modal.querySelectorAll('.github-color-option').forEach(o => o.classList.remove('active'));
+                option.classList.add('active');
+                const color = option.dataset.color;
+                line.style.background = color;
+                line.dataset.color = color;
+                console.log('[连接线] 颜色已更新');
+            } catch (error) {
+                console.error('[连接线] 颜色选择错误:', error);
+            }
+        });
+    });
+    
+    // 绑定自定义颜色选择器事件
+    const connectionColorPicker = modal.querySelector('#connectionColorPicker');
+    if (connectionColorPicker) {
+        connectionColorPicker.addEventListener('change', () => {
+            try {
+                console.log('[连接线] 自定义颜色选择，color:', connectionColorPicker.value);
+                modal.querySelectorAll('.github-color-option').forEach(o => o.classList.remove('active'));
+                const color = connectionColorPicker.value;
+                line.style.background = color;
+                line.dataset.color = color;
+                console.log('[连接线] 自定义颜色已更新');
+            } catch (error) {
+                console.error('[连接线] 自定义颜色选择错误:', error);
+            }
+        });
+    }
+    
+    // 绑定粗细选择事件
+    modal.querySelectorAll('.github-size-option').forEach(option => {
+        option.addEventListener('click', () => {
+            try {
+                console.log('[连接线] 粗细选择被点击，width:', option.dataset.width);
+                modal.querySelectorAll('.github-size-option').forEach(o => o.classList.remove('active'));
+                option.classList.add('active');
+                const width = option.dataset.width;
+                line.style.height = width + 'px';
+                line.dataset.width = width; // 保存粗细数据
+                console.log('[连接线] 粗细已更新');
+            } catch (error) {
+                console.error('[连接线] 粗细选择错误:', error);
+            }
+        });
+    });
+    
+    // 绑定样式选择事件
+    modal.querySelectorAll('.github-style-option').forEach(option => {
+        option.addEventListener('click', () => {
+            try {
+                console.log('[连接线] 样式选择被点击，style:', option.dataset.style);
+                modal.querySelectorAll('.github-style-option').forEach(o => o.classList.remove('active'));
+                option.classList.add('active');
+                const style = option.dataset.style;
+                line.dataset.style = style; // 保存样式数据
+                
+                if (style === 'dashed') {
+                    const height = line.dataset.width || '2';
+                    const color = line.dataset.color || '#d1d9e0';
+                    line.style.border = 'none';
+                    line.style.borderTop = `${height}px dashed ${color}`;
+                    line.style.background = 'transparent';
+                    line.style.height = '0px'; // 让border-top承担显示
+                } else {
+                    line.style.border = 'none';
+                    line.style.borderTop = 'none';
+                    line.style.background = line.dataset.color || '#d1d9e0';
+                    line.style.height = (line.dataset.width || '2') + 'px';
+                }
+                console.log('[连接线] 样式已更新');
+            } catch (error) {
+                console.error('[连接线] 样式选择错误:', error);
+            }
+        });
+    });
+}
+
+function closeConnectionModal() {
+    console.log('[连接线] 关闭连接线模态框');
+    if (currentConnectionModal) {
+        currentConnectionModal.remove();
+        currentConnectionModal = null;
+        console.log('[连接线] 模态框已关闭');
+    } else {
+        console.log('[连接线] 没有找到要关闭的模态框');
+    }
+    
+    // 移除连接线的选中状态，消除蓝色边缘
+    if (selectedConnection) {
+        selectedConnection.classList.remove('selected-connection');
+        selectedConnection = null;
+        console.log('[连接线] 已取消连接线选中状态');
+    }
+}
+
+function closeNodeStyleModal() {
+    if (currentNodeStyleModal) {
+        currentNodeStyleModal.remove();
+        currentNodeStyleModal = null;
+    }
+}
+
+function deleteConnection() {
+    if (selectedConnection) {
+        // 从connections数组中移除
+        connections = connections.filter(conn => conn.line !== selectedConnection);
+        // 从DOM中移除
+        selectedConnection.remove();
+        selectedConnection = null;
+        showToast('连接线已删除');
+        markUserInteraction();
+    }
+    closeConnectionModal();
+}
+
+// 确保连接线编辑函数全局可访问
+window.closeConnectionModal = closeConnectionModal;
+window.deleteConnection = deleteConnection;
+window.closeNodeStyleModal = closeNodeStyleModal;
+window.showNodeStylePanel = showNodeStylePanel;
+window.applyTheme = applyTheme;
+window.applyCustomTheme = applyCustomTheme;
+window.resetTheme = resetTheme;
+window.exportMindmap = exportMindmap;
+window.exportToPNG = exportToPNG;
+
+// 初始化主题选择器事件
+document.addEventListener('DOMContentLoaded', function() {
+    // 绑定主题预设选择事件
+    document.querySelectorAll('.theme-preset').forEach(preset => {
+        preset.addEventListener('click', function() {
+            const theme = this.dataset.theme;
+            
+            // 更新选中状态
+            document.querySelectorAll('.theme-preset').forEach(p => p.classList.remove('active'));
+            this.classList.add('active');
+            
+            // 应用主题
+            applyTheme(theme);
+        });
+    });
+    
+    // 绑定网格显示切换事件
+    const showGridCheckbox = document.getElementById('showGrid');
+    if (showGridCheckbox) {
+        showGridCheckbox.addEventListener('change', function() {
+            // 重新应用当前主题以更新网格显示
+            const activePreset = document.querySelector('.theme-preset.active');
+            if (activePreset) {
+                applyTheme(activePreset.dataset.theme);
+            }
+        });
+    }
+});
+
+</script>
+{% endblock %}

@@ -1,0 +1,2662 @@
+{% extends "base.html" %}
+
+{% block title %}创建思维导图{% endblock %}
+
+{% block content %}
+<div class="mindmap-container">
+    <!-- 思维导图侧边栏触发器 -->
+    <div class="sidebar-trigger-mindmap" id="sidebarTriggerMindmap" title="显示思维导图列表">
+        <i class="fas fa-project-diagram"></i>
+    </div>
+    
+    <!-- 左侧边栏 - 思维导图列表 -->
+    <div class="mindmap-sidebar" id="mindmapSidebar">
+        <div class="sidebar-header">
+            <h6 class="mb-0">我的思维导图</h6>
+            <button class="btn btn-sm btn-outline-secondary" id="closeSidebar">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="sidebar-search">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="form-control search-input" placeholder="搜索思维导图..." id="mindmapSearch">
+            </div>
+        </div>
+        
+        <div class="sidebar-content">
+            <div class="mindmap-list" id="mindmapList">
+                <!-- 思维导图列表将在这里动态加载 -->
+                <div class="loading-mindmaps text-center py-3">
+                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                    <small class="text-muted d-block mt-2">加载中...</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar-footer">
+            <button class="btn btn-primary btn-sm w-100" onclick="window.location.href='/mindmap'">
+                <i class="fas fa-plus me-2"></i>返回首页
+            </button>
+        </div>
+    </div>
+    
+    <!-- 工具栏 -->
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <button class="btn btn-outline-secondary btn-sm" onclick="history.back()">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <input type="text" id="mindmap-title" class="title-input" 
+                   placeholder="思维导图标题" value="新建思维导图">
+        </div>
+        <div class="toolbar-right">
+            <button class="btn btn-outline-secondary btn-sm" onclick="showHelp()">
+                <i class="fas fa-question-circle"></i> 帮助
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="undoAction()" title="撤销 (Ctrl+Z)">
+                <i class="fas fa-undo"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="redoAction()" title="重做 (Ctrl+Y)">
+                <i class="fas fa-redo"></i>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="addRootNode()">
+                <i class="fas fa-plus"></i> 添加根节点
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="saveMindmap()">
+                <i class="fas fa-save"></i> 保存
+            </button>
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-download"></i> 导出
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="exportMindmap('json')">
+                        <i class="fas fa-file-code me-2"></i>导出JSON
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportMindmap('pdf')">
+                        <i class="fas fa-file-pdf me-2"></i>导出PDF
+                    </a></li>
+                </ul>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" onclick="importMindmap()">
+                <i class="fas fa-upload"></i> 导入
+            </button>
+        </div>
+    </div>
+    
+    <!-- 主画布区域 -->
+    <div class="canvas-wrapper">
+        <div id="mindmap-canvas">
+            <!-- 提示信息 -->
+            <div class="canvas-hint" id="canvas-hint">
+                <div class="hint-content">
+                    <i class="fas fa-lightbulb"></i>
+                    <h4>快捷操作指南</h4>
+                    <div class="shortcuts">
+                        <div class="shortcut-item">
+                            <kbd>双击</kbd> 或 <kbd>Enter</kbd> - 编辑节点文字
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>Tab</kbd> 或点击 <i class="fas fa-plus"></i> - 添加子节点
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>I</kbd> 或点击 <i class="fas fa-sticky-note"></i> - 添加说明
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>Delete</kbd> - 删除选中节点
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> - 撤销/重做
+                        </div>
+                        <div class="shortcut-item">
+                            拖拽节点 - 自由移动位置
+                        </div>
+                        <div class="shortcut-item">
+                            点击 <i class="fas fa-link"></i> - 连接到其他节点
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 隐藏的文件输入用于导入 -->
+<input type="file" id="import-file" accept=".json" style="display: none;">
+
+<!-- 节点样式编辑面板 -->
+<div class="style-panel" id="style-panel">
+    <div class="panel-header">
+        <span>节点样式</span>
+        <button class="close-btn" onclick="closeStylePanel()">×</button>
+    </div>
+    <div class="panel-content">
+        <div class="style-section">
+            <label>配色模板</label>
+            <div class="template-themes">
+                <div class="template-option" data-template="github" title="GitHub Dark">
+                    <div class="template-preview">
+                        <div class="template-node" style="background: #24292e; color: white;"></div>
+                        <div class="template-node" style="background: #0969da; color: white;"></div>
+                        <div class="template-node" style="background: #1f883d; color: white;"></div>
+                        <div class="template-node" style="background: #cf222e; color: white;"></div>
+                    </div>
+                    <span>GitHub</span>
+                </div>
+                <div class="template-option" data-template="vscode" title="VS Code">
+                    <div class="template-preview">
+                        <div class="template-node" style="background: #1e1e1e; color: white;"></div>
+                        <div class="template-node" style="background: #0e639c; color: white;"></div>
+                        <div class="template-node" style="background: #16825d; color: white;"></div>
+                        <div class="template-node" style="background: #d16969; color: white;"></div>
+                    </div>
+                    <span>VS Code</span>
+                </div>
+                <div class="template-option" data-template="dracula" title="Dracula">
+                    <div class="template-preview">
+                        <div class="template-node" style="background: #282a36; color: white;"></div>
+                        <div class="template-node" style="background: #8be9fd; color: #282a36;"></div>
+                        <div class="template-node" style="background: #50fa7b; color: #282a36;"></div>
+                        <div class="template-node" style="background: #ff79c6; color: #282a36;"></div>
+                    </div>
+                    <span>Dracula</span>
+                </div>
+                <div class="template-option" data-template="material" title="Material">
+                    <div class="template-preview">
+                        <div class="template-node" style="background: #263238; color: white;"></div>
+                        <div class="template-node" style="background: #29b6f6; color: white;"></div>
+                        <div class="template-node" style="background: #66bb6a; color: white;"></div>
+                        <div class="template-node" style="background: #ef5350; color: white;"></div>
+                    </div>
+                    <span>Material</span>
+                </div>
+                <div class="template-option" data-template="minimal" title="简约">
+                    <div class="template-preview">
+                        <div class="template-node" style="background: #f8f9fa; color: #495057; border: 1px solid #dee2e6;"></div>
+                        <div class="template-node" style="background: #e9ecef; color: #495057; border: 1px solid #ced4da;"></div>
+                        <div class="template-node" style="background: #dee2e6; color: #495057; border: 1px solid #ced4da;"></div>
+                        <div class="template-node" style="background: #ced4da; color: #495057; border: 1px solid #adb5bd;"></div>
+                    </div>
+                    <span>简约</span>
+                </div>
+            </div>
+        </div>
+        <div class="style-section">
+            <label>单独颜色</label>
+            <div class="color-themes">
+                <div class="theme-option" data-theme="github" style="background: #24292e; color: white;" title="GitHub主题"></div>
+                <div class="theme-option" data-theme="vscode" style="background: #007acc; color: white;" title="VS Code主题"></div>
+                <div class="theme-option" data-theme="atom" style="background: #3C4043; color: white;" title="Atom主题"></div>
+                <div class="theme-option" data-theme="sublime" style="background: #393B40; color: white;" title="Sublime主题"></div>
+                <div class="theme-option" data-theme="intellij" style="background: #2B2B2B; color: white;" title="IntelliJ主题"></div>
+                <div class="theme-option" data-theme="jetbrains" style="background: #1E1E1E; color: white;" title="JetBrains主题"></div>
+                <div class="theme-option" data-theme="dracula" style="background: #44475A; color: white;" title="Dracula主题"></div>
+                <div class="theme-option" data-theme="material" style="background: #263238; color: white;" title="Material主题"></div>
+                <div class="theme-option" data-theme="minimal" style="background: #f8f9fa; color: #495057; border: 1px solid #dee2e6;" title="简约主题"></div>
+                <div class="theme-option" data-theme="primary" style="background: #0d6efd; color: white;" title="主色调"></div>
+                <div class="theme-option" data-theme="success" style="background: #198754; color: white;" title="成功色"></div>
+                <div class="theme-option" data-theme="warning" style="background: #fd7e14; color: white;" title="警告色"></div>
+            </div>
+        </div>
+        <div class="style-section">
+            <label>节点形状</label>
+            <div class="shape-options">
+                <button class="shape-btn" data-shape="rounded" title="圆角矩形">
+                    <div class="shape-preview rounded-preview"></div>
+                </button>
+                <button class="shape-btn" data-shape="rect" title="矩形">
+                    <div class="shape-preview rect-preview"></div>
+                </button>
+                <button class="shape-btn" data-shape="circle" title="圆形">
+                    <div class="shape-preview circle-preview"></div>
+                </button>
+                <button class="shape-btn" data-shape="diamond" title="菱形">
+                    <div class="shape-preview diamond-preview"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 连接线模式提示 -->
+<div class="connection-hint" id="connection-hint">
+    <i class="fas fa-link"></i>
+    连接模式：点击两个节点创建连接
+    <button onclick="exitConnectionMode()">退出</button>
+</div>
+
+<!-- Toast 提示 -->
+<div class="toast" id="toast">
+    <div class="toast-content">
+        <i class="fas fa-check-circle"></i>
+        <span class="toast-message"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 全局布局 */
+.mindmap-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 思维导图侧边栏触发器 */
+.sidebar-trigger-mindmap {
+    position: fixed;
+    top: 80px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1001;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.sidebar-trigger-mindmap:hover {
+    background: #f8f9fa;
+    border-color: #0969da;
+    color: #0969da;
+}
+
+.sidebar-trigger-mindmap.hidden {
+    display: none;
+}
+
+/* 思维导图侧边栏 */
+.mindmap-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 300px;
+    height: 100vh;
+    background: #ffffff;
+    border-right: 1px solid #e5e5e5;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.mindmap-sidebar.show {
+    transform: translateX(0);
+}
+
+.mindmap-sidebar .sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid #e5e5e5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.mindmap-sidebar .sidebar-search {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.mindmap-sidebar .search-input-wrapper {
+    position: relative;
+}
+
+.mindmap-sidebar .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.mindmap-sidebar .search-input {
+    padding-left: 36px;
+    font-size: 14px;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+}
+
+.mindmap-sidebar .sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.mindmap-sidebar .sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid #e5e5e5;
+    background: #f8f9fa;
+}
+
+/* 思维导图列表项 */
+.mindmap-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f3f4;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.mindmap-item:hover {
+    background: #f8f9fa;
+}
+
+.mindmap-item:last-child {
+    border-bottom: none;
+}
+
+.mindmap-item-title {
+    font-weight: 500;
+    color: #24292f;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.mindmap-item-meta {
+    font-size: 12px;
+    color: #656d76;
+    margin-bottom: 8px;
+}
+
+.mindmap-item-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.mindmap-item-actions .btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    border: 1px solid;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+}
+
+.mindmap-item-actions .btn-outline-primary {
+    border-color: #0969da;
+    color: #0969da;
+}
+
+.mindmap-item-actions .btn-outline-primary:hover {
+    background: #0969da;
+    color: white;
+}
+
+.mindmap-item-actions .btn-outline-info {
+    border-color: #0dcaf0;
+    color: #0dcaf0;
+}
+
+.mindmap-item-actions .btn-outline-info:hover {
+    background: #0dcaf0;
+    color: white;
+}
+
+.mindmap-item-actions .btn-outline-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.mindmap-item-actions .btn-outline-danger:hover {
+    background: #dc3545;
+    color: white;
+    border-color: #dc3545;
+}
+
+/* 主画布区域调整 */
+.mindmap-container.sidebar-open .canvas-wrapper {
+    margin-left: 300px;
+    transition: margin-left 0.3s ease;
+}
+
+.mindmap-container.sidebar-open .sidebar-trigger-mindmap {
+    display: none;
+}
+
+/* 工具栏 */
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+}
+
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.title-input {
+    border: 1px solid #d1d9e0;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    width: 300px;
+    background: white;
+}
+
+.title-input:focus {
+    outline: none;
+    border-color: #0969da;
+    box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
+}
+
+/* 画布容器 */
+.canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+#mindmap-canvas {
+    width: 100%;
+    height: 100%;
+    background: #fdfdfd;
+    background-image: 
+        radial-gradient(circle, #e8e8e8 1px, transparent 1px);
+    background-size: 30px 30px;
+    position: relative;
+    cursor: grab;
+    overflow: hidden;
+}
+
+#mindmap-canvas:active {
+    cursor: grabbing;
+}
+
+/* 提示信息 */
+.canvas-hint {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    text-align: left;
+    color: #6c757d;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+    max-width: 300px;
+}
+
+.hint-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.hint-content i {
+    font-size: 32px;
+    color: #ffc107;
+    margin-bottom: 8px;
+}
+
+.hint-content h4 {
+    margin: 0;
+    color: #495057;
+    font-weight: 600;
+}
+
+.shortcuts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #6c757d;
+}
+
+.shortcut-item kbd {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-family: inherit;
+    color: #495057;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.shortcut-item i {
+    font-size: 12px;
+    color: #28a745;
+}
+
+/* 节点样式 */
+.mindmap-node {
+    position: absolute;
+    background: #24292e;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 80px;
+    text-align: center;
+    user-select: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 10;
+    word-wrap: break-word;
+    max-width: 200px;
+    line-height: 1.4;
+}
+
+.mindmap-node:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+.mindmap-node.selected {
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.5);
+}
+
+.mindmap-node.connection-source {
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.5);
+    transform: scale(1.05);
+}
+
+.mindmap-node.connection-target {
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.5);
+    cursor: crosshair;
+}
+
+.mindmap-node.connection-target:hover {
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.8);
+    transform: scale(1.1);
+}
+
+.mindmap-node.editing {
+    background: white;
+    color: #24292f;
+    border: 2px solid #0969da;
+}
+
+.mindmap-node.note-node {
+    background: #fff9c4;
+    color: #856404;
+    border: 1px solid #ffd60a;
+    font-style: italic;
+    border-radius: 4px;
+    font-size: 12px;
+    padding: 8px 12px;
+    position: relative;
+    max-width: 150px;
+}
+
+.mindmap-node.note-node::before {
+    content: "💡";
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    background: #ffd60a;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-style: normal;
+}
+
+.mindmap-node.root-node {
+    background: #24292e;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 16px 28px;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+/* 节点按钮 */
+.node-buttons {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    display: none;
+    flex-direction: row;
+    gap: 4px;
+}
+
+.node-btn {
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.add-btn {
+    background: #28a745;
+    color: white;
+}
+
+.note-btn {
+    background: #ffc107;
+    color: white;
+}
+
+.style-btn {
+    background: #6f42c1;
+    color: white;
+}
+
+.connect-btn {
+    background: #17a2b8;
+    color: white;
+}
+
+.node-btn:hover {
+    transform: scale(1.1);
+}
+
+.mindmap-node:hover .node-buttons {
+    display: flex;
+}
+
+/* 连接线 */
+.connection-line {
+    position: absolute;
+    background: #6c757d;
+    height: 2px;
+    transform-origin: 0 50%;
+    pointer-events: none;
+    z-index: 5;
+    transition: all 0.2s ease;
+}
+
+.connection-line.highlight {
+    background: #0969da;
+    height: 3px;
+    box-shadow: 0 0 6px rgba(9, 105, 218, 0.5);
+}
+
+.connection-line.note-connection {
+    background: #ffd60a;
+    height: 1px;
+    opacity: 0.8;
+    border-style: dashed;
+}
+
+/* 按钮样式 */
+.btn {
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-primary {
+    background: #0969da;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0860ca;
+}
+
+.btn-outline-secondary {
+    background: white;
+    color: #6c757d;
+    border: 1px solid #d1d9e0;
+}
+
+.btn-outline-secondary:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* 样式面板 */
+.style-panel {
+    position: fixed;
+    top: 20%;
+    right: 20px;
+    width: 280px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    z-index: 1000;
+    display: none;
+    transform: translateY(-20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.style-panel.show {
+    display: block;
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.close-btn:hover {
+    color: #dc3545;
+}
+
+.panel-content {
+    padding: 16px;
+}
+
+.style-section {
+    margin-bottom: 20px;
+}
+
+.style-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-size: 12px;
+    color: #6c757d;
+    text-transform: uppercase;
+}
+
+/* 配色模板 */
+.template-themes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.template-option {
+    cursor: pointer;
+    padding: 8px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    text-align: center;
+    transition: all 0.2s ease;
+    background: #f8f9fa;
+}
+
+.template-option:hover {
+    border-color: #0969da;
+    background: #f1f8ff;
+}
+
+.template-option.active {
+    border-color: #0969da;
+    background: #e6f3ff;
+}
+
+.template-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 4px;
+    height: 20px;
+}
+
+.template-node {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.template-option span {
+    font-size: 10px;
+    font-weight: 500;
+    color: #666;
+}
+
+.color-themes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.theme-option {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.theme-option:hover {
+    border-color: #0969da;
+    transform: scale(1.1);
+}
+
+.theme-option.active {
+    border-color: #0969da;
+    box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
+}
+
+.shape-options {
+    display: flex;
+    gap: 8px;
+}
+
+.shape-btn {
+    width: 40px;
+    height: 40px;
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.shape-btn:hover {
+    border-color: #0969da;
+    background: #e3f2fd;
+}
+
+.shape-btn.active {
+    border-color: #0969da;
+    background: #e3f2fd;
+}
+
+.shape-preview {
+    width: 20px;
+    height: 12px;
+    background: #6c757d;
+}
+
+.rounded-preview {
+    border-radius: 6px;
+}
+
+.rect-preview {
+    border-radius: 0;
+}
+
+.circle-preview {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.diamond-preview {
+    width: 12px;
+    height: 12px;
+    transform: rotate(45deg);
+}
+
+/* 连接模式提示 */
+.connection-hint {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #0969da;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    z-index: 1001;
+    display: none;
+}
+
+.connection-hint button {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-left: 12px;
+    cursor: pointer;
+}
+
+.connection-hint button:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+/* Toast 提示 */
+.toast {
+    position: fixed;
+    top: 80px; /* 避免被工具栏遮挡 */
+    right: 20px;
+    background: #28a745;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    z-index: 9999; /* 确保在最上层 */
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .toolbar {
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+    }
+    
+    .title-input {
+        width: 100%;
+        max-width: 250px;
+    }
+    
+    .toolbar-right {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .style-panel {
+        width: 90%;
+        right: 5%;
+        top: 10%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 全局变量
+let currentMindmapId = null;
+let selectedNode = null;
+let isConnectionMode = false;
+let connectionStart = null;
+let nodeCounter = 0;
+let connections = [];
+let nodes = [];
+
+// 撤销/重做功能
+let undoStack = [];
+let redoStack = [];
+const MAX_UNDO_STACK = 50;
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMindmap();
+    bindEventListeners();
+    initializeSidebar();
+});
+
+// 初始化侧边栏
+function initializeSidebar() {
+    const trigger = document.getElementById('sidebarTriggerMindmap');
+    const sidebar = document.getElementById('mindmapSidebar');
+    const closeSidebar = document.getElementById('closeSidebar');
+    const container = document.querySelector('.mindmap-container');
+    
+    // 绑定事件
+    trigger.addEventListener('click', showSidebar);
+    closeSidebar.addEventListener('click', hideSidebar);
+    
+    // 加载思维导图列表
+    loadMindmapList();
+    
+    // 搜索功能
+    const searchInput = document.getElementById('mindmapSearch');
+    searchInput.addEventListener('input', filterMindmaps);
+}
+
+// 显示侧边栏
+function showSidebar() {
+    const sidebar = document.getElementById('mindmapSidebar');
+    const trigger = document.getElementById('sidebarTriggerMindmap');
+    const container = document.querySelector('.mindmap-container');
+    
+    sidebar.classList.add('show');
+    trigger.classList.add('hidden');
+    container.classList.add('sidebar-open');
+}
+
+// 隐藏侧边栏
+function hideSidebar() {
+    const sidebar = document.getElementById('mindmapSidebar');
+    const trigger = document.getElementById('sidebarTriggerMindmap');
+    const container = document.querySelector('.mindmap-container');
+    
+    sidebar.classList.remove('show');
+    trigger.classList.remove('hidden');
+    container.classList.remove('sidebar-open');
+}
+
+// 加载思维导图列表
+function loadMindmapList() {
+    fetch('/mindmap/api/list')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderMindmapList(data.data.mindmaps || []);
+            } else {
+                console.error('加载思维导图列表失败:', data.error);
+                renderMindmapList([]);
+            }
+        })
+        .catch(error => {
+            console.error('加载思维导图列表错误:', error);
+            renderMindmapList([]);
+        });
+}
+
+// 渲染思维导图列表 - 更新按钮样式
+function renderMindmapList(mindmaps) {
+    const listContainer = document.getElementById('mindmapList');
+    
+    if (!mindmaps || mindmaps.length === 0) {
+        listContainer.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-project-diagram fa-2x text-muted mb-2"></i>
+                <p class="text-muted small">还没有思维导图</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    mindmaps.forEach(mindmap => {
+        html += `
+            <div class="mindmap-item" data-id="${mindmap.id}" data-title="${mindmap.title}">
+                <div class="mindmap-item-title">${mindmap.title}</div>
+                <div class="mindmap-item-meta">
+                    更新于 ${new Date(mindmap.updated_at).toLocaleDateString()}
+                </div>
+                <div class="mindmap-item-actions">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editMindmap('${mindmap.id}')" title="编辑">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" onclick="shareMindmap('${mindmap.id}')" title="分享">
+                        <i class="fas fa-share"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteMindmap('${mindmap.id}')" title="删除">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    listContainer.innerHTML = html;
+}
+
+// 过滤思维导图
+function filterMindmaps() {
+    const searchTerm = document.getElementById('mindmapSearch').value.toLowerCase();
+    const items = document.querySelectorAll('.mindmap-item');
+    
+    items.forEach(item => {
+        const title = item.dataset.title.toLowerCase();
+        if (title.includes(searchTerm)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// 编辑思维导图
+function editMindmap(id) {
+    window.location.href = `/mindmap/${id}`;
+}
+
+// 分享思维导图到社区
+function shareMindmap(id) {
+    if (confirm('确定要分享这个思维导图到社区吗？')) {
+        fetch(`/mindmap/api/share/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('思维导图已分享到社区');
+            } else {
+                alert('分享失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('分享错误:', error);
+            alert('分享失败，请重试');
+        });
+    }
+}
+
+// 删除思维导图
+function deleteMindmap(id) {
+    if (confirm('确定要删除这个思维导图吗？此操作不可恢复。')) {
+        fetch(`/mindmap/api/delete/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('思维导图已删除');
+                loadMindmapList(); // 重新加载列表
+            } else {
+                alert('删除失败：' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('删除错误:', error);
+            alert('删除失败，请重试');
+        });
+    }
+}
+
+// 初始化思维导图
+function initializeMindmap() {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    // 创建根节点
+    createRootNode();
+    
+    // 隐藏提示
+    setTimeout(() => {
+        const hint = document.getElementById('canvas-hint');
+        if (hint) {
+            hint.style.opacity = '0';
+            hint.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+                hint.style.display = 'none';
+            }, 500);
+        }
+    }, 5000);
+}
+
+// 创建根节点
+function createRootNode() {
+    const canvas = document.getElementById('mindmap-canvas');
+    const rootNode = createNode('中心主题', 'root-node');
+    
+    // 等待DOM渲染后再设置位置
+    setTimeout(() => {
+        const canvasRect = canvas.getBoundingClientRect();
+        const nodeRect = rootNode.getBoundingClientRect();
+        
+        rootNode.style.left = (canvasRect.width / 2 - nodeRect.width / 2) + 'px';
+        rootNode.style.top = (canvasRect.height / 2 - nodeRect.height / 2) + 'px';
+        
+        // 保存初始状态
+        saveState();
+    }, 50);
+    
+    canvas.appendChild(rootNode);
+    selectNode(rootNode);
+}
+
+// 创建节点
+function createNode(text, className = '') {
+    const node = document.createElement('div');
+    node.className = `mindmap-node ${className}`;
+    node.textContent = text;
+    node.id = `node-${nodeCounter++}`;
+    
+    // 添加节点按钮
+    const buttonGroup = createNodeButtons(node);
+    node.appendChild(buttonGroup);
+    
+    // 绑定事件
+    node.addEventListener('click', () => selectNode(node));
+    node.addEventListener('dblclick', () => editNode(node));
+    
+    // 添加拖拽功能
+    enableNodeDragging(node);
+    
+    // 记录节点
+    nodes.push(node);
+    
+    return node;
+}
+
+// 创建节点按钮组
+function createNodeButtons(node) {
+    const buttonGroup = document.createElement('div');
+    buttonGroup.className = 'node-buttons';
+    
+    // 添加子节点按钮
+    const addBtn = document.createElement('button');
+    addBtn.className = 'node-btn add-btn';
+    addBtn.innerHTML = '<i class="fas fa-plus"></i>';
+    addBtn.title = '添加子节点 (Tab)';
+    addBtn.onclick = (e) => {
+        e.stopPropagation();
+        addChildNode(node);
+    };
+    
+    // 添加说明按钮
+    const noteBtn = document.createElement('button');
+    noteBtn.className = 'node-btn note-btn';
+    noteBtn.innerHTML = '<i class="fas fa-sticky-note"></i>';
+    noteBtn.title = '添加说明 (I)';
+    noteBtn.onclick = (e) => {
+        e.stopPropagation();
+        addNoteNode(node);
+    };
+    
+    // 样式按钮
+    const styleBtn = document.createElement('button');
+    styleBtn.className = 'node-btn style-btn';
+    styleBtn.innerHTML = '<i class="fas fa-palette"></i>';
+    styleBtn.title = '编辑样式';
+    styleBtn.onclick = (e) => {
+        e.stopPropagation();
+        showStylePanel(node);
+    };
+    
+    // 添加连接按钮
+    const connectBtn = document.createElement('button');
+    connectBtn.className = 'node-btn connect-btn';
+    connectBtn.innerHTML = '<i class="fas fa-link"></i>';
+    connectBtn.title = '连接到其他节点';
+    connectBtn.onclick = (e) => {
+        e.stopPropagation();
+        startConnection(node);
+    };
+    
+    buttonGroup.appendChild(addBtn);
+    buttonGroup.appendChild(noteBtn);
+    buttonGroup.appendChild(connectBtn);
+    buttonGroup.appendChild(styleBtn);
+    
+    return buttonGroup;
+}
+
+// 添加子节点
+function addChildNode(parentNode) {
+    const canvas = document.getElementById('mindmap-canvas');
+    const childNode = createNode('新节点');
+    
+    // 计算子节点位置 - 增加距离并改进分布算法
+    const parentRect = parentNode.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    const childCount = getChildCount(parentNode);
+    const baseDistance = 180; // 增加基础距离
+    const distance = baseDistance + (childCount * 20); // 动态调整距离
+    
+    // 改进角度分布算法，避免重叠
+    let angle;
+    if (childCount === 0) {
+        angle = 0; // 第一个子节点在右侧
+    } else if (childCount === 1) {
+        angle = Math.PI; // 第二个子节点在左侧
+    } else {
+        // 其他子节点均匀分布在圆周上
+        const totalAngle = Math.PI * 2;
+        const angleStep = totalAngle / Math.max(6, childCount + 2); // 至少6个位置
+        angle = angleStep * (childCount - 1);
+    }
+    
+    // 计算位置，考虑节点大小避免重叠
+    const nodeWidth = 120; // 预估节点宽度
+    const nodeHeight = 40; // 预估节点高度
+    const actualDistance = Math.max(distance, nodeWidth + nodeHeight);
+    
+    const x = (parentRect.left - canvasRect.left) + Math.cos(angle) * actualDistance;
+    const y = (parentRect.top - canvasRect.top) + Math.sin(angle) * actualDistance;
+    
+    // 确保节点不会超出画布边界
+    const minX = 20;
+    const minY = 20;
+    const maxX = canvas.offsetWidth - nodeWidth - 20;
+    const maxY = canvas.offsetHeight - nodeHeight - 20;
+    
+    const finalX = Math.max(minX, Math.min(maxX, x));
+    const finalY = Math.max(minY, Math.min(maxY, y));
+    
+    childNode.style.left = finalX + 'px';
+    childNode.style.top = finalY + 'px';
+    
+    canvas.appendChild(childNode);
+    
+    // 创建连接线
+    createConnection(parentNode, childNode);
+    
+    // 选中新节点并进入编辑模式
+    selectNode(childNode);
+    setTimeout(() => {
+        editNode(childNode);
+        // 保存状态
+        saveState();
+    }, 100);
+}
+
+// 添加说明节点
+function addNoteNode(parentNode) {
+    const canvas = document.getElementById('mindmap-canvas');
+    const noteNode = createNode('说明内容', 'note-node');
+    
+    // 移除说明节点的按钮（说明节点不能再扩展）
+    const buttons = noteNode.querySelector('.node-buttons');
+    if (buttons) {
+        buttons.remove();
+    }
+    
+    // 计算说明节点位置 - 使用更好的间距
+    const parentRect = parentNode.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    // 说明节点放置在父节点的右下角，避免与子节点重叠
+    const offsetX = 100;
+    const offsetY = 60;
+    
+    const x = (parentRect.left - canvasRect.left) + offsetX;
+    const y = (parentRect.top - canvasRect.top) + offsetY;
+    
+    // 确保不超出画布边界
+    const minX = 20;
+    const minY = 20;
+    const maxX = canvas.offsetWidth - 200 - 20;
+    const maxY = canvas.offsetHeight - 50 - 20;
+    
+    const finalX = Math.max(minX, Math.min(maxX, x));
+    const finalY = Math.max(minY, Math.min(maxY, y));
+    
+    noteNode.style.left = finalX + 'px';
+    noteNode.style.top = finalY + 'px';
+    
+    canvas.appendChild(noteNode);
+    
+    // 创建连接线
+    createConnection(parentNode, noteNode);
+    
+    // 选中新节点并进入编辑模式
+    selectNode(noteNode);
+    setTimeout(() => {
+        editNode(noteNode);
+        // 保存状态
+        saveState();
+    }, 100);
+}
+
+// 获取子节点数量
+function getChildCount(parentNode) {
+    return connections.filter(conn => conn.from === parentNode).length;
+}
+
+// 创建连接线
+function createConnection(fromNode, toNode) {
+    const canvas = document.getElementById('mindmap-canvas');
+    const line = document.createElement('div');
+    
+    // 检查是否是说明节点连接
+    const isNoteConnection = toNode.classList.contains('note-node');
+    
+    if (isNoteConnection) {
+        line.className = 'connection-line note-connection';
+    } else {
+        line.className = 'connection-line';
+    }
+    
+    // 记录连接关系
+    connections.push({ from: fromNode, to: toNode, line: line });
+    
+    // 更新连接线位置
+    updateConnectionLine(fromNode, toNode, line);
+    
+    canvas.appendChild(line);
+}
+
+// 更新连接线位置
+function updateConnectionLine(fromNode, toNode, line) {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    // 直接使用节点的位置和大小，不依赖getBoundingClientRect
+    const fromLeft = parseInt(fromNode.style.left) || 0;
+    const fromTop = parseInt(fromNode.style.top) || 0;
+    const fromWidth = fromNode.offsetWidth;
+    const fromHeight = fromNode.offsetHeight;
+    
+    const toLeft = parseInt(toNode.style.left) || 0;
+    const toTop = parseInt(toNode.style.top) || 0;
+    const toWidth = toNode.offsetWidth;
+    const toHeight = toNode.offsetHeight;
+    
+    const fromX = fromLeft + fromWidth / 2;
+    const fromY = fromTop + fromHeight / 2;
+    const toX = toLeft + toWidth / 2;
+    const toY = toTop + toHeight / 2;
+    
+    const length = Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2));
+    const angle = Math.atan2(toY - fromY, toX - fromX) * 180 / Math.PI;
+    
+    line.style.left = fromX + 'px';
+    line.style.top = fromY + 'px';
+    line.style.width = length + 'px';
+    line.style.transform = `rotate(${angle}deg)`;
+    line.style.transformOrigin = '0 50%';
+}
+
+// 选择节点
+function selectNode(node) {
+    // 清除之前的选择
+    document.querySelectorAll('.mindmap-node').forEach(n => {
+        n.classList.remove('selected');
+    });
+    
+    if (node) {
+        node.classList.add('selected');
+        selectedNode = node;
+        
+        // 连接模式处理
+        if (isConnectionMode) {
+            if (node.classList.contains('connection-target')) {
+                finishConnection(node);
+            }
+        }
+    } else {
+        selectedNode = null;
+        // 如果点击空白处，取消连接模式
+        if (isConnectionMode) {
+            document.querySelectorAll('.mindmap-node').forEach(n => {
+                n.classList.remove('connection-source', 'connection-target');
+            });
+            connectionStart = null;
+            isConnectionMode = false;
+        }
+    }
+}
+
+// 编辑节点
+function editNode(node) {
+    if (node.classList.contains('editing')) return;
+    
+    node.classList.add('editing');
+    const originalText = node.textContent;
+    
+    // 创建输入框
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = originalText;
+    input.className = 'node-input';
+    input.style.cssText = `
+        position: absolute;
+        background: white;
+        border: 2px solid #0969da;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 1000;
+        min-width: 100px;
+    `;
+    
+    // 定位输入框
+    const nodeRect = node.getBoundingClientRect();
+    input.style.left = nodeRect.left + 'px';
+    input.style.top = nodeRect.top + 'px';
+    input.style.width = Math.max(nodeRect.width, 100) + 'px';
+    
+    document.body.appendChild(input);
+    input.focus();
+    input.select();
+    
+    // 处理输入完成
+    const finishEditing = () => {
+        const newText = input.value.trim() || originalText;
+        node.textContent = newText;
+        node.classList.remove('editing');
+        
+        // 重新添加按钮（除了说明节点）
+        if (!node.classList.contains('note-node')) {
+            // 先移除可能存在的按钮
+            const existingButtons = node.querySelector('.node-buttons');
+            if (existingButtons) {
+                existingButtons.remove();
+            }
+            
+            const buttonGroup = createNodeButtons(node);
+            node.appendChild(buttonGroup);
+        }
+        
+        // 调整节点大小
+        adjustNodeSize(node);
+        
+        // 更新连接线
+        updateNodeConnections(node);
+        
+        document.body.removeChild(input);
+    };
+    
+    input.addEventListener('blur', finishEditing);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            finishEditing();
+        } else if (e.key === 'Escape') {
+            node.classList.remove('editing');
+            if (!node.classList.contains('note-node')) {
+                // 先移除可能存在的按钮
+                const existingButtons = node.querySelector('.node-buttons');
+                if (existingButtons) {
+                    existingButtons.remove();
+                }
+                
+                const buttonGroup = createNodeButtons(node);
+                node.appendChild(buttonGroup);
+            }
+            document.body.removeChild(input);
+        }
+    });
+}
+
+// 开始连接模式
+function startConnection(node) {
+    // 清除之前的连接状态
+    document.querySelectorAll('.mindmap-node').forEach(n => {
+        n.classList.remove('connection-source', 'connection-target');
+    });
+    
+    // 设置连接源节点
+    node.classList.add('connection-source');
+    connectionStart = node;
+    
+    // 显示连接提示
+    showToast('请点击目标节点创建连接', 'info');
+    
+    // 为其他节点添加连接目标样式
+    document.querySelectorAll('.mindmap-node').forEach(n => {
+        if (n !== node) {
+            n.classList.add('connection-target');
+        }
+    });
+    
+    // 设置连接模式
+    isConnectionMode = true;
+}
+
+// 完成连接
+function finishConnection(targetNode) {
+    if (connectionStart && targetNode !== connectionStart) {
+        createConnection(connectionStart, targetNode);
+        showToast('连接已创建');
+    }
+    
+    // 清除连接状态
+    document.querySelectorAll('.mindmap-node').forEach(n => {
+        n.classList.remove('connection-source', 'connection-target');
+    });
+    
+    connectionStart = null;
+    isConnectionMode = false;
+}
+
+// 调整节点大小
+function adjustNodeSize(node) {
+    const text = node.textContent;
+    const minWidth = 80;
+    const maxWidth = 200;
+    
+    // 创建临时元素测量文本宽度
+    const temp = document.createElement('div');
+    temp.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        white-space: nowrap;
+        font-size: 14px;
+        font-weight: 500;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-family: inherit;
+    `;
+    temp.textContent = text;
+    document.body.appendChild(temp);
+    
+    const textWidth = temp.offsetWidth;
+    document.body.removeChild(temp);
+    
+    // 设置节点宽度
+    const newWidth = Math.min(Math.max(textWidth, minWidth), maxWidth);
+    node.style.width = newWidth + 'px';
+    
+    // 如果超过最大宽度，启用换行
+    if (textWidth > maxWidth) {
+        node.style.whiteSpace = 'normal';
+        node.style.wordBreak = 'break-word';
+        node.style.width = maxWidth + 'px';
+    } else {
+        node.style.whiteSpace = 'nowrap';
+    }
+}
+
+// 更新节点的所有连接线
+function updateNodeConnections(node) {
+    connections.forEach(conn => {
+        if (conn.from === node || conn.to === node) {
+            updateConnectionLine(conn.from, conn.to, conn.line);
+        }
+    });
+}
+
+// 显示样式面板
+function showStylePanel(node) {
+    const panel = document.getElementById('style-panel');
+    panel.classList.add('show');
+    
+    // 记录当前编辑的节点
+    panel.dataset.nodeId = node.id;
+    
+    // 绑定样式选择事件
+    bindStyleEvents();
+}
+
+// 关闭样式面板
+function closeStylePanel() {
+    document.getElementById('style-panel').classList.remove('show');
+}
+
+// 绑定样式事件
+function bindStyleEvents() {
+    const panel = document.getElementById('style-panel');
+    
+    // 配色模板
+    panel.querySelectorAll('.template-option').forEach(option => {
+        option.onclick = () => {
+            const template = option.dataset.template;
+            applyTemplate(template);
+            
+            // 更新选中状态
+            panel.querySelectorAll('.template-option').forEach(opt => opt.classList.remove('active'));
+            option.classList.add('active');
+        };
+    });
+    
+    // 颜色主题
+    panel.querySelectorAll('.theme-option').forEach(option => {
+        option.onclick = () => {
+            const theme = option.dataset.theme;
+            const nodeId = panel.dataset.nodeId;
+            const node = document.getElementById(nodeId);
+            
+            applyTheme(node, theme);
+            
+            // 更新选中状态
+            panel.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
+            option.classList.add('active');
+        };
+    });
+    
+    // 形状选择
+    panel.querySelectorAll('.shape-btn').forEach(btn => {
+        btn.onclick = () => {
+            const shape = btn.dataset.shape;
+            const nodeId = panel.dataset.nodeId;
+            const node = document.getElementById(nodeId);
+            
+            applyShape(node, shape);
+            
+            // 更新选中状态
+            panel.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        };
+    });
+}
+
+// 应用配色模板
+function applyTemplate(template) {
+    const templateSchemes = {
+        github: ['#24292e', '#0969da', '#1f883d', '#cf222e', '#8250df', '#bc4c00'],
+        vscode: ['#1e1e1e', '#0e639c', '#16825d', '#d16969', '#c586c0', '#dcdcaa'],
+        dracula: ['#282a36', '#8be9fd', '#50fa7b', '#ff79c6', '#bd93f9', '#ffb86c'],
+        material: ['#263238', '#29b6f6', '#66bb6a', '#ef5350', '#ab47bc', '#ff7043'],
+        minimal: ['#f8f9fa', '#e9ecef', '#dee2e6', '#ced4da', '#adb5bd', '#6c757d']
+    };
+    
+    const scheme = templateSchemes[template];
+    if (!scheme) return;
+    
+    const nodes = document.querySelectorAll('.mindmap-node');
+    let colorIndex = 0;
+    let nodesByLevel = new Map();
+    
+    // 按层级分组节点
+    nodes.forEach(node => {
+        const level = getNodeLevel(node);
+        if (!nodesByLevel.has(level)) {
+            nodesByLevel.set(level, []);
+        }
+        nodesByLevel.get(level).push(node);
+    });
+    
+    // 按层级应用颜色
+    nodesByLevel.forEach((levelNodes, level) => {
+        const color = scheme[level % scheme.length];
+        const textColor = isLightColor(color) ? '#000' : '#fff';
+        
+        levelNodes.forEach(node => {
+            node.style.background = color;
+            node.style.color = textColor;
+            if (template === 'minimal') {
+                node.style.border = '1px solid #ced4da';
+            }
+        });
+    });
+    
+    showToast('配色模板已应用');
+}
+
+// 获取节点层级
+function getNodeLevel(node) {
+    if (node.classList.contains('center-node')) return 0;
+    
+    // 通过连接关系计算层级
+    let level = 1; // 默认为第一级
+    
+    // 查找指向当前节点的连接
+    for (let conn of connections) {
+        if (conn.to === node) {
+            if (conn.from.classList.contains('center-node')) {
+                return 1; // 直接连接到中心节点的为第一级
+            } else {
+                return getNodeLevel(conn.from) + 1; // 递归计算父节点层级 + 1
+            }
+        }
+    }
+    
+    return level;
+}
+
+// 判断颜色是否为浅色
+function isLightColor(color) {
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 155;
+}
+
+// 应用主题
+function applyTheme(node, theme) {
+    const themes = {
+        github: { background: '#24292e', color: 'white' },
+        vscode: { background: '#007acc', color: 'white' },
+        atom: { background: '#3C4043', color: 'white' },
+        sublime: { background: '#393B40', color: 'white' },
+        intellij: { background: '#2B2B2B', color: 'white' },
+        jetbrains: { background: '#1E1E1E', color: 'white' },
+        dracula: { background: '#44475A', color: 'white' },
+        material: { background: '#263238', color: 'white' },
+        minimal: { background: '#f8f9fa', color: '#495057' },
+        primary: { background: '#0d6efd', color: 'white' },
+        success: { background: '#198754', color: 'white' },
+        warning: { background: '#fd7e14', color: 'white' }
+    };
+    
+    if (themes[theme]) {
+        node.style.background = themes[theme].background;
+        node.style.color = themes[theme].color;
+    }
+}
+
+// 应用形状
+function applyShape(node, shape) {
+    const shapes = {
+        rounded: '8px',
+        rect: '4px', 
+        circle: '50%',
+        diamond: '4px'
+    };
+    
+    // 清除所有形状相关的样式和类
+    node.classList.remove('shape-rounded', 'shape-rect', 'shape-circle', 'shape-diamond');
+    node.style.clipPath = '';
+    node.style.transform = '';
+    node.style.width = 'auto';
+    node.style.height = 'auto';
+    node.style.display = 'block';
+    
+    // 恢复原始文本内容（如果被菱形形状修改过）
+    if (node.querySelector('span') && node.dataset.originalText) {
+        node.textContent = node.dataset.originalText;
+        delete node.dataset.originalText;
+    }
+    
+    // 添加形状类和设置样式
+    node.classList.add(`shape-${shape}`);
+    node.style.borderRadius = shapes[shape] || '8px';
+    
+    if (shape === 'circle') {
+        const size = Math.max(node.offsetWidth, node.offsetHeight, 80);
+        node.style.width = size + 'px';
+        node.style.height = size + 'px';
+        node.style.display = 'flex';
+        node.style.alignItems = 'center';
+        node.style.justifyContent = 'center';
+    } else if (shape === 'diamond') {
+        // 保存原始文本
+        if (!node.dataset.originalText) {
+            node.dataset.originalText = node.textContent;
+        }
+        
+        node.style.display = 'flex';
+        node.style.alignItems = 'center';
+        node.style.justifyContent = 'center';
+        node.style.width = '80px';
+        node.style.height = '80px';
+        node.style.borderRadius = '0';
+        node.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
+        
+        // 确保文字居中显示
+        const textContent = node.dataset.originalText || node.textContent;
+        node.innerHTML = '';
+        const textSpan = document.createElement('span');
+        textSpan.style.fontSize = '12px';
+        textSpan.style.textAlign = 'center';
+        textSpan.style.lineHeight = '1';
+        textSpan.style.maxWidth = '50px';
+        textSpan.style.wordBreak = 'break-all';
+        textSpan.textContent = textContent;
+        node.appendChild(textSpan);
+        
+        // 重新添加按钮（如果不是note节点）
+        if (!node.classList.contains('note-node')) {
+            const existingButtons = node.querySelector('.node-buttons');
+            if (!existingButtons) {
+                const buttonGroup = createNodeButtons(node);
+                node.appendChild(buttonGroup);
+            }
+        }
+    }
+}
+
+// 保存状态到撤销栈
+function saveState() {
+    const state = extractCanvasData();
+    undoStack.push(JSON.stringify(state));
+    
+    // 限制撤销栈大小
+    if (undoStack.length > MAX_UNDO_STACK) {
+        undoStack.shift();
+    }
+    
+    // 清空重做栈
+    redoStack = [];
+}
+
+// 撤销操作
+function undoAction() {
+    if (undoStack.length <= 1) {
+        showToast('没有可撤销的操作', 'warning');
+        return;
+    }
+    
+    // 当前状态推入重做栈
+    const currentState = extractCanvasData();
+    redoStack.push(JSON.stringify(currentState));
+    
+    // 从撤销栈获取前一个状态
+    undoStack.pop(); // 移除当前状态
+    const prevState = undoStack[undoStack.length - 1];
+    
+    restoreState(JSON.parse(prevState));
+    showToast('撤销成功', 'info');
+}
+
+// 重做操作
+function redoAction() {
+    if (redoStack.length === 0) {
+        showToast('没有可重做的操作', 'warning');
+        return;
+    }
+    
+    // 当前状态推入撤销栈
+    const currentState = extractCanvasData();
+    undoStack.push(JSON.stringify(currentState));
+    
+    // 从重做栈获取状态
+    const nextState = redoStack.pop();
+    
+    restoreState(JSON.parse(nextState));
+    showToast('重做成功', 'info');
+}
+
+// 恢复状态
+function restoreState(state) {
+    // 清空当前画布
+    const canvas = document.getElementById('mindmap-canvas');
+    canvas.querySelectorAll('.mindmap-node, .connection-line').forEach(el => el.remove());
+    
+    // 重置变量
+    nodes = [];
+    connections = [];
+    nodeCounter = 0;
+    selectedNode = null;
+    
+    // 恢复节点
+    state.nodes.forEach(nodeData => {
+        const node = createNodeFromData(nodeData);
+        canvas.appendChild(node);
+    });
+    
+    // 恢复连接
+    state.connections.forEach(connData => {
+        const fromNode = document.getElementById(connData.from);
+        const toNode = document.getElementById(connData.to);
+        if (fromNode && toNode) {
+            createConnection(fromNode, toNode);
+        }
+    });
+}
+
+// 从数据创建节点
+function createNodeFromData(nodeData) {
+    const node = document.createElement('div');
+    node.className = nodeData.className;
+    node.id = nodeData.id;
+    node.style.left = nodeData.x + 'px';
+    node.style.top = nodeData.y + 'px';
+    
+    // 应用样式
+    if (nodeData.style) {
+        Object.assign(node.style, nodeData.style);
+    }
+    
+    // 处理菱形节点的特殊情况
+    if (nodeData.style && nodeData.style.clipPath && nodeData.style.clipPath.includes('polygon')) {
+        // 这是菱形节点
+        if (nodeData.originalText) {
+            node.dataset.originalText = nodeData.originalText;
+        }
+        
+        const textSpan = document.createElement('span');
+        textSpan.style.fontSize = '12px';
+        textSpan.style.textAlign = 'center';
+        textSpan.style.lineHeight = '1';
+        textSpan.style.maxWidth = '50px';
+        textSpan.style.wordBreak = 'break-all';
+        textSpan.textContent = nodeData.text;
+        node.appendChild(textSpan);
+    } else {
+        // 普通节点
+        node.textContent = nodeData.text;
+    }
+    
+    // 添加按钮和事件
+    if (!node.classList.contains('note-node')) {
+        const buttonGroup = createNodeButtons(node);
+        node.appendChild(buttonGroup);
+    }
+    
+    node.addEventListener('click', () => selectNode(node));
+    node.addEventListener('dblclick', () => editNode(node));
+    enableNodeDragging(node);
+    
+    nodes.push(node);
+    
+    // 更新计数器
+    const nodeId = parseInt(nodeData.id.replace('node-', ''));
+    if (nodeId >= nodeCounter) {
+        nodeCounter = nodeId + 1;
+    }
+    
+    return node;
+}
+
+// 添加键盘快捷键支持
+function bindKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        // Ctrl+Z 撤销
+        if (e.ctrlKey && e.key === 'z') {
+            e.preventDefault();
+            undoAction();
+            return;
+        }
+        
+        // Ctrl+Y 重做
+        if (e.ctrlKey && e.key === 'y') {
+            e.preventDefault();
+            redoAction();
+            return;
+        }
+        
+        switch(e.key) {
+            case 'Tab':
+                e.preventDefault();
+                if (selectedNode) {
+                    addChildNode(selectedNode);
+                }
+                break;
+            case 'i':
+            case 'I':
+                e.preventDefault();
+                if (selectedNode) {
+                    addNoteNode(selectedNode);
+                }
+                break;
+            case 'Delete':
+            case 'Backspace':
+                e.preventDefault();
+                deleteSelected();
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (selectedNode) {
+                    editNode(selectedNode);
+                }
+                break;
+        }
+    });
+}
+
+// 绑定事件监听器
+function bindEventListeners() {
+    bindKeyboardShortcuts();
+    
+    // 画布点击和拖拽
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    canvas.addEventListener('click', (e) => {
+        if (e.target.id === 'mindmap-canvas') {
+            selectNode(null);
+        }
+    });
+    
+    // 画布拖拽功能
+    enableCanvasDragging(canvas);
+}
+
+// 启用画布拖拽功能
+function enableCanvasDragging(canvas) {
+    let isDragging = false;
+    let startX, startY;
+    let canvasOffsetX = 0, canvasOffsetY = 0;
+    
+    canvas.addEventListener('mousedown', function(e) {
+        // 只有点击空白区域才开始拖拽
+        if (e.target === canvas) {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            canvas.style.cursor = 'grabbing';
+            e.preventDefault();
+        }
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        canvasOffsetX += deltaX;
+        canvasOffsetY += deltaY;
+        
+        // 移动所有节点和连接线
+        document.querySelectorAll('.mindmap-node').forEach(node => {
+            const currentLeft = parseInt(node.style.left) || 0;
+            const currentTop = parseInt(node.style.top) || 0;
+            node.style.left = (currentLeft + deltaX) + 'px';
+            node.style.top = (currentTop + deltaY) + 'px';
+        });
+        
+        // 更新所有连接线
+        connections.forEach(conn => {
+            updateConnectionLine(conn.from, conn.to, conn.line);
+        });
+        
+        startX = e.clientX;
+        startY = e.clientY;
+    });
+    
+    document.addEventListener('mouseup', function() {
+        if (isDragging) {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        }
+    });
+}
+
+// 删除选中节点
+function deleteSelected() {
+    if (!selectedNode) return;
+    
+    // 不能删除根节点
+    if (selectedNode.classList.contains('root-node')) {
+        showToast('不能删除根节点', 'error');
+        return;
+    }
+    
+    // 删除相关连接
+    connections = connections.filter(conn => {
+        if (conn.from === selectedNode || conn.to === selectedNode) {
+            conn.line.remove();
+            return false;
+        }
+        return true;
+    });
+    
+    // 删除节点
+    selectedNode.remove();
+    nodes = nodes.filter(node => node !== selectedNode);
+    selectedNode = null;
+    
+    // 保存状态
+    saveState();
+    
+    showToast('节点已删除');
+}
+
+// 添加根节点
+function addRootNode() {
+    const canvas = document.getElementById('mindmap-canvas');
+    const rootNode = createNode('新根节点', 'root-node');
+    
+    // 随机位置
+    const x = Math.random() * (canvas.offsetWidth - 200) + 100;
+    const y = Math.random() * (canvas.offsetHeight - 100) + 50;
+    
+    rootNode.style.left = x + 'px';
+    rootNode.style.top = y + 'px';
+    
+    canvas.appendChild(rootNode);
+    selectNode(rootNode);
+    setTimeout(() => {
+        editNode(rootNode);
+        // 保存状态
+        saveState();
+    }, 100);
+}
+
+// 保存思维导图
+function saveMindmap() {
+    const title = document.getElementById('mindmap-title').value;
+    const canvasData = extractCanvasData();
+    
+    const data = {
+        title: title,
+        description: '',
+        canvas_data: canvasData,
+        is_public: false,
+        tags: []
+    };
+    
+    // 如果已有ID，更新现有思维导图，否则创建新的
+    const url = currentMindmapId ? `/mindmap/api/update/${currentMindmapId}` : '/mindmap/api/create';
+    const method = currentMindmapId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (!currentMindmapId) {
+                currentMindmapId = data.data.id;
+                // 更新URL而不刷新页面
+                history.replaceState(null, null, `/mindmap/${currentMindmapId}`);
+            }
+            showToast('思维导图已保存');
+            // 重新加载侧边栏列表
+            loadMindmapList();
+        } else {
+            showToast('保存失败：' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('保存失败，请重试', 'error');
+    });
+}
+
+// 提取画布数据
+function extractCanvasData() {
+    const nodeElements = document.querySelectorAll('.mindmap-node');
+    const nodeData = Array.from(nodeElements).map((node, index) => {
+        // 获取真实的文本内容
+        let text = node.textContent;
+        if (node.dataset.originalText) {
+            text = node.dataset.originalText; // 菱形节点使用原始文本
+        }
+        
+        return {
+            id: node.id || `node-${index}`,
+            text: text,
+            x: parseFloat(node.style.left) || 0,
+            y: parseFloat(node.style.top) || 0,
+            className: node.className,
+            style: {
+                background: node.style.background || node.style.backgroundColor,
+                color: node.style.color,
+                borderRadius: node.style.borderRadius,
+                clipPath: node.style.clipPath,
+                width: node.style.width,
+                height: node.style.height,
+                fontSize: node.style.fontSize
+            },
+            originalText: node.dataset.originalText || null // 保存原始文本
+        };
+    });
+    
+    const connectionData = connections.map(conn => ({
+        from: conn.from.id,
+        to: conn.to.id
+    }));
+    
+    return {
+        nodes: nodeData,
+        connections: connectionData,
+        version: '1.0'
+    };
+}
+
+// 导出思维导图
+function exportMindmap(format = 'json') {
+    const title = document.getElementById('mindmap-title').value || '思维导图';
+    
+    if (format === 'json') {
+        const canvasData = extractCanvasData();
+        const exportData = {
+            title: title,
+            canvasData: canvasData,
+            exportTime: new Date().toISOString(),
+            version: '1.0'
+        };
+        
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = title + '.json';
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+        
+        showToast('JSON文件已导出');
+    } else if (format === 'pdf') {
+        exportToPDF(title);
+    }
+}
+
+// 导出为PDF
+function exportToPDF(title) {
+    // 使用html2canvas + jsPDF来生成PDF
+    if (typeof html2canvas === 'undefined') {
+        // 如果html2canvas没有加载，动态加载
+        loadPDFLibraries().then(() => {
+            generatePDF(title);
+        });
+    } else {
+        generatePDF(title);
+    }
+}
+
+// 加载PDF所需的库
+function loadPDFLibraries() {
+    return new Promise((resolve) => {
+        if (typeof html2canvas !== 'undefined' && typeof jsPDF !== 'undefined') {
+            resolve();
+            return;
+        }
+        
+        // 加载html2canvas
+        const html2canvasScript = document.createElement('script');
+        html2canvasScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        document.head.appendChild(html2canvasScript);
+        
+        // 加载jsPDF
+        const jsPDFScript = document.createElement('script');
+        jsPDFScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        document.head.appendChild(jsPDFScript);
+        
+        // 等待两个库都加载完成
+        let loadedCount = 0;
+        const checkLoaded = () => {
+            loadedCount++;
+            if (loadedCount === 2) {
+                resolve();
+            }
+        };
+        
+        html2canvasScript.onload = checkLoaded;
+        jsPDFScript.onload = checkLoaded;
+    });
+}
+
+// 生成PDF
+function generatePDF(title) {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    // 临时隐藏提示信息
+    const hint = document.getElementById('canvas-hint');
+    if (hint) hint.style.display = 'none';
+    
+    // 设置canvas背景为白色
+    canvas.style.backgroundColor = 'white';
+    
+    html2canvas(canvas, {
+        backgroundColor: 'white',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
+    }).then(canvasImg => {
+        const imgData = canvasImg.toDataURL('image/png');
+        
+        // 正确引用 jsPDF
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+        });
+        
+        const imgWidth = 297; // A4 landscape width
+        const imgHeight = (canvasImg.height * imgWidth) / canvasImg.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.save(title + '.pdf');
+        
+        // 恢复提示信息
+        if (hint) hint.style.display = 'block';
+        
+        showToast('PDF文件已导出');
+    }).catch(error => {
+        console.error('PDF导出错误:', error);
+        showToast('PDF导出失败', 'error');
+        
+        // 恢复提示信息
+        if (hint) hint.style.display = 'block';
+    });
+}
+
+// 导入思维导图
+function importMindmap() {
+    const fileInput = document.getElementById('import-file');
+    fileInput.click();
+}
+
+// 处理文件导入
+document.getElementById('import-file').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (file.type !== 'application/json') {
+        alert('请选择JSON格式的文件');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importData = JSON.parse(e.target.result);
+            
+            // 验证文件格式
+            if (!importData.canvasData || !importData.canvasData.nodes) {
+                alert('文件格式不正确');
+                return;
+            }
+            
+            // 清空当前画布
+            const canvas = document.getElementById('mindmap-canvas');
+            canvas.innerHTML = '';
+            
+            // 重置连接数组
+            connections = [];
+            
+            // 导入标题
+            if (importData.title) {
+                document.getElementById('mindmap-title').value = importData.title;
+            }
+            
+            // 导入节点数据
+            renderImportedData(importData.canvasData);
+            
+            showToast('思维导图已导入');
+            
+        } catch (error) {
+            console.error('导入错误:', error);
+            alert('文件解析失败，请检查文件格式');
+        }
+    };
+    
+    reader.readAsText(file);
+    
+    // 清空文件输入
+    e.target.value = '';
+});
+
+// 渲染导入的数据
+function renderImportedData(canvasData) {
+    const canvas = document.getElementById('mindmap-canvas');
+    const nodeMap = new Map(); // 存储节点映射，用于重建连接
+    
+    // 创建节点
+    canvasData.nodes.forEach((nodeData, index) => {
+        const node = createNode(nodeData.text);
+        
+        // 设置位置
+        node.style.left = nodeData.x + 'px';
+        node.style.top = nodeData.y + 'px';
+        
+        // 设置样式
+        if (nodeData.style) {
+            if (nodeData.style.backgroundColor) {
+                node.style.backgroundColor = nodeData.style.backgroundColor;
+            }
+            if (nodeData.style.color) {
+                node.style.color = nodeData.style.color;
+            }
+            if (nodeData.style.fontSize) {
+                node.style.fontSize = nodeData.style.fontSize;
+            }
+        }
+        
+        // 设置类型
+        if (nodeData.type === 'center') {
+            node.classList.add('center-node');
+        } else if (nodeData.type === 'ai') {
+            node.classList.add('ai-generated');
+        } else if (nodeData.type === 'note') {
+            node.classList.add('note-node');
+        }
+        
+        canvas.appendChild(node);
+        nodeMap.set(nodeData.id || index, node);
+    });
+    
+    // 重建连接
+    if (canvasData.connections) {
+        canvasData.connections.forEach(connData => {
+            const fromNode = nodeMap.get(connData.from);
+            const toNode = nodeMap.get(connData.to);
+            if (fromNode && toNode) {
+                createConnection(fromNode, toNode);
+            }
+        });
+    }
+}
+
+// 显示帮助
+function showHelp() {
+    const hint = document.getElementById('canvas-hint');
+    if (hint) {
+        hint.style.display = 'block';
+        hint.style.opacity = '1';
+        hint.style.transition = 'opacity 0.3s ease';
+        
+        // 3秒后自动隐藏
+        setTimeout(() => {
+            hint.style.opacity = '0';
+            setTimeout(() => {
+                hint.style.display = 'none';
+            }, 300);
+        }, 3000);
+    }
+}
+
+// 启用节点拖拽
+function enableNodeDragging(node) {
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+    
+    node.addEventListener('mousedown', function(e) {
+        // 只在节点本身上开始拖拽，不在按钮上
+        if (e.target.classList.contains('node-btn') || e.target.closest('.node-buttons')) {
+            return;
+        }
+        
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = parseInt(node.style.left) || 0;
+        startTop = parseInt(node.style.top) || 0;
+        
+        node.style.cursor = 'grabbing';
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const onMouseMove = (e) => {
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            node.style.left = (startLeft + deltaX) + 'px';
+            node.style.top = (startTop + deltaY) + 'px';
+            
+            // 更新连接线
+            updateNodeConnections(node);
+        };
+        
+        const onMouseUp = () => {
+            isDragging = false;
+            node.style.cursor = 'pointer';
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+}
+
+// 显示提示
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    const messageSpan = toast.querySelector('.toast-message');
+    
+    messageSpan.textContent = message;
+    
+    // 设置不同类型的样式
+    const colors = {
+        success: '#28a745',
+        error: '#dc3545',
+        warning: '#ffc107',
+        info: '#17a2b8'
+    };
+    
+    toast.style.background = colors[type] || colors.success;
+    
+    // 如果是warning类型，文字颜色改为深色
+    if (type === 'warning') {
+        toast.style.color = '#212529';
+    } else {
+        toast.style.color = 'white';
+    }
+    
+    toast.classList.add('show');
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+</script>
+{% endblock %}

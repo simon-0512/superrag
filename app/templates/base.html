@@ -54,7 +54,7 @@
                         <button class="btn user-dropdown-btn" type="button" id="userDropdown" 
                                 data-bs-toggle="dropdown" aria-expanded="false">
                             <div class="user-avatar">
-                                <i class="bi bi-person-circle"></i>
+                            <i class="bi bi-person-circle"></i>
                             </div>
                             <span class="user-name d-none d-md-inline">{{ current_user.nickname or current_user.username }}</span>
                             <i class="bi bi-chevron-down ms-2"></i>
@@ -112,6 +112,10 @@
                     <a href="{{ url_for('main.knowledge') }}" class="sidebar-nav-item">
                         <i class="bi bi-book me-3"></i>
                         <span>知识库管理</span>
+                    </a>
+                    <a href="{{ url_for('mindmap.index') }}" class="sidebar-nav-item">
+                        <i class="bi bi-diagram-3 me-3"></i>
+                        <span>思维导图</span>
                     </a>
                     <a href="{{ url_for('main.community') }}" class="sidebar-nav-item">
                         <i class="bi bi-people me-3"></i>

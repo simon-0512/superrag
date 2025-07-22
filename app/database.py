@@ -43,10 +43,81 @@ def create_tables(app: Flask):
     with app.app_context():
         # 导入所有模型以确保它们被注册
         from app.models import User, UserRole, KnowledgeBase, Document, DocumentChunk, Conversation, Message
+        from app.models.mindmap import Mindmap, MindmapNode, MindmapAIExpansion
         
         # 创建所有表
         db.create_all()
+        
+        # 创建思维导图相关表（如果SQLAlchemy没有自动创建）
+        create_mindmap_tables()
+        
         print("✅ 数据库表创建完成")
+
+def create_mindmap_tables():
+    """创建思维导图相关表"""
+    try:
+        # 思维导图主表
+        mindmaps_sql = """
+        CREATE TABLE IF NOT EXISTS mindmaps (
+            id VARCHAR(36) PRIMARY KEY,
+            title VARCHAR(200) NOT NULL,
+            description TEXT,
+            user_id VARCHAR(36) NOT NULL,
+            canvas_data JSON NOT NULL,
+            thumbnail_url VARCHAR(255),
+            is_public BOOLEAN DEFAULT FALSE,
+            tags JSON,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        """
+        
+        # 思维导图节点表
+        mindmap_nodes_sql = """
+        CREATE TABLE IF NOT EXISTS mindmap_nodes (
+            id VARCHAR(36) PRIMARY KEY,
+            mindmap_id VARCHAR(36) NOT NULL,
+            parent_id VARCHAR(36),
+            content TEXT NOT NULL,
+            node_type VARCHAR(20) DEFAULT 'text',
+            position_x FLOAT,
+            position_y FLOAT,
+            style_data JSON,
+            ai_metadata JSON,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (mindmap_id) REFERENCES mindmaps(id),
+            FOREIGN KEY (parent_id) REFERENCES mindmap_nodes(id)
+        );
+        """
+        
+        # AI扩展历史表
+        mindmap_ai_expansions_sql = """
+        CREATE TABLE IF NOT EXISTS mindmap_ai_expansions (
+            id VARCHAR(36) PRIMARY KEY,
+            mindmap_id VARCHAR(36) NOT NULL,
+            node_id VARCHAR(36) NOT NULL,
+            prompt TEXT NOT NULL,
+            response TEXT NOT NULL,
+            expansion_type VARCHAR(20),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (mindmap_id) REFERENCES mindmaps(id),
+            FOREIGN KEY (node_id) REFERENCES mindmap_nodes(id)
+        );
+        """
+        
+        # 执行SQL语句
+        db.session.execute(db.text(mindmaps_sql))
+        db.session.execute(db.text(mindmap_nodes_sql))
+        db.session.execute(db.text(mindmap_ai_expansions_sql))
+        db.session.commit()
+        
+        print("✅ 思维导图数据库表创建成功！")
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ 创建思维导图表时发生错误: {str(e)}")
+        # 不抛出异常，让其他表继续创建
 
 def drop_tables(app: Flask):
     """删除所有数据表"""
@@ -160,6 +231,7 @@ def get_database_info(app: Flask):
     """获取数据库信息"""
     with app.app_context():
         from app.models import User, UserRole, KnowledgeBase, Document, Conversation, Message
+        from app.models.mindmap import Mindmap, MindmapNode, MindmapAIExpansion
         
         # 统计各角色用户数量
         role_stats = {}
@@ -174,7 +246,10 @@ def get_database_info(app: Flask):
                 'knowledge_bases': KnowledgeBase.query.count(),
                 'documents': Document.query.count(),
                 'conversations': Conversation.query.count(),
-                'messages': Message.query.count()
+                'messages': Message.query.count(),
+                'mindmaps': Mindmap.query.count(),
+                'mindmap_nodes': MindmapNode.query.count(),
+                'mindmap_ai_expansions': MindmapAIExpansion.query.count()
             },
             'user_roles': role_stats
         }

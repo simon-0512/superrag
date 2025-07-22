@@ -42,7 +42,7 @@ class BaseConfig:
     LOG_FILE = "logs/app.log"
     
     # LangChain配置
-    LANGCHAIN_ENABLED = False
+    LANGCHAIN_ENABLED = True
     LANGCHAIN_MEMORY_TYPE = "buffer"
     LANGCHAIN_MAX_TOKEN_LIMIT = 8000
     LANGCHAIN_WINDOW_SIZE = 10

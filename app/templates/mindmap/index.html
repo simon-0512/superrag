@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+
+{% block title %}思维导图{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- 左侧导航栏 -->
+        <div class="col-md-3 col-lg-2 sidebar">
+            <div class="sidebar-header">
+                <h5>
+                    <i class="fas fa-project-diagram me-2"></i>
+                    思维导图
+                </h5>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- 新建按钮 -->
+                <div class="d-grid gap-2 mb-3">
+                    <a href="{{ url_for('mindmap.create') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>新建思维导图
+                    </a>
+                </div>
+                
+                <!-- 思维导图列表 -->
+                <div class="mindmap-list">
+                    <h6 class="sidebar-heading">我的思维导图</h6>
+                    {% if mindmaps %}
+                        {% for mindmap in mindmaps %}
+                        <div class="mindmap-item mb-2">
+                            <div class="card">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="card-title mb-1">
+                                                <a href="{{ url_for('mindmap.index', mindmap_id=mindmap.id) }}" 
+                                                   class="text-decoration-none">{{ mindmap.title }}</a>
+                                            </h6>
+                                            <small class="text-muted">
+                                                {{ mindmap.updated_at.strftime('%Y-%m-%d') }}
+                                            </small>
+                                        </div>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                    type="button" data-bs-toggle="dropdown">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="{{ url_for('mindmap.index', mindmap_id=mindmap.id) }}">
+                                                    <i class="fas fa-edit me-2"></i>编辑</a></li>
+                                                <li><a class="dropdown-item" href="{{ url_for('mindmap.view', mindmap_id=mindmap.id) }}">
+                                                    <i class="fas fa-eye me-2"></i>查看</a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteMindmap('{{ mindmap.id }}')">
+                                                    <i class="fas fa-trash me-2"></i>删除</a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    {% if mindmap.description %}
+                                    <p class="card-text small text-muted mt-2">{{ mindmap.description[:50] }}...</p>
+                                    {% endif %}
+                                    {% if mindmap.tags %}
+                                    <div class="tags mt-2">
+                                        {% for tag in mindmap.tags %}
+                                        <span class="badge bg-secondary me-1">{{ tag }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-project-diagram fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">还没有创建思维导图</p>
+                            <a href="{{ url_for('mindmap.create') }}" class="btn btn-primary btn-sm">
+                                创建第一个思维导图
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- 公开思维导图 -->
+                <div class="mt-4">
+                    <h6 class="sidebar-heading">公开思维导图</h6>
+                    <div id="public-mindmaps">
+                        <!-- 通过JavaScript加载 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="col-md-9 col-lg-10 main-content">
+            <div class="welcome-section text-center py-5">
+                <h1 class="display-4 mb-4">
+                    <i class="fas fa-project-diagram text-primary me-3"></i>
+                    AI思维导图
+                </h1>
+                <p class="lead text-muted mb-4">
+                    使用AI智能扩展功能，轻松创建和管理思维导图，提升学习和工作效率
+                </p>
+                
+                <!-- 功能介绍 -->
+                <div class="row g-4 mt-4">
+                    <div class="col-md-4">
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-brain text-primary"></i>
+                            </div>
+                            <h5>AI智能扩展</h5>
+                            <p class="text-muted">右键点击任意节点，使用AI智能扩展生成相关内容</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-route text-success"></i>
+                            </div>
+                            <h5>学习路径</h5>
+                            <p class="text-muted">AI自动生成循序渐进的学习路径，帮助系统性学习</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <i class="fas fa-link text-info"></i>
+                            </div>
+                            <h5>知识关联</h5>
+                            <p class="text-muted">智能发现概念间的关联，构建完整的知识图谱</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 快速操作 -->
+                <div class="mt-5">
+                    <a href="{{ url_for('mindmap.create') }}" class="btn btn-primary btn-lg me-3">
+                        <i class="fas fa-plus me-2"></i>创建思维导图
+                    </a>
+                    <a href="#" class="btn btn-outline-secondary btn-lg" onclick="loadTemplate()">
+                        <i class="fas fa-file-alt me-2"></i>使用模板
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除这个思维导图吗？此操作不可恢复。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 侧边栏样式 */
+.sidebar {
+    background-color: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    height: 100vh;
+    overflow-y: auto;
+    position: fixed;
+    left: 0;
+    top: 56px; /* 导航栏高度 */
+    z-index: 1000;
+    padding: 0;
+}
+
+.sidebar-header {
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+    background-color: #fff;
+}
+
+.sidebar-content {
+    padding: 1rem;
+}
+
+.sidebar-heading {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+/* 主内容区样式 */
+.main-content {
+    margin-left: 25%; /* 对应侧边栏宽度 */
+    padding: 2rem;
+}
+
+/* 思维导图项目卡片 */
+.mindmap-item .card {
+    border: 1px solid #d1d9e0;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.mindmap-item .card:hover {
+    border-color: #0969da;
+    box-shadow: 0 2px 8px rgba(9, 105, 218, 0.1);
+}
+
+.mindmap-item .card-title a {
+    color: #24292f;
+    font-weight: 500;
+}
+
+.mindmap-item .card-title a:hover {
+    color: #0969da;
+}
+
+/* 功能介绍卡片 */
+.feature-card {
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.feature-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.feature-card h5 {
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+/* 标签样式 */
+.tags .badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .sidebar {
+        position: static;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .main-content {
+        margin-left: 0;
+        padding: 1rem;
+    }
+}
+
+/* 欢迎区域 */
+.welcome-section {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.welcome-section .display-4 {
+    font-weight: 600;
+    color: #24292f;
+}
+
+.welcome-section .lead {
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+/* 按钮样式 */
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background-color: #0969da;
+    border-color: #0969da;
+}
+
+.btn-primary:hover {
+    background-color: #0860ca;
+    border-color: #0860ca;
+}
+
+.btn-outline-secondary {
+    border-color: #d1d9e0;
+    color: #656d76;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #f6f8fa;
+    border-color: #d1d9e0;
+    color: #24292f;
+}
+
+/* 下拉菜单样式 */
+.dropdown-menu {
+    border: 1px solid #d1d9e0;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
+}
+
+.dropdown-item {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.dropdown-item:hover {
+    background-color: #f6f8fa;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let deleteTarget = null;
+
+function deleteMindmap(mindmapId) {
+    deleteTarget = mindmapId;
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+function confirmDelete() {
+    if (!deleteTarget) return;
+    
+    fetch(`/mindmap/api/delete/${deleteTarget}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 刷新页面
+            location.reload();
+        } else {
+            alert('删除失败：' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('删除失败，请重试');
+    });
+    
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+    modal.hide();
+}
+
+function loadTemplate() {
+    alert('模板功能正在开发中...');
+}
+
+// 加载公开思维导图
+function loadPublicMindmaps() {
+    fetch('/mindmap/api/public?per_page=5')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const container = document.getElementById('public-mindmaps');
+                if (data.data.mindmaps.length > 0) {
+                    let html = '';
+                    data.data.mindmaps.forEach(mindmap => {
+                        html += `
+                            <div class="public-mindmap-item mb-2">
+                                <div class="card">
+                                    <div class="card-body p-2">
+                                        <h6 class="card-title mb-1">
+                                            <a href="/mindmap/view/${mindmap.id}" class="text-decoration-none">
+                                                ${mindmap.title}
+                                            </a>
+                                        </h6>
+                                        <small class="text-muted">
+                                            ${mindmap.user.username} • ${new Date(mindmap.updated_at).toLocaleDateString()}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p class="text-muted small">暂无公开思维导图</p>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading public mindmaps:', error);
+        });
+}
+
+// 页面加载时执行
+document.addEventListener('DOMContentLoaded', function() {
+    loadPublicMindmaps();
+});
+</script>
+{% endblock %}

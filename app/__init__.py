@@ -42,6 +42,7 @@ def create_app(config_name=None):
     from app.routes.role_api import role_api_bp
     from app.routes.admin import admin_bp
     from app.routes.notification_api import notification_api
+    from app.routes.mindmap import mindmap_bp
     
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
@@ -49,6 +50,7 @@ def create_app(config_name=None):
     app.register_blueprint(role_api_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(notification_api)
+    app.register_blueprint(mindmap_bp)
     
     # 注册自定义过滤器
     def format_number(value):
