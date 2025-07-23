@@ -50,7 +50,7 @@ INSERT INTO users (username, email) VALUES ('test', 'test@example.com');"></text
                 <div class="sql-warning">
                     <div class="warning-icon">
                         <i class="bi bi-exclamation-triangle"></i>
-                    </div>
+                        </div>
                     <div class="warning-content">
                         <strong>管理员权限</strong>
                         <p>您拥有完整的数据库操作权限，请谨慎使用 DELETE、UPDATE 等修改操作</p>
@@ -370,20 +370,20 @@ function executeQuery() {
         if (data.success) {
             displayResults(data);
             showAdminToast(`查询成功，返回 ${data.count} 条记录`, 'success');
-        } else {
+            } else {
             showAdminToast(data.message || '查询失败', 'danger');
-            hideResults();
-        }
-    })
-    .catch(error => {
+                hideResults();
+            }
+        })
+        .catch(error => {
         console.error('Error:', error);
         showAdminToast('查询失败：网络错误', 'danger');
-        hideResults();
-    })
-    .finally(() => {
+            hideResults();
+        })
+        .finally(() => {
         executeBtn.innerHTML = originalHTML;
-        executeBtn.disabled = false;
-    });
+            executeBtn.disabled = false;
+        });
 }
 
 function displayResults(data) {

@@ -98,18 +98,18 @@
                             </td>
                             <td>
                                 <div>
-                                    {% if user.deleted %}
+                                {% if user.deleted %}
                                         <span class="badge bg-secondary-light text-secondary">已删除</span>
-                                    {% elif user.disabled %}
+                                {% elif user.disabled %}
                                         <span class="badge bg-warning-light text-warning">已禁用</span>
-                                    {% elif user.is_active %}
+                                {% elif user.is_active %}
                                         <span class="badge bg-success-light text-success">正常</span>
-                                    {% else %}
+                                {% else %}
                                         <span class="badge bg-danger-light text-danger">非活跃</span>
-                                    {% endif %}
-                                    {% if user.is_verified %}
+                                {% endif %}
+                                {% if user.is_verified %}
                                         <span class="badge bg-info-light text-info ms-1">已验证</span>
-                                    {% endif %}
+                                {% endif %}
                                 </div>
                             </td>
                             <td>
@@ -344,13 +344,13 @@ function toggleUserStatus(userId, username) {
             }).then(() => {
                 window.location.reload();
             });
-        } else {
+                } else {
             Swal.fire('错误', data.message, 'error');
-        }
-    })
-    .catch(error => {
+                }
+            })
+            .catch(error => {
         Swal.fire('错误', '操作失败：网络错误', 'error');
-    });
+            });
 }
 
 // 删除用户
@@ -374,11 +374,11 @@ function deleteUser(userId, username) {
             }).then(() => {
                 window.location.reload();
             });
-        } else {
+                } else {
             Swal.fire('错误', data.message, 'error');
-        }
-    })
-    .catch(error => {
+                }
+            })
+            .catch(error => {
         Swal.fire('错误', '删除失败：网络错误', 'error');
     });
 }

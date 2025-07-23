@@ -51,6 +51,18 @@ The project uses these development tools (from requirements.txt):
 - `isort` - Import sorting
 - `pytest` - Testing framework
 
+Run code quality tools:
+```bash
+# Format code
+black .
+
+# Check code style
+flake8 .
+
+# Sort imports
+isort .
+```
+
 ## Architecture Overview
 
 ### Core Components
@@ -95,6 +107,12 @@ The project uses these development tools (from requirements.txt):
 - User interactions (likes, comments, shares)
 - User follow system
 
+**Mindmap System** (`app/models/mindmap.py`):
+- Interactive mindmap creation and editing
+- AI-powered node expansion and content generation
+- Canvas-based visualization with drag-and-drop interface
+- Node relationships and hierarchical structure
+
 ### Service Layer
 
 **Conversation Service** (`app/services/conversation_service.py`):
@@ -112,6 +130,11 @@ The project uses these development tools (from requirements.txt):
 - Social media functionality
 - Post creation and management
 - User interaction tracking
+
+**AI Mindmap Service** (`app/services/ai_mindmap_service.py`):
+- AI-powered mindmap generation and expansion
+- Integration with DeepSeek for creative content generation
+- Mindmap visualization and management
 
 ### Routing Structure
 
@@ -132,6 +155,19 @@ The project uses these development tools (from requirements.txt):
 - `/admin/users` - User management
 - `/admin/conversations` - Conversation oversight
 - `/admin/database_tools` - SQL query interface
+
+**Mindmap Routes** (`app/routes/mindmap.py`):
+- `/mindmap` - Mindmap management interface
+- `/mindmap/create` - Create new mindmap
+- `/mindmap/editor/<id>` - Mindmap editor
+
+**Community API** (`app/routes/community_api.py`):
+- `/api/community/posts` - Community post management
+- `/api/community/interactions` - User interactions (likes, comments)
+
+**Role API** (`app/routes/role_api.py`):
+- `/api/role/check` - Check user role permissions
+- `/api/role/update` - Update user roles (admin only)
 
 ## Configuration
 
@@ -170,6 +206,9 @@ MAX_CONTEXT_MESSAGES = 20
 - `messages` - Individual chat messages
 - `community_posts` - Social media posts
 - `community_interactions` - User engagement data
+- `mindmaps` - Interactive mindmap data and canvas information
+- `mindmap_nodes` - Individual nodes within mindmaps
+- `mindmap_ai_expansions` - AI-generated content and expansion history
 
 ### Known Issues
 The community tables have type mismatches (INTEGER vs VARCHAR(36) for foreign keys) but work due to SQLite's weak typing. See `docs/database_structure.md` for details.

@@ -50,7 +50,8 @@ class DeepSeekService:
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                stream=stream
+                stream=stream,
+                response_format={'type': 'json_object'} if not stream else None
             )
             
             if stream:

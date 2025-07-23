@@ -476,24 +476,24 @@
                     </a>
                 </div>
                 <hr class="my-2">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}" 
-                           href="{{ url_for('admin.dashboard') }}">
+                               href="{{ url_for('admin.dashboard') }}">
                             <i class="fas fa-tachometer-alt"></i>
                             <span>仪表盘</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
+                            </a>
+                        </li>
+                        <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.users' %}active{% endif %}" 
-                           href="{{ url_for('admin.users') }}">
+                               href="{{ url_for('admin.users') }}">
                             <i class="fas fa-users"></i>
                             <span>用户管理</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
+                            </a>
+                        </li>
+                        <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.conversations' %}active{% endif %}" 
-                           href="{{ url_for('admin.conversations') }}">
+                               href="{{ url_for('admin.conversations') }}">
                             <i class="fas fa-comments"></i>
                             <span>对话管理</span>
                         </a>
@@ -503,41 +503,41 @@
                            href="{{ url_for('admin.notifications') }}">
                             <i class="fas fa-bell"></i>
                             <span>通知管理</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
+                            </a>
+                        </li>
+                        <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.feedbacks' %}active{% endif %}" 
                            href="{{ url_for('admin.feedbacks') }}">
                             <i class="fas fa-comment-dots"></i>
                             <span>反馈管理</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
+                            </a>
+                        </li>
+                        <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.community' %}active{% endif %}" 
                            href="{{ url_for('admin.community') }}">
                             <i class="fas fa-users-line"></i>
                             <span>论坛管理</span>
-                        </a>
-                    </li>
+                            </a>
+                        </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'admin.database_tools' %}active{% endif %}" 
                            href="{{ url_for('admin.database_tools') }}">
                             <i class="fas fa-database"></i>
                             <span>数据库工具</span>
-                        </a>
-                    </li>
-                </ul>
+                            </a>
+                        </li>
+                    </ul>
             </div>
-            
+
             <!-- 主要内容 -->
             <div class="col-md-9 col-lg-10 ms-sm-auto px-4">
                 <div class="main-content">
                     {% block content %}{% endblock %}
-                </div>
+                            </div>
             </div>
         </div>
     </div>
-    
+
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- SweetAlert2 -->

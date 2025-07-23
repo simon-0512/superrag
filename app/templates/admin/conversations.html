@@ -308,11 +308,11 @@ function deleteConversation(conversationId, title) {
             }).then(() => {
                 window.location.reload();
             });
-        } else {
+                } else {
             Swal.fire('错误', data.message, 'error');
-        }
-    })
-    .catch(error => {
+                }
+            })
+            .catch(error => {
         Swal.fire('错误', '删除失败：网络错误', 'error');
     });
 }

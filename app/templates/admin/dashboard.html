@@ -155,7 +155,7 @@
                     <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary">
                         查看全部
                     </a>
-                </div>
+            </div>
                 {% if recent_data.users %}
                     <div class="list-group list-group-flush">
                         {% for user in recent_data.users %}
@@ -163,19 +163,19 @@
                             <div class="d-flex align-items-center">
                                 <div class="avatar-sm bg-primary-light rounded-circle d-flex align-items-center justify-content-center me-3">
                                     <i class="fas fa-user text-primary"></i>
-                                </div>
-                                <div class="flex-grow-1">
+                            </div>
+                            <div class="flex-grow-1">
                                     <div class="text-body mb-1">{{ user.username }}</div>
-                                    <small class="text-muted">{{ user.email }}</small>
-                                    <div>
+                                <small class="text-muted">{{ user.email }}</small>
+                                <div>
                                         <span class="badge bg-{{ 'danger' if user.role.value == 'admin' else 'primary' if user.role.value == 'tester' else 'warning' if user.role.value == 'vip' else 'secondary' }}-light text-{{ 'danger' if user.role.value == 'admin' else 'primary' if user.role.value == 'tester' else 'warning' if user.role.value == 'vip' else 'secondary' }}">
-                                            {{ user.get_role_name() }}
-                                        </span>
-                                    </div>
+                                        {{ user.get_role_name() }}
+                                    </span>
                                 </div>
-                                <small class="text-muted">
-                                    {{ user.created_at.strftime('%m-%d %H:%M') if user.created_at else '' }}
-                                </small>
+                            </div>
+                            <small class="text-muted">
+                                {{ user.created_at.strftime('%m-%d %H:%M') if user.created_at else '' }}
+                            </small>
                             </div>
                         </div>
                         {% endfor %}
@@ -201,7 +201,7 @@
                     <a href="{{ url_for('admin.conversations') }}" class="btn btn-sm btn-outline-primary">
                         查看全部
                     </a>
-                </div>
+            </div>
                 {% if recent_data.conversations %}
                     <div class="list-group list-group-flush">
                         {% for conv in recent_data.conversations %}
@@ -245,7 +245,7 @@
                     <a href="{{ url_for('admin.community') }}" class="btn btn-sm btn-outline-primary">
                         查看全部
                     </a>
-                </div>
+            </div>
                 {% if recent_data.posts %}
                     <div class="list-group list-group-flush">
                         {% for post in recent_data.posts %}
@@ -400,21 +400,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // 更新时间
     updateCurrentTime();
     setInterval(updateCurrentTime, 1000);
-    
+
     // 角色分布图表
-    const roleCtx = document.getElementById('roleChart').getContext('2d');
-    new Chart(roleCtx, {
-        type: 'doughnut',
-        data: {
+const roleCtx = document.getElementById('roleChart').getContext('2d');
+new Chart(roleCtx, {
+    type: 'doughnut',
+    data: {
             labels: ['管理员', '测试员', 'VIP用户', '普通用户'],
-            datasets: [{
-                data: [
-                    {{ stats.users.admin or 0 }},
-                    {{ stats.users.tester or 0 }},
-                    {{ stats.users.vip or 0 }},
-                    {{ stats.users.normal or 0 }}
-                ],
-                backgroundColor: [
+        datasets: [{
+            data: [
+                {{ stats.users.admin or 0 }},
+                {{ stats.users.tester or 0 }},
+                {{ stats.users.vip or 0 }},
+                {{ stats.users.normal or 0 }}
+            ],
+            backgroundColor: [
                     'rgba(207, 34, 46, 0.2)',    // 管理员 - 红色
                     'rgba(9, 105, 218, 0.2)',    // 测试员 - 蓝色
                     'rgba(154, 103, 0, 0.2)',    // VIP - 黄色
@@ -425,23 +425,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     'rgb(9, 105, 218)',
                     'rgb(154, 103, 0)',
                     'rgb(110, 119, 129)'
-                ],
+            ],
                 borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
                     position: 'right',
                     labels: {
                         usePointStyle: true,
                         padding: 20,
                         font: {
                             size: 12
-                        }
-                    }
+        }
+    }
                 },
                 tooltip: {
                     backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -466,10 +466,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // 趋势图表
-    const trendCtx = document.getElementById('trendChart').getContext('2d');
-    new Chart(trendCtx, {
-        type: 'line',
-        data: {
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            new Chart(trendCtx, {
+                type: 'line',
+                data: {
             labels: {{ trend_data.labels | tojson }},
             datasets: [
                 {
@@ -497,16 +497,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     tension: 0.4
                 }
             ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
             interaction: {
                 mode: 'index',
                 intersect: false
             },
-            plugins: {
-                legend: {
+                    plugins: {
+                        legend: {
                     display: false
                 },
                 tooltip: {
@@ -532,10 +532,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             return context.dataset.label + ': ' + context.parsed.y;
                         }
                     }
-                }
-            },
-            scales: {
-                y: {
+                        }
+                    },
+                    scales: {
+                        y: {
                     beginAtZero: true,
                     grid: {
                         display: true,
@@ -556,10 +556,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             size: 12
                         }
                     }
+                        }
+                    }
                 }
-            }
-        }
+            });
     });
-});
 </script>
 {% endblock %} 

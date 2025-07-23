@@ -27,7 +27,8 @@
         </div>
     </div>
     
-    <div class="mindmap-container">
+    <div class="mindmap-container" 
+         data-user-can-debug="{% if current_user.is_authenticated and (current_user.is_admin() or current_user.is_tester()) %}true{% else %}false{% endif %}">
         <!-- 思维导图侧边栏展开触发器 -->
         <div class="sidebar-trigger-mindmap" id="sidebarTriggerMindmap" title="显示导图列表">
             <i class="fas fa-project-diagram"></i>
@@ -112,19 +113,22 @@
                         {% endif %}
                     </div>
                     <div class="mindmap-tools">
-                        <button class="btn btn-outline-primary btn-sm me-2" onclick="createNewMindmap()" title="新建思维导图">
-                            <i class="fas fa-file-plus me-1"></i>新建
-                        </button>
-                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="addRootNode()" title="添加节点">
-                            <i class="fas fa-plus me-1"></i>节点
-                        </button>
+                                        <button class="btn btn-outline-primary btn-sm me-2" onclick="createNewMindmap()" title="新建思维导图">
+                    <i class="fas fa-file-plus me-1"></i>新建
+                </button>
+                <button class="btn btn-outline-secondary btn-sm me-2" onclick="addRootNode()" title="添加节点">
+                    <i class="fas fa-plus me-1"></i>节点
+                </button>
+                <button class="btn btn-outline-info btn-sm me-2" onclick="autoLayoutAllNodes()" title="自动整理为树形布局">
+                    <i class="fas fa-sitemap me-1"></i>整理
+                </button>
                         <button class="btn btn-outline-secondary btn-sm me-2" onclick="saveMindmap()" title="保存">
                             <i class="fas fa-save"></i>
                         </button>
                         <div class="dropdown d-inline-block me-2">
                             <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" title="导出">
-                                <i class="fas fa-download"></i>
-                            </button>
+                            <i class="fas fa-download"></i>
+                        </button>
                             <ul class="dropdown-menu">
                                 <li><a class="dropdown-item" href="#" onclick="exportMindmap('json')">
                                     <i class="fas fa-file-code me-2"></i>导出JSON
@@ -184,6 +188,9 @@
                         <i class="fas fa-question-circle"></i>
                     </button>
                     <div class="toolbar-separator"></div>
+                    <button class="btn btn-sm btn-success" onclick="autoLayoutAllNodes()" title="自动整理布局">
+                        <i class="fas fa-sitemap"></i>
+                    </button>
                     <button class="btn btn-sm btn-warning" onclick="showThemePanel()" title="主题设置">
                         <i class="fas fa-palette"></i>
                     </button>
@@ -378,6 +385,55 @@
                             <div class="col-4">
                                 <label class="form-label small mb-1">连接线</label>
                                 <input type="color" class="form-control form-control-color form-control-sm" id="connectionColor" value="#495057">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 连接样式 -->
+                    <div class="mb-3">
+                        <h6 class="mb-2 fw-bold">连接样式</h6>
+                        <div class="row g-2">
+                            <div class="col-3">
+                                <div class="connection-style-option active" data-style="curved" onclick="selectConnectionStyle('curved')">
+                                    <div class="connection-preview">
+                                        <svg width="40" height="20" viewBox="0 0 40 20">
+                                            <path d="M 2 10 Q 20 5 38 10" stroke="#007bff" stroke-width="2" fill="none"/>
+                                        </svg>
+                                    </div>
+                                    <small class="d-block text-center mt-1">曲线</small>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="connection-style-option" data-style="straight" onclick="selectConnectionStyle('straight')">
+                                    <div class="connection-preview">
+                                        <svg width="40" height="20" viewBox="0 0 40 20">
+                                            <line x1="2" y1="10" x2="38" y2="10" stroke="#007bff" stroke-width="2"/>
+                                        </svg>
+                                    </div>
+                                    <small class="d-block text-center mt-1">直线</small>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="connection-style-option" data-style="bracket" onclick="selectConnectionStyle('bracket')">
+                                    <div class="connection-preview">
+                                        <svg width="40" height="20" viewBox="0 0 40 20">
+                                            <path d="M 2 10 L 15 10 L 25 10 L 38 10" stroke="#007bff" stroke-width="2" fill="none"/>
+                                            <text x="20" y="15" font-size="8" fill="#007bff">[</text>
+                                        </svg>
+                                    </div>
+                                    <small class="d-block text-center mt-1">方括号</small>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="connection-style-option" data-style="brace" onclick="selectConnectionStyle('brace')">
+                                    <div class="connection-preview">
+                                        <svg width="40" height="20" viewBox="0 0 40 20">
+                                            <path d="M 2 10 L 15 10 L 25 10 L 38 10" stroke="#007bff" stroke-width="2" fill="none"/>
+                                            <text x="20" y="15" font-size="8" fill="#007bff">{</text>
+                                        </svg>
+                                    </div>
+                                    <small class="d-block text-center mt-1">大括号</small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1448,6 +1504,65 @@ footer {
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+/* AI说明气泡样式 */
+.explanation-bubble {
+    position: absolute;
+    z-index: 1000;
+    pointer-events: auto;
+    transition: all 0.3s ease;
+}
+
+.explanation-bubble .bubble-content {
+    max-width: 180px;
+    word-wrap: break-word;
+    font-size: 12px;
+    line-height: 1.4;
+    backdrop-filter: blur(5px);
+}
+
+.explanation-bubble .bubble-arrow {
+    position: absolute;
+    top: 10px;
+    left: -8px;
+    width: 0;
+    height: 0;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-right: 8px solid;
+}
+
+.explanation-bubble .bubble-arrow.bg-info {
+    border-right-color: #0dcaf0;
+}
+
+.explanation-bubble .bubble-arrow.bg-success {
+    border-right-color: #198754;
+}
+
+.explanation-bubble .bubble-arrow.bg-warning {
+    border-right-color: #ffc107;
+}
+
+.explanation-bubble .bubble-arrow.bg-secondary {
+    border-right-color: #6c757d;
+}
+
+.explanation-bubble:hover {
+    transform: scale(1.05);
+    z-index: 1001;
+}
+
+.explanation-bubble .bubble-header {
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    margin-bottom: 4px;
+    padding-bottom: 2px;
+}
+
+.explanation-bubble .bubble-text {
+    max-height: 100px;
+    overflow-y: auto;
+}
+
 .add-btn {
     background: #28a745;
     color: white;
@@ -2390,7 +2505,7 @@ footer {
 <script>
 // 全局变量
 let currentMindmapId = '{% if mindmap %}{{ mindmap.id }}{% endif %}';
-let mindmapData = {% if mindmap %}{{ mindmap.to_dict() | tojson }}{% else %}null{% endif %};
+let mindmapData = {% if mindmap %}{{ mindmap.to_dict() | tojson | safe }}{% else %}null{% endif %};
 let selectedNode = null;
 let aiResultData = null;
 let connections = [];
@@ -2402,6 +2517,12 @@ let mindmaps = {{ mindmaps | tojson if mindmaps else '[]' }};
 let undoStack = [];
 let redoStack = [];
 const MAX_UNDO_STACK = 50;
+
+// 用户权限检查
+function getUserCanSeeDebug() {
+    const container = document.querySelector('.mindmap-container');
+    return container && container.getAttribute('data-user-can-debug') === 'true';
+}
 
 // 连接模式和编辑状态
 let isConnectionMode = false;
@@ -3413,7 +3534,7 @@ function createNodeButtons(node) {
         btn.innerHTML = `<i class="${btnConfig.icon}"></i>`;
         btn.title = btnConfig.title;
         btn.onclick = (e) => {
-            e.stopPropagation();
+        e.stopPropagation();
             btnConfig.action();
             hideNodeButtons();
         };
@@ -3428,47 +3549,20 @@ function addChildNode(parentNode) {
     const canvas = document.getElementById('mindmap-canvas');
     const childNode = createNode('新节点');
     
-    // 计算子节点位置
-    const parentRect = parentNode.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-    
-    const childCount = getChildCount(parentNode);
-    const baseDistance = 180;
-    const distance = baseDistance + (childCount * 20);
-    
-    let angle;
-    if (childCount === 0) {
-        angle = 0;
-    } else if (childCount === 1) {
-        angle = Math.PI;
-    } else {
-        const totalAngle = Math.PI * 2;
-        const angleStep = totalAngle / Math.max(6, childCount + 2);
-        angle = angleStep * (childCount - 1);
-    }
-    
-    const nodeWidth = 120;
-    const nodeHeight = 40;
-    const actualDistance = Math.max(distance, nodeWidth + nodeHeight);
-    
-    const x = (parentRect.left - canvasRect.left) + Math.cos(angle) * actualDistance;
-    const y = (parentRect.top - canvasRect.top) + Math.sin(angle) * actualDistance;
-    
-    const minX = 20;
-    const minY = 20;
-    const maxX = canvas.offsetWidth - nodeWidth - 20;
-    const maxY = canvas.offsetHeight - nodeHeight - 20;
-    
-    const finalX = Math.max(minX, Math.min(maxX, x));
-    const finalY = Math.max(minY, Math.min(maxY, y));
-    
-    childNode.style.left = finalX + 'px';
-    childNode.style.top = finalY + 'px';
+    // 使用XMind风格的树形布局
+    const position = calculateTreePosition(parentNode, childNode);
+    childNode.style.left = position.x + 'px';
+    childNode.style.top = position.y + 'px';
     
     canvas.appendChild(childNode);
     
     // 创建连接线
     createConnection(parentNode, childNode);
+    
+    // 重新布局所有受影响的节点
+    setTimeout(() => {
+        rearrangeTreeLayout(parentNode);
+    }, 50);
     
     // 选中新节点并进入编辑模式
     selectNode(childNode);
@@ -3537,6 +3631,487 @@ function addNoteNode(parentNode) {
 // 获取子节点数量
 function getChildCount(parentNode) {
     return connections.filter(conn => conn.from === parentNode).length;
+}
+
+/**
+ * 计算树形布局中节点的位置（XMind风格智能平衡）
+ */
+function calculateTreePosition(parentNode, newChildNode) {
+    const canvas = document.getElementById('mindmap-canvas');
+    
+    // 先调整新节点大小
+    autoResizeNode(newChildNode);
+    
+    // 父节点在画布中的位置
+    const parentX = parseInt(parentNode.style.left) || 0;
+    const parentY = parseInt(parentNode.style.top) || 0;
+    
+    // 获取父节点的现有子节点
+    const siblings = getChildNodes(parentNode);
+    
+    // 判断父节点是否为根节点
+    const isRootNode = parentNode.classList.contains('center-node') || 
+                      parentNode.classList.contains('root-node') ||
+                      isNodeRoot(parentNode);
+    
+    let x, y;
+    
+    if (isRootNode) {
+        // 根节点：智能选择左右平衡
+        const position = calculateBalancedRootPosition(parentNode, siblings, newChildNode, parentX, parentY);
+        x = position.x;
+        y = position.y;
+    } else {
+        // 非根节点：垂直层级布局
+        const position = calculateVerticalPosition(parentNode, siblings, newChildNode, parentX, parentY);
+        x = position.x;
+        y = position.y;
+    }
+    
+    // 确保节点在画布范围内
+    const nodeWidth = newChildNode.offsetWidth || 140;
+    const nodeHeight = newChildNode.offsetHeight || 50;
+    const margin = 20;
+    
+    x = Math.max(margin, Math.min(x, canvas.offsetWidth - nodeWidth - margin));
+    y = Math.max(margin, Math.min(y, canvas.offsetHeight - nodeHeight - margin));
+    
+    return { x, y };
+}
+
+/**
+ * 计算根节点下新子节点的位置（从左到右布局）
+ */
+function calculateBalancedRootPosition(parentNode, siblings, newNode, parentX, parentY) {
+    // 动态计算层级偏移
+    const allNodes = [...siblings, newNode];
+    const LEVEL_OFFSET = Math.max(180, getMaxNodeWidth(allNodes) + 60);
+    
+    if (siblings.length === 0) {
+        // 第一个子节点，放在右侧（从左到右习惯）
+        return { x: parentX + LEVEL_OFFSET, y: parentY };
+    }
+    
+    // 从左到右布局：所有子节点都在根节点右侧
+    // 计算最优间距
+    const optimalSpacing = calculateOptimalSpacing([...siblings, newNode], 70);
+    
+    // 找到最后一个子节点的位置
+    const lastSibling = siblings[siblings.length - 1];
+    const lastY = parseInt(lastSibling.style.top) || parentY;
+    
+    return { 
+        x: parentX + LEVEL_OFFSET, 
+        y: lastY + optimalSpacing 
+    };
+}
+
+/**
+ * 计算非根节点下新子节点的垂直位置（从左到右）
+ */
+function calculateVerticalPosition(parentNode, siblings, newNode, parentX, parentY) {
+    const allNodes = [...siblings, newNode];
+    const LEVEL_OFFSET = Math.max(160, getMaxNodeWidth(allNodes) + 40);
+    
+    // 从左到右布局：所有子节点都继续向右扩展
+    const childX = parentX + LEVEL_OFFSET;
+    
+    if (siblings.length === 0) {
+        // 第一个子节点，与父节点垂直对齐
+        return { x: childX, y: parentY };
+    }
+    
+    // 计算最优间距
+    const optimalSpacing = calculateOptimalSpacing(allNodes, 70);
+    
+    // 找到最后一个子节点的位置
+    const lastSibling = siblings[siblings.length - 1];
+    const lastY = parseInt(lastSibling.style.top) || parentY;
+    
+    return { 
+        x: childX, 
+        y: lastY + optimalSpacing 
+    };
+}
+
+/**
+ * 获取节点的所有子节点
+ */
+function getChildNodes(parentNode) {
+    return connections
+        .filter(conn => conn.from === parentNode)
+        .map(conn => conn.to)
+        .sort((a, b) => {
+            // 按位置排序（先按Y轴，再按X轴）
+            const aY = parseInt(a.style.top) || 0;
+            const bY = parseInt(b.style.top) || 0;
+            if (aY !== bY) return aY - bY;
+            
+            const aX = parseInt(a.style.left) || 0;
+            const bX = parseInt(b.style.left) || 0;
+            return aX - bX;
+        });
+}
+
+/**
+ * 判断节点是否为根节点（没有父节点）
+ */
+function isNodeRoot(node) {
+    return !connections.some(conn => conn.to === node);
+}
+
+/**
+ * 找到思维导图的根节点
+ */
+function findRootNode() {
+    // 首先检查是否有明确标记的根节点
+    const centerNode = document.querySelector('.center-node, .root-node');
+    if (centerNode) {
+        return centerNode;
+    }
+    
+    // 如果没有明确标记，找到没有父连接的节点
+    const allNodes = document.querySelectorAll('.node');
+    for (let node of allNodes) {
+        if (isNodeRoot(node)) {
+            return node;
+        }
+    }
+    
+    // 如果还是找不到，返回第一个节点
+    return allNodes[0] || null;
+}
+
+/**
+ * 重新排列树形布局，XMind风格的平衡布局
+ */
+function rearrangeTreeLayout(parentNode) {
+    const children = getChildNodes(parentNode);
+    if (children.length === 0) return;
+    
+    // 首先为所有子节点调整大小
+    children.forEach(child => autoResizeNode(child));
+    
+    // 父节点位置和大小
+    const parentX = parseInt(parentNode.style.left) || 0;
+    const parentY = parseInt(parentNode.style.top) || 0;
+    const parentHeight = parentNode.offsetHeight || 40;
+    
+    const isRootNode = parentNode.classList.contains('center-node') || 
+                      parentNode.classList.contains('root-node') ||
+                      isNodeRoot(parentNode);
+    
+    if (isRootNode) {
+        // 根节点：实现左右平衡布局
+        arrangeRootNodeChildren(parentNode, children, parentX, parentY, parentHeight);
+    } else {
+        // 非根节点：垂直层级布局
+        arrangeNormalNodeChildren(parentNode, children, parentX, parentY);
+    }
+    
+    console.log(`[XMind布局] 重新排列 ${parentNode.textContent} 的 ${children.length} 个子节点`);
+}
+
+/**
+ * 根节点子节点的从左到右布局（根节点在最左侧）
+ */
+function arrangeRootNodeChildren(parentNode, children, parentX, parentY, parentHeight) {
+    if (children.length === 0) return;
+    
+    // 动态计算布局参数
+    const LEVEL_OFFSET = Math.max(180, getMaxNodeWidth(children) + 60);
+    const VERTICAL_SPACING = calculateOptimalSpacing(children, 70);
+    
+    // 所有根节点的子节点都放在右侧（从左到右布局）
+    const totalHeight = (children.length - 1) * VERTICAL_SPACING;
+    const startY = parentY - totalHeight / 2;
+    
+    children.forEach((child, index) => {
+        const childY = startY + index * VERTICAL_SPACING;
+        
+        // 所有子节点都放在父节点右侧
+        child.style.left = (parentX + LEVEL_OFFSET) + 'px';
+        child.style.top = childY + 'px';
+        
+        // 添加平滑动画
+        child.style.transition = 'all 0.3s ease-out';
+        
+        updateNodeConnections(child);
+        
+        // 递归处理子节点
+        setTimeout(() => rearrangeTreeLayout(child), 150 + index * 50);
+    });
+}
+
+/**
+ * 非根节点的垂直层级布局（从左到右）
+ */
+function arrangeNormalNodeChildren(parentNode, children, parentX, parentY) {
+    const LEVEL_OFFSET = Math.max(160, getMaxNodeWidth(children) + 40);
+    const VERTICAL_SPACING = calculateOptimalSpacing(children, 70);
+    
+    // 从左到右布局：所有子节点都向右扩展
+    const totalHeight = (children.length - 1) * VERTICAL_SPACING;
+    const startY = parentY - totalHeight / 2;
+    
+    children.forEach((child, index) => {
+        const childY = startY + index * VERTICAL_SPACING;
+        
+        // 所有子节点都继续向右扩展
+        const childX = parentX + LEVEL_OFFSET;
+        
+        child.style.left = childX + 'px';
+        child.style.top = childY + 'px';
+        
+        // 添加平滑动画
+        child.style.transition = 'all 0.3s ease-out';
+        
+        updateNodeConnections(child);
+        
+        // 递归处理子节点
+        setTimeout(() => rearrangeTreeLayout(child), 100 + index * 50);
+    });
+}
+
+/**
+ * 智能平衡分配子节点到左右两侧
+ */
+function balanceChildNodes(children) {
+    if (children.length === 0) return { leftChildren: [], rightChildren: [] };
+    
+    // 按节点权重（文本长度 + 子节点数量）排序
+    const sortedChildren = [...children].sort((a, b) => {
+        const weightA = getNodeWeight(a);
+        const weightB = getNodeWeight(b);
+        return weightB - weightA; // 降序排列
+    });
+    
+    const leftChildren = [];
+    const rightChildren = [];
+    let leftWeight = 0;
+    let rightWeight = 0;
+    
+    // 贪心算法分配节点，保持左右平衡
+    sortedChildren.forEach(child => {
+        const nodeWeight = getNodeWeight(child);
+        
+        if (leftWeight <= rightWeight) {
+            leftChildren.push(child);
+            leftWeight += nodeWeight;
+        } else {
+            rightChildren.push(child);
+            rightWeight += nodeWeight;
+        }
+    });
+    
+    return { leftChildren, rightChildren };
+}
+
+/**
+ * 计算节点权重（用于平衡算法）
+ */
+function getNodeWeight(node) {
+    const textLength = (node.textContent || '').length;
+    const childCount = getChildNodes(node).length;
+    const nodeHeight = node.offsetHeight || 40;
+    
+    // 综合考虑文本长度、子节点数量和节点高度
+    return textLength * 2 + childCount * 5 + nodeHeight * 0.5;
+}
+
+/**
+ * 获取节点组中的最大宽度
+ */
+function getMaxNodeWidth(nodes) {
+    return Math.max(...nodes.map(node => node.offsetWidth || 120));
+}
+
+/**
+ * 根据节点大小动态计算最优间距
+ */
+function calculateOptimalSpacing(nodes, baseSpacing) {
+    if (nodes.length === 0) return baseSpacing;
+    
+    // 计算平均节点高度
+    const avgHeight = nodes.reduce((sum, node) => sum + (node.offsetHeight || 40), 0) / nodes.length;
+    
+    // 根据节点高度和数量动态调整间距
+    let dynamicSpacing = Math.max(baseSpacing, avgHeight + 20);
+    
+    // 节点数量越多，适当减小间距避免过度分散
+    if (nodes.length > 5) {
+        dynamicSpacing *= 0.9;
+    } else if (nodes.length > 8) {
+        dynamicSpacing *= 0.8;
+    }
+    
+    return Math.max(50, Math.min(dynamicSpacing, 120)); // 限制在合理范围内
+}
+
+/**
+ * 自动整理所有节点的布局
+ */
+function autoLayoutAllNodes() {
+    // 找到所有根节点（没有父连接的节点）
+    const rootNodes = nodes.filter(node => isNodeRoot(node));
+    
+    if (rootNodes.length === 0) {
+        showToast('没有找到根节点', 'warning');
+        return;
+    }
+    
+    console.log(`[全局布局] 开始整理 ${rootNodes.length} 个根节点的布局`);
+    
+    // 为每个根节点重新布局
+    rootNodes.forEach((rootNode, index) => {
+        // 如果有多个根节点，垂直分布它们
+        if (rootNodes.length > 1) {
+            const canvas = document.getElementById('mindmap-canvas');
+            const spacing = 300;
+            const startY = 100;
+            
+            rootNode.style.left = '400px'; // 居中
+            rootNode.style.top = (startY + index * spacing) + 'px';
+        }
+        
+        // 重新布局子节点
+        setTimeout(() => {
+            rearrangeTreeLayout(rootNode);
+        }, index * 200);
+    });
+    
+    // 更新所有连接线
+    setTimeout(() => {
+        connections.forEach(conn => {
+            updateConnectionLine(conn.from, conn.to, conn.line);
+        });
+        
+        // 保存状态
+        saveState();
+        
+        showToast('布局整理完成', 'success');
+    }, rootNodes.length * 200 + 500);
+}
+
+/**
+ * 智能自动调整节点大小（XMind风格）
+ */
+function autoResizeNode(node) {
+    const text = node.textContent;
+    if (!text) return;
+    
+    // 判断节点类型，应用不同的尺寸策略
+    const isRootNode = node.classList.contains('center-node') || node.classList.contains('root-node');
+    const isNoteNode = node.classList.contains('note-node');
+    
+    let minWidth, maxWidth, minHeight, fontSize, padding;
+    
+    if (isRootNode) {
+        // 根节点：更大、更突出
+        minWidth = 120;
+        maxWidth = 280;
+        minHeight = 50;
+        fontSize = '16px';
+        padding = '16px 28px';
+    } else if (isNoteNode) {
+        // 说明节点：更小、更紧凑
+        minWidth = 60;
+        maxWidth = 150;
+        minHeight = 30;
+        fontSize = '12px';
+        padding = '8px 12px';
+    } else {
+        // 普通节点
+        minWidth = 80;
+        maxWidth = 220;
+        minHeight = 40;
+        fontSize = '14px';
+        padding = '12px 20px';
+    }
+    
+    // 创建临时元素测量文本
+    const temp = document.createElement('div');
+    temp.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        white-space: nowrap;
+        font-size: ${fontSize};
+        font-weight: ${isRootNode ? '600' : '500'};
+        padding: ${padding};
+        border-radius: ${isRootNode ? '10px' : '8px'};
+        font-family: inherit;
+        box-sizing: border-box;
+    `;
+    temp.textContent = text;
+    document.body.appendChild(temp);
+    
+    const textWidth = temp.offsetWidth;
+    document.body.removeChild(temp);
+    
+    // 根据文本长度智能调整宽度
+    let optimalWidth;
+    if (text.length <= 6) {
+        // 短文本：紧凑布局
+        optimalWidth = Math.max(minWidth, textWidth);
+    } else if (text.length <= 12) {
+        // 中等文本：适中布局
+        optimalWidth = Math.max(minWidth, Math.min(textWidth, maxWidth * 0.8));
+    } else {
+        // 长文本：允许更宽或换行
+        optimalWidth = Math.min(textWidth, maxWidth);
+    }
+    
+    // 应用尺寸和样式
+    node.style.fontSize = fontSize;
+    node.style.fontWeight = isRootNode ? '600' : '500';
+    node.style.padding = padding;
+    node.style.borderRadius = isRootNode ? '10px' : (isNoteNode ? '4px' : '8px');
+    
+    if (optimalWidth > maxWidth * 0.9) {
+        // 启用换行
+        node.style.whiteSpace = 'normal';
+        node.style.wordBreak = 'break-word';
+        node.style.width = maxWidth + 'px';
+        
+        // 重新计算换行后的高度
+        temp.style.cssText = `
+            position: absolute;
+            visibility: hidden;
+            white-space: normal;
+            word-break: break-word;
+            width: ${maxWidth}px;
+            font-size: ${fontSize};
+            font-weight: ${isRootNode ? '600' : '500'};
+            padding: ${padding};
+            font-family: inherit;
+            box-sizing: border-box;
+        `;
+        temp.textContent = text;
+        document.body.appendChild(temp);
+        const wrappedHeight = Math.max(temp.offsetHeight, minHeight);
+        document.body.removeChild(temp);
+        
+        node.style.height = wrappedHeight + 'px';
+    } else {
+        // 单行显示
+        node.style.whiteSpace = 'nowrap';
+        node.style.width = Math.max(optimalWidth, minWidth) + 'px';
+        node.style.height = minHeight + 'px';
+    }
+    
+    // 确保内容居中对齐
+    node.style.display = 'flex';
+    node.style.alignItems = 'center';
+    node.style.justifyContent = 'center';
+    node.style.textAlign = 'center';
+    node.style.boxSizing = 'border-box';
+    
+    // 为根节点添加特殊样式
+    if (isRootNode) {
+        node.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)';
+        node.style.background = '#24292e';
+        node.style.color = 'white';
+    }
 }
 
 // 开始连接模式
@@ -3909,7 +4484,7 @@ function editNode(node) {
         }
         
         // 调整节点大小
-        adjustNodeSize(node);
+        autoResizeNode(node);
         
         // 更新连接线
         updateNodeConnections(node);
@@ -3922,17 +4497,17 @@ function editNode(node) {
     };
     
     const cancelEditing = () => {
-        node.classList.remove('editing');
+            node.classList.remove('editing');
         
-        if (!node.classList.contains('note-node')) {
-            const existingButtons = node.querySelector('.node-buttons');
-            if (existingButtons) {
-                existingButtons.remove();
+            if (!node.classList.contains('note-node')) {
+                const existingButtons = node.querySelector('.node-buttons');
+                if (existingButtons) {
+                    existingButtons.remove();
+                }
+                
+                const buttonGroup = createNodeButtons(node);
+                node.appendChild(buttonGroup);
             }
-            
-            const buttonGroup = createNodeButtons(node);
-            node.appendChild(buttonGroup);
-        }
         
         canvas.removeChild(bubble);
     };
@@ -4046,16 +4621,41 @@ function enableNodeDragging(node) {
         e.preventDefault();
         e.stopPropagation();
         
+        // 检查是否为根节点或中心节点
+        const isRootNode = node.classList.contains('center-node') || 
+                          node.classList.contains('root-node') ||
+                          isNodeRoot(node);
+        
+        // 为根节点记录所有节点的初始位置
+        let allNodeInitialPositions = new Map();
+        if (isRootNode) {
+            document.querySelectorAll('.node').forEach(nodeEl => {
+                allNodeInitialPositions.set(nodeEl, {
+                    left: parseInt(nodeEl.style.left) || 0,
+                    top: parseInt(nodeEl.style.top) || 0
+                });
+            });
+        }
+        
         const onMouseMove = (e) => {
             if (!isDragging) return;
             
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
             
+            if (isRootNode) {
+                // 根节点拖拽：同时移动所有节点，保持相对位置
+                allNodeInitialPositions.forEach((initialPos, nodeEl) => {
+                    nodeEl.style.left = (initialPos.left + deltaX) + 'px';
+                    nodeEl.style.top = (initialPos.top + deltaY) + 'px';
+                    updateNodeConnections(nodeEl);
+                });
+            } else {
+                // 普通节点拖拽：只移动当前节点
             node.style.left = (startLeft + deltaX) + 'px';
             node.style.top = (startTop + deltaY) + 'px';
-            
             updateNodeConnections(node);
+            }
         };
         
         const onMouseUp = () => {
@@ -4063,10 +4663,44 @@ function enableNodeDragging(node) {
             node.style.cursor = 'pointer';
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
+            
+            // 拖拽结束后保存状态
+            if (isRootNode) {
+                saveState();
+            }
         };
         
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
+    });
+}
+
+/**
+ * 递归移动节点的整个子树
+ */
+function moveNodeSubtree(parentNode, deltaX, deltaY, excludeNodes = []) {
+    // 获取所有子节点
+    const childNodes = getChildNodes(parentNode);
+    
+    childNodes.forEach(childNode => {
+        // 避免重复移动已经移动过的节点
+        if (excludeNodes.includes(childNode)) {
+            return;
+        }
+        
+        // 移动子节点
+        const currentLeft = parseInt(childNode.style.left) || 0;
+        const currentTop = parseInt(childNode.style.top) || 0;
+        
+        childNode.style.left = (currentLeft + deltaX) + 'px';
+        childNode.style.top = (currentTop + deltaY) + 'px';
+        
+        // 更新子节点的连接线
+        updateNodeConnections(childNode);
+        
+        // 递归移动子节点的子树
+        excludeNodes.push(childNode);
+        moveNodeSubtree(childNode, deltaX, deltaY, excludeNodes);
     });
 }
 
@@ -4143,10 +4777,16 @@ function renderMindmapData(canvasData) {
         });
     }
     
+    // 自动整理布局（数据库加载的导图）
+    setTimeout(() => {
+        console.log('[加载布局] 开始自动整理从数据库加载的思维导图布局');
+        autoLayoutAllNodes();
+    
     // 保存初始状态
     setTimeout(() => {
         saveState();
-    }, 100);
+        }, 1000);
+    }, 200);
 }
 
 // 更新节点的所有连接线
@@ -4425,73 +5065,117 @@ let currentConnectionStyle = 'curved';
 let currentNodeSize = 120;
 let currentConnectionWidth = 2;
 
-// 主题配置
+// XMind风格主题配置 - 支持多层级颜色和连接样式
 const themes = {
     default: {
         primaryColor: '#007bff',
-        secondaryColor: '#6c757d',
+        secondaryColor: '#E3F2FD',
+        tertiaryColor: '#BBDEFB',
+        quaternaryColor: '#90CAF9',
+        quinaryColor: '#64B5F6',
         connectionColor: '#495057',
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        connectionStyle: 'curved' // curved, straight, bracket, brace
     },
     ocean: {
         primaryColor: '#0077be',
-        secondaryColor: '#17a2b8',
+        secondaryColor: '#E0F7FA',
+        tertiaryColor: '#B2EBF2',
+        quaternaryColor: '#80DEEA',
+        quinaryColor: '#4DD0E1',
         connectionColor: '#20c997',
-        backgroundColor: '#f0f9ff'
+        backgroundColor: '#f0f9ff',
+        connectionStyle: 'curved'
     },
     forest: {
         primaryColor: '#28a745',
-        secondaryColor: '#20c997',
+        secondaryColor: '#E8F5E8',
+        tertiaryColor: '#C8E6C9',
+        quaternaryColor: '#A5D6A7',
+        quinaryColor: '#81C784',
         connectionColor: '#6f7634',
-        backgroundColor: '#f8fff8'
+        backgroundColor: '#f8fff8',
+        connectionStyle: 'curved'
     },
     sunset: {
         primaryColor: '#fd7e14',
-        secondaryColor: '#e83e8c',
+        secondaryColor: '#FFF3E0',
+        tertiaryColor: '#FFE0B2',
+        quaternaryColor: '#FFCC80',
+        quinaryColor: '#FFB74D',
         connectionColor: '#dc3545',
-        backgroundColor: '#fff8f0'
+        backgroundColor: '#fff8f0',
+        connectionStyle: 'curved'
     },
     minimal: {
         primaryColor: '#495057',
-        secondaryColor: '#868e96',
+        secondaryColor: '#F5F5F5',
+        tertiaryColor: '#EEEEEE',
+        quaternaryColor: '#E0E0E0',
+        quinaryColor: '#BDBDBD',
         connectionColor: '#adb5bd',
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        connectionStyle: 'straight'
     },
     dark: {
         primaryColor: '#6c757d',
-        secondaryColor: '#495057',
+        secondaryColor: '#3A3A3A',
+        tertiaryColor: '#4A4A4A',
+        quaternaryColor: '#5A5A5A',
+        quinaryColor: '#6A6A6A',
         connectionColor: '#343a40',
-        backgroundColor: '#2d3748'
+        backgroundColor: '#2d3748',
+        connectionStyle: 'curved'
     },
     vscode: {
         primaryColor: '#007acc',
-        secondaryColor: '#005a9e',
-        connectionColor: '#1e1e1e',
-        backgroundColor: '#1e1e1e'
+        secondaryColor: '#1E3A5F',
+        tertiaryColor: '#2D5085',
+        quaternaryColor: '#3B66AB',
+        quinaryColor: '#4A7CD1',
+        connectionColor: '#525252',
+        backgroundColor: '#1e1e1e',
+        connectionStyle: 'straight'
     },
     github: {
         primaryColor: '#24292f',
-        secondaryColor: '#0969da',
+        secondaryColor: '#F6F8FA',
+        tertiaryColor: '#E1E4E8',
+        quaternaryColor: '#D1D5DA',
+        quinaryColor: '#959DA5',
         connectionColor: '#d0d7de',
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        connectionStyle: 'straight'
     },
     monokai: {
         primaryColor: '#f92672',
-        secondaryColor: '#a6e22e',
+        secondaryColor: '#3E3D32',
+        tertiaryColor: '#49483E',
+        quaternaryColor: '#545454',
+        quinaryColor: '#75715E',
         connectionColor: '#66d9ef',
-        backgroundColor: '#272822'
+        backgroundColor: '#272822',
+        connectionStyle: 'curved'
     },
     dracula: {
         primaryColor: '#bd93f9',
-        secondaryColor: '#50fa7b',
+        secondaryColor: '#44475A',
+        tertiaryColor: '#6272A4',
+        quaternaryColor: '#8BE9FD',
+        quinaryColor: '#50FA7B',
         connectionColor: '#ff79c6',
-        backgroundColor: '#282a36'
+        backgroundColor: '#282a36',
+        connectionStyle: 'curved'
     },
     'one-dark': {
         primaryColor: '#61afef',
-        secondaryColor: '#98c379',
+        secondaryColor: '#3B4048',
+        tertiaryColor: '#4B5263',
+        quaternaryColor: '#5C6370',
+        quinaryColor: '#ABB2BF',
         connectionColor: '#e06c75',
-        backgroundColor: '#282c34'
+        backgroundColor: '#282c34',
+        connectionStyle: 'curved'
     }
 };
 
@@ -4555,54 +5239,193 @@ function applyCustomTheme() {
     showToast('自定义主题已应用');
 }
 
-// 将主题应用到画布
+// 将主题应用到画布 - XMind风格层级配色
 function applyThemeToCanvas(theme) {
     const canvas = document.getElementById('mindmap-canvas');
     
     // 设置背景色
     canvas.style.backgroundColor = theme.backgroundColor;
     
-    // 更新所有节点的颜色
+    // 定义层级颜色序列（循环使用）
+    const levelColors = [
+        theme.primaryColor,      // 根节点
+        theme.secondaryColor,    // 第一层子节点
+        theme.tertiaryColor || '#E8F4FD',     // 第二层子节点
+        theme.quaternaryColor || '#FFF2E8',   // 第三层子节点
+        theme.quinaryColor || '#F0F9E8'       // 第四层子节点
+    ];
+    
+    // 更新所有节点的颜色（按层级）
     const nodes = canvas.querySelectorAll('.mindmap-node');
-    nodes.forEach((node, index) => {
-        if (index === 0) {
-            // 主节点使用主色
-            node.style.backgroundColor = theme.primaryColor;
-            node.style.borderColor = theme.primaryColor;
+    nodes.forEach(node => {
+        const level = getNodeLevel(node);
+        const colorIndex = level % levelColors.length;
+        const nodeColor = levelColors[colorIndex];
+        
+        node.style.backgroundColor = nodeColor;
+        node.style.borderColor = nodeColor;
+        
+        // 根节点特殊样式
+        if (level === 0) {
+            node.style.fontWeight = '600';
+            node.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)';
+            node.style.color = getContrastColor(nodeColor);
         } else {
-            // 子节点使用次色
-            node.style.backgroundColor = theme.secondaryColor;
-            node.style.borderColor = theme.secondaryColor;
+            node.style.fontWeight = '500';
+            node.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+            node.style.color = getContrastColor(nodeColor);
         }
     });
     
-    // 更新所有连接线的颜色
-    const connections = canvas.querySelectorAll('.connection-line');
-    connections.forEach(line => {
-        line.style.borderColor = theme.connectionColor;
-        line.style.backgroundColor = theme.connectionColor;
-    });
+    // 更新所有连接线
+    updateAllConnections();
     
     // 更新网格显示
     const showGridCheckbox = document.getElementById('showGrid');
-    if (showGridCheckbox) {
-        const showGrid = showGridCheckbox.checked;
-        if (showGrid) {
-            canvas.style.backgroundImage = `
-                linear-gradient(${theme.connectionColor}20 1px, transparent 1px),
-                linear-gradient(90deg, ${theme.connectionColor}20 1px, transparent 1px)
-            `;
-            canvas.style.backgroundSize = '20px 20px';
-        } else {
-            canvas.style.backgroundImage = 'none';
-        }
+    if (showGridCheckbox && showGridCheckbox.checked) {
+        canvas.style.backgroundImage = `
+            linear-gradient(${theme.connectionColor}20 1px, transparent 1px),
+            linear-gradient(90deg, ${theme.connectionColor}20 1px, transparent 1px)
+        `;
+        canvas.style.backgroundSize = '20px 20px';
+    } else {
+        canvas.style.backgroundImage = 'none';
     }
+}
+
+/**
+ * 计算节点层级（根节点为0级）
+ */
+function getNodeLevel(node) {
+    let level = 0;
+    let currentNode = node;
+    
+    // 从当前节点向上追溯到根节点
+    while (currentNode && !isNodeRoot(currentNode)) {
+        const parentConnection = connections.find(conn => conn.to === currentNode);
+        if (parentConnection) {
+            currentNode = parentConnection.from;
+            level++;
+        } else {
+            break;
+        }
+        
+        // 防止无限循环
+        if (level > 10) break;
+    }
+    
+    return level;
+}
+
+/**
+ * 根据背景色计算合适的文字颜色
+ */
+function getContrastColor(hexColor) {
+    // 移除#号
+    const color = hexColor.replace('#', '');
+    
+    // 转换为RGB
+    const r = parseInt(color.substr(0, 2), 16);
+    const g = parseInt(color.substr(2, 2), 16);
+    const b = parseInt(color.substr(4, 2), 16);
+    
+    // 计算亮度
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    
+    // 返回对比色
+    return brightness > 128 ? '#333333' : '#FFFFFF';
+}
+
+/**
+ * 更新所有连接线样式
+ */
+function updateAllConnections() {
+    const canvas = document.getElementById('mindmap-canvas');
+    const allNodes = canvas.querySelectorAll('.node');
+    
+    // 重新绘制所有连接线
+    allNodes.forEach(node => {
+        updateNodeConnections(node);
+    });
+}
+
+/**
+ * 根据当前连接样式更新所有连接线
+ */
+function updateAllConnectionsWithStyle() {
+    updateAllConnections();
+    
+    // 如果有特殊连接样式，在这里处理
+    const currentStyle = currentConnectionStyle || 'curved';
+    
+    // 更新连接线颜色
+    const theme = themes[currentTheme] || themes.default;
+    const connections = document.querySelectorAll('.connection-line');
+    connections.forEach(line => {
+        line.style.borderColor = theme.connectionColor;
+        line.style.backgroundColor = theme.connectionColor;
+        
+        // 根据连接样式调整外观
+        switch(currentStyle) {
+            case 'straight':
+                line.style.borderRadius = '0';
+                break;
+            case 'curved':
+                line.style.borderRadius = '2px';
+                break;
+            case 'bracket':
+            case 'brace':
+                // 这些样式需要特殊处理，暂时使用直线
+                line.style.borderRadius = '0';
+                break;
+        }
+    });
 }
 
 // 重置主题
 function resetTheme() {
     applyTheme('default');
     showToast('主题已重置');
+}
+
+// 选择连接样式
+function selectConnectionStyle(style) {
+    console.log('选择连接样式:', style);
+    currentConnectionStyle = style;
+    
+    // 更新连接样式选择状态
+    const options = document.querySelectorAll('.connection-style-option');
+    console.log('找到连接样式选项:', options.length);
+    
+    options.forEach(option => {
+        option.classList.remove('active');
+    });
+    
+    const targetElement = document.querySelector(`[data-style="${style}"]`);
+    console.log('目标元素:', targetElement);
+    
+    if (targetElement) {
+        targetElement.classList.add('active');
+        console.log('已激活样式:', style);
+    } else {
+        console.error('未找到目标元素:', `[data-style="${style}"]`);
+    }
+    
+    // 更新所有连接线
+    updateAllConnectionsWithStyle();
+    
+    showToast(`连接样式已设置为：${getConnectionStyleName(style)}`);
+}
+
+// 获取连接样式名称
+function getConnectionStyleName(style) {
+    const names = {
+        'curved': '曲线',
+        'straight': '直线',
+        'bracket': '方括号',
+        'brace': '大括号'
+    };
+    return names[style] || '曲线';
 }
 
 // 选择节点形状
@@ -4616,16 +5439,7 @@ function selectNodeShape(shape) {
     document.querySelector(`[data-shape="${shape}"]`).classList.add('active');
 }
 
-// 选择连接线样式
-function selectConnectionStyle(style) {
-    currentConnectionStyle = style;
-    
-    // 更新连接线选择状态
-    document.querySelectorAll('.connection-option').forEach(option => {
-        option.classList.remove('active');
-    });
-    document.querySelector(`[data-connection="${style}"]`).classList.add('active');
-}
+
 
 // 更新节点大小
 function updateNodeSize(value) {
@@ -4859,13 +5673,39 @@ function showNodeStylePanel(node) {
 }
 
 function showAIExpansionPanel(node) {
-    // TODO: 实现AI扩展面板
-    showToast('AI智能扩展功能开发中');
+    // 获取节点文本
+    const nodeText = getNodeText(node);
+    
+    console.log('[AI扩展] 打开AI扩展面板，节点:', node, '节点文本:', nodeText);
+    
+    if (!nodeText || nodeText === '') {
+        showToast('无法获取节点文本内容', 'error');
+        return;
+    }
+    
+    // 收集上下文信息
+    const context = collectNodeContext(node);
+    
+    // 显示AI扩展模态框
+    showAIExpansionModal(node, nodeText, context);
 }
 
 function showAIExplanationPanel(node) {
-    // TODO: 实现AI说明面板
-    showToast('AI智能说明功能开发中');
+    // 获取节点文本
+    const nodeText = getNodeText(node);
+    
+    console.log('[AI说明] 打开AI说明面板，节点:', node, '节点文本:', nodeText);
+    
+    if (!nodeText || nodeText === '') {
+        showToast('无法获取节点文本内容', 'error');
+        return;
+    }
+    
+    // 收集上下文信息
+    const context = collectNodeContext(node);
+    
+    // 显示AI说明模态框
+    showAIExplanationModal(node, nodeText, context);
 }
 
 // 创建SVG连接线容器
@@ -5058,7 +5898,21 @@ function createNodeStyleModal() {
 }
 
 function closeNodeStyleModal() {
-    document.getElementById('nodeStyleModal').style.display = 'none';
+    const modal = document.getElementById('nodeStyleModal');
+    if (modal) {
+        modal.style.display = 'none';
+    } else {
+        // 兼容Bootstrap模态框
+        const bootstrapModal = document.querySelector('.node-style-modal.show');
+        if (bootstrapModal) {
+            const modalInstance = bootstrap.Modal.getInstance(bootstrapModal);
+            if (modalInstance) {
+                modalInstance.hide();
+            } else {
+                bootstrapModal.style.display = 'none';
+            }
+        }
+    }
 }
 
 function updateNodeColor() {
@@ -5256,272 +6110,1104 @@ function deleteConnection() {
      }
 }
 
-// AI功能占位函数
-function showAIExpansionPanel(node) {
-    showToast('AI智能扩展功能开发中');
-}
+// ===========================================
+// AI智能扩展和说明功能
+// ===========================================
 
-function showAIExplanationPanel(node) {
-    showToast('AI智能说明功能开发中');
-}
+let currentAIModal = null;
 
-// 连接线编辑功能
-let currentConnectionModal = null;
-let currentNodeStyleModal = null;
-
-// 显示连接线编辑模态框
-function showConnectionEditModal(line) {
-    console.log('[连接线] 显示连接线编辑模态框, line:', line);
+/**
+ * 收集节点上下文信息
+ */
+function collectNodeContext(node) {
+    const context = {};
     
-    // 先关闭已存在的模态框
-    if (currentConnectionModal) {
-        currentConnectionModal.remove();
-        currentConnectionModal = null;
+    // 查找父节点
+    const parentNode = findParentNode(node);
+    if (parentNode) {
+        const parentText = getNodeText(parentNode);
+        if (parentText) {
+            context.parent = parentText;
+        }
     }
     
-    const modal = document.createElement('div');
-    modal.className = 'github-modal';
-    modal.innerHTML = `
-        <div class="github-modal-content">
-            <div class="github-modal-header">
-                <h6 class="github-modal-title">
-                    <i class="fas fa-link" style="font-size: 12px;"></i>
-                    连接线设置
-                </h6>
-                <button onclick="closeConnectionModal()" class="github-modal-close">×</button>
-            </div>
-            <div class="github-modal-body">
-                <div class="github-form-group">
-                    <label class="github-form-label">颜色</label>
-                    <div class="github-options">
-                        <div class="github-color-option" data-color="#d1d9e0" style="background: #d1d9e0"></div>
-                        <div class="github-color-option" data-color="#0969da" style="background: #0969da"></div>
-                        <div class="github-color-option" data-color="#1f883d" style="background: #1f883d"></div>
-                        <div class="github-color-option" data-color="#da3633" style="background: #da3633"></div>
-                        <div class="github-color-option" data-color="#fb8500" style="background: #fb8500"></div>
-                        <div class="github-color-option" data-color="#8b5cf6" style="background: #8b5cf6"></div>
-                        <div class="github-color-option" data-color="#6c757d" style="background: #6c757d"></div>
-                        <div class="github-color-option" data-color="#495057" style="background: #495057"></div>
-                        <!-- 自定义色盘 -->
-                        <div class="color-picker-wrapper">
-                            <input type="color" class="github-color-picker" id="connectionColorPicker" title="自定义颜色">
-                            <div class="color-picker-icon">🎨</div>
+    // 查找同级节点
+    const siblings = [];
+    if (parentNode) {
+        const allChildNodes = findChildNodes(parentNode);
+        allChildNodes.forEach(childNode => {
+            if (childNode !== node) {
+                const siblingText = getNodeText(childNode);
+                if (siblingText) {
+                    siblings.push(siblingText);
+                }
+            }
+        });
+    }
+    context.siblings = siblings;
+    
+    console.log('[上下文] 收集节点上下文:', context);
+    return context;
+}
+
+/**
+ * 获取节点文本的通用函数
+ */
+function getNodeText(node) {
+    if (!node) return '';
+    
+    // 优先查找子元素中的文本
+    const textElement = node.querySelector('span') || 
+                       node.querySelector('.node-text') || 
+                       node.querySelector('.mindmap-node-text') || 
+                       node.querySelector('input[type="text"]') ||
+                       node.querySelector('textarea');
+    
+    if (textElement) {
+        return (textElement.textContent || textElement.value || '').trim();
+    }
+    
+    // 备用方案：获取节点的直接文本内容（排除按钮等子元素）
+    let nodeText = '';
+    for (const childNode of node.childNodes) {
+        if (childNode.nodeType === Node.TEXT_NODE) {
+            nodeText += childNode.textContent;
+        }
+    }
+    
+    return nodeText.trim() || '';
+}
+
+/**
+ * 查找父节点
+ */
+function findParentNode(node) {
+    // 通过连接线找到父节点
+    const nodeId = node.dataset.nodeId;
+    const connections = document.querySelectorAll('.connection-line');
+    
+    for (const connection of connections) {
+        const endNodeId = connection.dataset.endNode;
+        if (endNodeId === nodeId) {
+            const startNodeId = connection.dataset.startNode;
+            return document.querySelector(`[data-node-id="${startNodeId}"]`);
+        }
+    }
+    return null;
+}
+
+/**
+ * 查找子节点
+ */
+function findChildNodes(node) {
+    const nodeId = node.dataset.nodeId;
+    const connections = document.querySelectorAll('.connection-line');
+    const childNodes = [];
+    
+    for (const connection of connections) {
+        const startNodeId = connection.dataset.startNode;
+        if (startNodeId === nodeId) {
+            const endNodeId = connection.dataset.endNode;
+            const childNode = document.querySelector(`[data-node-id="${endNodeId}"]`);
+            if (childNode) {
+                childNodes.push(childNode);
+            }
+        }
+    }
+    return childNodes;
+}
+
+/**
+ * 显示AI扩展模态框
+ */
+function showAIExpansionModal(node, nodeText, context) {
+    // 移除现有模态框
+    if (currentAIModal) {
+        currentAIModal.remove();
+        currentAIModal = null;
+    }
+    
+    // 创建模态框HTML
+    const modalHtml = `
+        <div class="modal fade" id="aiExpansionModal" tabindex="-1" role="dialog" aria-labelledby="aiExpansionModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="aiExpansionModalLabel">
+                            <i class="fas fa-brain text-primary me-2"></i>AI智能扩展
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="ai-expansion-content">
+                            <!-- 节点信息 -->
+                            <div class="node-info mb-3">
+                                <label class="form-label fw-bold">当前节点：</label>
+                                <div class="node-preview p-2 bg-light rounded">
+                                    <i class="fas fa-circle-notch text-primary me-2"></i>
+                                    ${nodeText}
+                                </div>
+                            </div>
+                            
+                            <!-- 上下文信息 -->
+                            ${context.parent ? `
+                            <div class="context-info mb-3">
+                                <label class="form-label fw-bold">父节点：</label>
+                                <div class="context-preview p-2 bg-info bg-opacity-10 rounded">
+                                    <i class="fas fa-arrow-up text-info me-2"></i>
+                                    ${context.parent}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            ${context.siblings && context.siblings.length > 0 ? `
+                            <div class="context-info mb-3">
+                                <label class="form-label fw-bold">同级节点：</label>
+                                <div class="context-preview p-2 bg-warning bg-opacity-10 rounded">
+                                    <i class="fas fa-equals text-warning me-2"></i>
+                                    ${context.siblings.join(', ')}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <!-- AI扩展设置 -->
+                            <div class="ai-settings">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">扩展模式：</label>
+                                            <select class="form-select" id="expansionMode">
+                                                <option value="creative">🎨 创意发散 - 跨领域联想</option>
+                                                <option value="deep_analysis">🔍 深度分析 - 系统性分解</option>
+                                                <option value="practical">⚙️ 实用导向 - 可操作性强</option>
+                                                <option value="academic">📚 学术研究 - 理论严谨</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">生成数量：</label>
+                                            <select class="form-select" id="expansionCount">
+                                                <option value="3">3个节点</option>
+                                                <option value="4" selected>4个节点</option>
+                                                <option value="5">5个节点</option>
+                                                <option value="6">6个节点</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">上下文选项：</label>
+                                            <div class="form-check-group">
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="includeParent" ${context.parent ? 'checked' : ''}>
+                                                    <label class="form-check-label" for="includeParent">
+                                                        包含父节点上下文
+                                                    </label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="includeSiblings" ${context.siblings && context.siblings.length > 0 ? 'checked' : ''}>
+                                                    <label class="form-check-label" for="includeSiblings">
+                                                        包含同级节点上下文
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- AI响应区域 -->
+                            <div class="ai-response-area" id="aiResponseArea" style="display: none;">
+                                <label class="form-label fw-bold">AI生成的扩展节点：</label>
+                                <div class="response-content p-3 bg-success bg-opacity-10 rounded" id="aiResponseContent">
+                                    <!-- AI响应内容将在这里显示 -->
+                                </div>
+                            </div>
+                            
+                            <!-- 加载状态 -->
+                            <div class="ai-loading text-center py-4" id="aiLoading" style="display: none;">
+                                <div class="spinner-border text-primary mb-3" role="status">
+                                    <span class="visually-hidden">正在生成...</span>
+                                </div>
+                                <p class="text-muted">AI正在思考中，请稍候...</p>
+                            </div>
+                            
+                            <!-- 调试信息面板 -->
+                            <div class="ai-debug-panel mt-4" id="aiDebugPanel" style="display: none;">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0 text-info">
+                                            <i class="fas fa-bug me-2"></i>AI交互调试信息
+                                        </h6>
+                                        <button class="btn btn-sm btn-outline-info" onclick="toggleDebugPanel()">
+                                            <i class="fas fa-eye" id="debugToggleIcon"></i>
+                                            <span class="ms-1">展开</span>
+                                        </button>
+                                    </div>
+                                    <div class="card-body" id="debugContent" style="display: none;">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6><i class="fas fa-paper-plane me-1"></i>发送给AI的提示词：</h6>
+                                                <pre class="bg-light p-2 small" id="debugPrompt" style="max-height: 200px; overflow-y: auto;"></pre>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6><i class="fas fa-robot me-1"></i>AI原始响应：</h6>
+                                                <pre class="bg-light p-2 small" id="debugResponse" style="max-height: 200px; overflow-y: auto;"></pre>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-md-6">
+                                                <h6><i class="fas fa-cog me-1"></i>模型信息：</h6>
+                                                <div id="debugModelInfo" class="small text-muted"></div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6><i class="fas fa-chart-bar me-1"></i>Token使用：</h6>
+                                                <div id="debugUsageInfo" class="small text-muted"></div>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-12">
+                                                <h6><i class="fas fa-search me-1"></i>解析状态：</h6>
+                                                <div id="debugParseInfo" class="small"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="github-form-group">
-                    <label class="github-form-label">粗细</label>
-                    <div class="github-options">
-                        <div class="github-size-option" data-width="1">细</div>
-                        <div class="github-size-option" data-width="2">中</div>
-                        <div class="github-size-option" data-width="3">粗</div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" id="generateExpansionBtn" onclick="generateAIExpansion()">
+                            <i class="fas fa-magic me-2"></i>生成扩展节点
+                        </button>
+                        <button type="button" class="btn btn-success" id="applyExpansionBtn" onclick="applyAIExpansion()" style="display: none;">
+                            <i class="fas fa-check me-2"></i>应用到导图
+                        </button>
                     </div>
                 </div>
-                <div class="github-form-group">
-                    <label class="github-form-label">样式</label>
-                    <div class="github-options">
-                        <div class="github-style-option" data-style="solid">实线</div>
-                        <div class="github-style-option" data-style="dashed">虚线</div>
-                    </div>
-                </div>
-            </div>
-            <div class="github-modal-actions">
-                <button onclick="deleteConnection()" class="github-btn github-btn-danger">删除</button>
-                <button onclick="closeConnectionModal()" class="github-btn github-btn-secondary">完成</button>
             </div>
         </div>
     `;
     
-    document.body.appendChild(modal);
-    currentConnectionModal = modal;
+    // 添加到页面
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    currentAIModal = document.getElementById('aiExpansionModal');
     
-    // 根据当前连接线状态设置UI回显
-    const currentColor = line.dataset.color || '#d1d9e0';
-    const currentWidth = line.dataset.width || '2';
-    const currentStyle = line.dataset.style || 'solid';
+    // 存储相关数据
+    currentAIModal.sourceNode = node;
+    currentAIModal.nodeText = nodeText;
+    currentAIModal.context = context;
     
-    console.log('[连接线] 当前状态 - 颜色:', currentColor, '粗细:', currentWidth, '样式:', currentStyle);
+    // 显示模态框
+    const modal = new bootstrap.Modal(currentAIModal);
+    modal.show();
     
-    // 设置颜色active状态
-    modal.querySelectorAll('.github-color-option').forEach(option => {
-        if (option.dataset.color === currentColor) {
-            option.classList.add('active');
-        }
-    });
-    
-    // 设置粗细active状态
-    modal.querySelectorAll('.github-size-option').forEach(option => {
-        if (option.dataset.width === currentWidth) {
-            option.classList.add('active');
-        }
-    });
-    
-    // 设置样式active状态
-    modal.querySelectorAll('.github-style-option').forEach(option => {
-        if (option.dataset.style === currentStyle) {
-            option.classList.add('active');
-        }
-    });
-    
-    // 绑定颜色选择事件
-    modal.querySelectorAll('.github-color-option').forEach(option => {
-        option.addEventListener('click', () => {
-            try {
-                console.log('[连接线] 颜色选择被点击，color:', option.dataset.color);
-                modal.querySelectorAll('.github-color-option').forEach(o => o.classList.remove('active'));
-                option.classList.add('active');
-                const color = option.dataset.color;
-                line.style.background = color;
-                line.dataset.color = color;
-                console.log('[连接线] 颜色已更新');
-            } catch (error) {
-                console.error('[连接线] 颜色选择错误:', error);
-            }
-        });
-    });
-    
-    // 绑定自定义颜色选择器事件
-    const connectionColorPicker = modal.querySelector('#connectionColorPicker');
-    if (connectionColorPicker) {
-        connectionColorPicker.addEventListener('change', () => {
-            try {
-                console.log('[连接线] 自定义颜色选择，color:', connectionColorPicker.value);
-                modal.querySelectorAll('.github-color-option').forEach(o => o.classList.remove('active'));
-                const color = connectionColorPicker.value;
-                line.style.background = color;
-                line.dataset.color = color;
-                console.log('[连接线] 自定义颜色已更新');
-            } catch (error) {
-                console.error('[连接线] 自定义颜色选择错误:', error);
-            }
-        });
-    }
-    
-    // 绑定粗细选择事件
-    modal.querySelectorAll('.github-size-option').forEach(option => {
-        option.addEventListener('click', () => {
-            try {
-                console.log('[连接线] 粗细选择被点击，width:', option.dataset.width);
-                modal.querySelectorAll('.github-size-option').forEach(o => o.classList.remove('active'));
-                option.classList.add('active');
-                const width = option.dataset.width;
-                line.style.height = width + 'px';
-                line.dataset.width = width; // 保存粗细数据
-                console.log('[连接线] 粗细已更新');
-            } catch (error) {
-                console.error('[连接线] 粗细选择错误:', error);
-            }
-        });
-    });
-    
-    // 绑定样式选择事件
-    modal.querySelectorAll('.github-style-option').forEach(option => {
-        option.addEventListener('click', () => {
-            try {
-                console.log('[连接线] 样式选择被点击，style:', option.dataset.style);
-                modal.querySelectorAll('.github-style-option').forEach(o => o.classList.remove('active'));
-                option.classList.add('active');
-                const style = option.dataset.style;
-                line.dataset.style = style; // 保存样式数据
-                
-                if (style === 'dashed') {
-                    const height = line.dataset.width || '2';
-                    const color = line.dataset.color || '#d1d9e0';
-                    line.style.border = 'none';
-                    line.style.borderTop = `${height}px dashed ${color}`;
-                    line.style.background = 'transparent';
-                    line.style.height = '0px'; // 让border-top承担显示
-                } else {
-                    line.style.border = 'none';
-                    line.style.borderTop = 'none';
-                    line.style.background = line.dataset.color || '#d1d9e0';
-                    line.style.height = (line.dataset.width || '2') + 'px';
-                }
-                console.log('[连接线] 样式已更新');
-            } catch (error) {
-                console.error('[连接线] 样式选择错误:', error);
-            }
-        });
+    // 模态框关闭时清理
+    currentAIModal.addEventListener('hidden.bs.modal', function () {
+        currentAIModal.remove();
+        currentAIModal = null;
     });
 }
 
-function closeConnectionModal() {
-    console.log('[连接线] 关闭连接线模态框');
-    if (currentConnectionModal) {
-        currentConnectionModal.remove();
-        currentConnectionModal = null;
-        console.log('[连接线] 模态框已关闭');
+/**
+ * 显示AI说明模态框
+ */
+function showAIExplanationModal(node, nodeText, context) {
+    // 移除现有模态框
+    if (currentAIModal) {
+        currentAIModal.remove();
+        currentAIModal = null;
+    }
+    
+    // 创建模态框HTML
+    const modalHtml = `
+        <div class="modal fade" id="aiExplanationModal" tabindex="-1" role="dialog" aria-labelledby="aiExplanationModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="aiExplanationModalLabel">
+                            <i class="fas fa-info-circle text-info me-2"></i>AI智能说明
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="ai-explanation-content">
+                            <!-- 节点信息 -->
+                            <div class="node-info mb-3">
+                                <label class="form-label fw-bold">节点内容：</label>
+                                <div class="node-preview p-2 bg-light rounded">
+                                    <i class="fas fa-circle-notch text-primary me-2"></i>
+                                    ${nodeText}
+                                </div>
+                            </div>
+                            
+                            <!-- 上下文信息 -->
+                            ${context.parent ? `
+                            <div class="context-info mb-3">
+                                <label class="form-label fw-bold">父节点：</label>
+                                <div class="context-preview p-2 bg-info bg-opacity-10 rounded">
+                                    <i class="fas fa-arrow-up text-info me-2"></i>
+                                    ${context.parent}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <!-- 说明类型设置 -->
+                            <div class="ai-settings mb-4">
+                                <div class="row">
+                                    <div class="col-12">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">说明类型：</label>
+                                            <select class="form-select" id="explanationType">
+                                                <option value="summary">📋 简要概括 - 快速理解核心要点</option>
+                                                <option value="detailed" selected>📖 详细解释 - 全面深入说明</option>
+                                                <option value="examples">💡 案例说明 - 通过例子阐释</option>
+                                                <option value="academic">🎓 学术解释 - 理论背景分析</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- AI响应区域 -->
+                            <div class="ai-response-area" id="aiExplanationResponseArea" style="display: none;">
+                                <label class="form-label fw-bold">AI生成的说明：</label>
+                                <div class="response-content p-3 bg-info bg-opacity-10 rounded" id="aiExplanationResponseContent">
+                                    <!-- AI响应内容将在这里显示 -->
+                                </div>
+                            </div>
+                            
+                            <!-- 加载状态 -->
+                            <div class="ai-loading text-center py-4" id="aiExplanationLoading" style="display: none;">
+                                <div class="spinner-border text-info mb-3" role="status">
+                                    <span class="visually-hidden">正在生成说明...</span>
+                                </div>
+                                <p class="text-muted">AI正在分析节点内容，请稍候...</p>
+                            </div>
+                            
+                            <!-- 调试信息面板 -->
+                            <div class="ai-debug-panel mt-4" id="aiDebugPanel" style="display: none;">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0 text-info">
+                                            <i class="fas fa-bug me-2"></i>AI交互调试信息
+                                        </h6>
+                                        <button class="btn btn-sm btn-outline-info" onclick="toggleDebugPanel()">
+                                            <i class="fas fa-eye" id="debugToggleIcon"></i>
+                                            <span class="ms-1">展开</span>
+                                        </button>
+                                    </div>
+                                    <div class="card-body" id="debugContent" style="display: none;">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6><i class="fas fa-paper-plane me-1"></i>发送给AI的提示词：</h6>
+                                                <pre class="bg-light p-2 small" id="debugPrompt" style="max-height: 200px; overflow-y: auto;"></pre>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6><i class="fas fa-robot me-1"></i>AI原始响应：</h6>
+                                                <pre class="bg-light p-2 small" id="debugResponse" style="max-height: 200px; overflow-y: auto;"></pre>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-md-6">
+                                                <h6><i class="fas fa-cog me-1"></i>模型信息：</h6>
+                                                <div id="debugModelInfo" class="small text-muted"></div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6><i class="fas fa-chart-bar me-1"></i>Token使用：</h6>
+                                                <div id="debugUsageInfo" class="small text-muted"></div>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-12">
+                                                <h6><i class="fas fa-search me-1"></i>解析状态：</h6>
+                                                <div id="debugParseInfo" class="small"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-info" id="generateExplanationBtn" onclick="generateAIExplanation()">
+                            <i class="fas fa-lightbulb me-2"></i>生成说明
+                        </button>
+                        <button type="button" class="btn btn-success" id="applyExplanationBtn" onclick="applyAIExplanation()" style="display: none;">
+                            <i class="fas fa-check me-2"></i>添加说明气泡
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 添加到页面
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    currentAIModal = document.getElementById('aiExplanationModal');
+    
+    // 存储相关数据
+    currentAIModal.sourceNode = node;
+    currentAIModal.nodeText = nodeText;
+    currentAIModal.context = context;
+    
+    // 显示模态框
+    const modal = new bootstrap.Modal(currentAIModal);
+    modal.show();
+    
+    // 模态框关闭时清理
+    currentAIModal.addEventListener('hidden.bs.modal', function () {
+        currentAIModal.remove();
+        currentAIModal = null;
+    });
+}
+
+/**
+ * 生成AI扩展节点
+ */
+function generateAIExpansion() {
+    if (!currentAIModal) return;
+    
+    const generateBtn = document.getElementById('generateExpansionBtn');
+    const loadingDiv = document.getElementById('aiLoading');
+    const responseArea = document.getElementById('aiResponseArea');
+    const applyBtn = document.getElementById('applyExpansionBtn');
+    
+    // 获取参数
+    const mode = document.getElementById('expansionMode').value;
+    const count = parseInt(document.getElementById('expansionCount').value);
+    const includeParent = document.getElementById('includeParent').checked;
+    const includeSiblings = document.getElementById('includeSiblings').checked;
+    
+    console.log('[AI扩展] 生成参数:', { mode, count, includeParent, includeSiblings });
+    
+    // 显示加载状态
+    generateBtn.style.display = 'none';
+    applyBtn.style.display = 'none';
+    responseArea.style.display = 'none';
+    loadingDiv.style.display = 'block';
+    
+    // 构建请求数据
+    const requestData = {
+        node_text: currentAIModal.nodeText,
+        mindmap_id: getCurrentMindmapId(),
+        context: currentAIModal.context,
+        mode: mode,
+        count: count,
+        include_parent: includeParent,
+        include_siblings: includeSiblings
+    };
+    
+    // 调用AI API
+    fetch('/mindmap/ai/expand', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('[AI扩展] 响应数据:', data);
+        
+        loadingDiv.style.display = 'none';
+        generateBtn.style.display = 'inline-block';
+        
+        if (data.success && data.nodes) {
+            // 显示生成的节点
+            displayAIExpansionResults(data.nodes, data.layout_suggestion);
+            applyBtn.style.display = 'inline-block';
+            
+            // 存储AI响应数据
+            currentAIModal.aiResponse = data;
+            
+            // 只对管理员和测试用户显示调试信息
+            if (getUserCanSeeDebug()) {
+                displayDebugInfo(data.debug_info);
+            }
+        } else {
+            showToast('AI扩展失败：' + (data.error || '未知错误'), 'error');
+            
+            // 只对管理员和测试用户显示调试信息（即使失败也显示）
+            if (data.debug_info && getUserCanSeeDebug()) {
+                displayDebugInfo(data.debug_info);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('[AI扩展] 请求失败:', error);
+        loadingDiv.style.display = 'none';
+        generateBtn.style.display = 'inline-block';
+        showToast('网络错误，请检查连接并重试', 'error');
+    });
+}
+
+/**
+ * 显示AI扩展结果
+ */
+function displayAIExpansionResults(nodes, layoutSuggestion) {
+    const responseArea = document.getElementById('aiResponseArea');
+    const responseContent = document.getElementById('aiResponseContent');
+    
+    let html = '';
+    nodes.forEach((node, index) => {
+        const priorityColor = {
+            'high': 'text-danger',
+            'medium': 'text-warning', 
+            'low': 'text-muted'
+        }[node.priority] || 'text-info';
+        
+        const typeIcon = {
+            'concept': 'fas fa-lightbulb',
+            'action': 'fas fa-play',
+            'detail': 'fas fa-info-circle',
+            'question': 'fas fa-question-circle'
+        }[node.type] || 'fas fa-circle';
+        
+        html += `
+            <div class="ai-node-result mb-3 p-2 border rounded" data-node-index="${index}">
+                <div class="d-flex align-items-start">
+                    <div class="me-3">
+                        <i class="${typeIcon} ${priorityColor}"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">${node.text}</div>
+                        ${node.description ? `<div class="text-muted small mt-1">${node.description}</div>` : ''}
+                        <div class="mt-2">
+                            <span class="badge bg-secondary me-1">${node.type}</span>
+                            <span class="badge bg-${node.priority === 'high' ? 'danger' : node.priority === 'medium' ? 'warning' : 'light text-dark'}">${node.priority}</span>
+                        </div>
+                    </div>
+                    <div class="ms-3">
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeAINode(${index})" title="移除">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    // 不显示布局建议，因为我们始终使用树形布局
+    
+    responseContent.innerHTML = html;
+    responseArea.style.display = 'block';
+}
+
+/**
+ * 移除AI生成的节点
+ */
+function removeAINode(index) {
+    const nodeElement = document.querySelector(`[data-node-index="${index}"]`);
+    if (nodeElement) {
+        nodeElement.remove();
+    }
+    
+    // 更新AI响应数据
+    if (currentAIModal && currentAIModal.aiResponse && currentAIModal.aiResponse.nodes) {
+        currentAIModal.aiResponse.nodes.splice(index, 1);
+        
+        // 重新显示结果（更新索引）
+        displayAIExpansionResults(currentAIModal.aiResponse.nodes, currentAIModal.aiResponse.layout_suggestion);
+    }
+}
+
+/**
+ * 应用AI扩展到思维导图
+ */
+function applyAIExpansion() {
+    if (!currentAIModal || !currentAIModal.aiResponse) return;
+    
+    const sourceNode = currentAIModal.sourceNode;
+    const nodes = currentAIModal.aiResponse.nodes;
+    const layoutSuggestion = currentAIModal.aiResponse.layout_suggestion;
+    
+    console.log('[AI扩展] 应用扩展节点:', nodes);
+    
+    // 获取剩余的节点（未被移除的）
+    const remainingNodes = [];
+    document.querySelectorAll('.ai-node-result').forEach((element, index) => {
+        const nodeIndex = parseInt(element.dataset.nodeIndex);
+        if (nodes[nodeIndex]) {
+            remainingNodes.push(nodes[nodeIndex]);
+        }
+    });
+    
+    if (remainingNodes.length === 0) {
+        showToast('没有可应用的节点', 'warning');
+        return;
+    }
+    
+    // 创建节点并添加到画布
+    const canvas = document.getElementById('mindmap-canvas');
+    const createdNodes = [];
+    
+    remainingNodes.forEach((nodeData, index) => {
+        console.log(`[AI扩展] 创建节点 ${index + 1}/${remainingNodes.length}: ${nodeData.text}`);
+        
+        const newNode = createNode(nodeData.text);
+        
+        // 设置节点样式（根据类型和优先级）
+        if (nodeData.type === 'action') {
+            newNode.classList.add('action-node');
+            newNode.style.backgroundColor = '#fff3cd';
+            newNode.style.borderColor = '#ffc107';
+        } else if (nodeData.type === 'question') {
+            newNode.classList.add('question-node');
+            newNode.style.backgroundColor = '#f8d7da';
+            newNode.style.borderColor = '#dc3545';
+        } else if (nodeData.type === 'concept') {
+            newNode.style.backgroundColor = '#e6f3ff';
+            newNode.style.borderColor = '#0969da';
+        }
+        
+        if (nodeData.priority === 'high') {
+            newNode.style.borderColor = '#dc3545';
+            newNode.style.borderWidth = '2px';
+            newNode.style.fontWeight = 'bold';
+        } else if (nodeData.priority === 'medium') {
+            newNode.style.borderWidth = '1.5px';
+        }
+        
+        // ⚠️ 关键修复：添加到画布中！
+        canvas.appendChild(newNode);
+        
+        createdNodes.push(newNode);
+        
+        console.log(`[AI扩展] 节点已添加到画布: ${newNode.textContent}`);
+    });
+    
+    console.log(`[AI扩展] 总共创建 ${createdNodes.length} 个节点`);
+    
+    // 布局新节点
+    layoutAINodes(sourceNode, createdNodes, layoutSuggestion);
+    
+    // 建立连接
+    createdNodes.forEach((newNode, index) => {
+        console.log(`[AI扩展] 创建连接: ${sourceNode.textContent} -> ${newNode.textContent}`);
+        createConnection(sourceNode, newNode);
+    });
+    
+    console.log(`[AI扩展] 所有连接已创建`);
+    
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(currentAIModal);
+    modal.hide();
+    
+    showToast(`成功添加 ${createdNodes.length} 个AI扩展节点`, 'success');
+}
+
+/**
+ * 布局AI生成的节点（使用树形布局）
+ */
+function layoutAINodes(sourceNode, nodes, layoutSuggestion) {
+    // 忽略layoutSuggestion参数，始终使用树形布局
+    const sourceX = parseInt(sourceNode.style.left) || 0;
+    const sourceY = parseInt(sourceNode.style.top) || 0;
+    
+    // 树形布局配置
+    const LEVEL_OFFSET = 160;
+    const VERTICAL_SPACING = 80;
+    
+    // 获取现有子节点来决定新节点的位置
+    const existingChildren = getChildNodes(sourceNode);
+    const isRootNode = sourceNode.classList.contains('center-node') || 
+                      sourceNode.classList.contains('root-node') ||
+                      isNodeRoot(sourceNode);
+    
+    nodes.forEach((node, index) => {
+        let x, y;
+        
+        if (isRootNode) {
+            // 根节点的AI子节点分布在左右两侧
+            const totalExistingChildren = existingChildren.length;
+            const totalNewChildren = nodes.length;
+            const childIndex = totalExistingChildren + index;
+            
+            // 交替分布在左右两侧
+            const useLeftSide = childIndex % 2 === 0;
+            const sideIndex = Math.floor(childIndex / 2);
+            
+            if (useLeftSide) {
+                x = sourceX - LEVEL_OFFSET;
+                y = sourceY + sideIndex * VERTICAL_SPACING - (Math.floor((totalExistingChildren + totalNewChildren) / 2) * VERTICAL_SPACING / 2);
+            } else {
+                x = sourceX + LEVEL_OFFSET;
+                y = sourceY + sideIndex * VERTICAL_SPACING - (Math.floor((totalExistingChildren + totalNewChildren) / 2) * VERTICAL_SPACING / 2);
+            }
+        } else {
+            // 非根节点的AI子节点垂直排列
+            const startY = existingChildren.length > 0 ? 
+                parseInt(existingChildren[existingChildren.length - 1].style.top) + VERTICAL_SPACING :
+                sourceY;
+            
+            x = sourceX + LEVEL_OFFSET;
+            y = startY + index * VERTICAL_SPACING;
+        }
+        
+        // 确保节点在画布内
+        const canvas = document.getElementById('mindmap-canvas');
+        const nodeWidth = 140;
+        const nodeHeight = 50;
+        const margin = 20;
+        
+        x = Math.max(margin, Math.min(x, canvas.offsetWidth - nodeWidth - margin));
+        y = Math.max(margin, Math.min(y, canvas.offsetHeight - nodeHeight - margin));
+        
+        node.style.left = x + 'px';
+        node.style.top = y + 'px';
+        
+        // 自动调整节点大小
+        autoResizeNode(node);
+    });
+    
+    console.log(`[AI布局] 为 ${sourceNode.textContent} 布局了 ${nodes.length} 个AI节点`);
+}
+
+/**
+ * 生成AI说明
+ */
+function generateAIExplanation() {
+    if (!currentAIModal) return;
+    
+    const generateBtn = document.getElementById('generateExplanationBtn');
+    const loadingDiv = document.getElementById('aiExplanationLoading');
+    const responseArea = document.getElementById('aiExplanationResponseArea');
+    const applyBtn = document.getElementById('applyExplanationBtn');
+    
+    // 获取参数
+    const explanationType = document.getElementById('explanationType').value;
+    
+    console.log('[AI说明] 生成参数:', { explanationType });
+    
+    // 显示加载状态
+    generateBtn.style.display = 'none';
+    applyBtn.style.display = 'none';
+    responseArea.style.display = 'none';
+    loadingDiv.style.display = 'block';
+    
+    // 构建请求数据
+    const requestData = {
+        node_text: currentAIModal.nodeText,
+        mindmap_id: getCurrentMindmapId(),
+        context: currentAIModal.context,
+        explanation_type: explanationType
+    };
+    
+    // 调用AI API
+    fetch('/mindmap/ai/explain', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('[AI说明] 响应数据:', data);
+        
+        loadingDiv.style.display = 'none';
+        generateBtn.style.display = 'inline-block';
+        
+        if (data.success && data.explanation) {
+            // 显示生成的说明
+            displayAIExplanationResults(data.explanation, data.style);
+            applyBtn.style.display = 'inline-block';
+            
+            // 存储AI响应数据
+            currentAIModal.aiResponse = data;
+            
+            // 只对管理员和测试用户显示调试信息
+            if (data.debug_info && getUserCanSeeDebug()) {
+                displayDebugInfo(data.debug_info);
+            }
+        } else {
+            showToast('AI说明失败：' + (data.error || '未知错误'), 'error');
+            
+            // 只对管理员和测试用户显示调试信息（即使失败也显示）
+            if (data.debug_info && getUserCanSeeDebug()) {
+                displayDebugInfo(data.debug_info);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('[AI说明] 请求失败:', error);
+        loadingDiv.style.display = 'none';
+        generateBtn.style.display = 'inline-block';
+        showToast('网络错误，请检查连接并重试', 'error');
+    });
+}
+
+/**
+ * 显示AI说明结果
+ */
+function displayAIExplanationResults(explanation, style) {
+    const responseArea = document.getElementById('aiExplanationResponseArea');
+    const responseContent = document.getElementById('aiExplanationResponseContent');
+    
+    const styleClass = {
+        'info': 'bg-info bg-opacity-10',
+        'tip': 'bg-success bg-opacity-10',
+        'warning': 'bg-warning bg-opacity-10',
+        'note': 'bg-secondary bg-opacity-10'
+    }[style] || 'bg-info bg-opacity-10';
+    
+    let html = `
+        <div class="explanation-content ${styleClass} p-3 rounded">
+            <div class="explanation-main mb-3">
+                <h6 class="fw-bold mb-2">${explanation.summary || '说明'}</h6>
+                <div class="explanation-text">${explanation.content || explanation.summary || ''}</div>
+            </div>
+    `;
+    
+    if (explanation.examples && explanation.examples.length > 0) {
+        html += `
+            <div class="explanation-examples mb-3">
+                <h6 class="fw-bold mb-2"><i class="fas fa-lightbulb me-1"></i>相关案例：</h6>
+                <ul class="mb-0">
+                    ${explanation.examples.map(example => `<li>${example}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    if (explanation.related_concepts && explanation.related_concepts.length > 0) {
+        html += `
+            <div class="explanation-concepts">
+                <h6 class="fw-bold mb-2"><i class="fas fa-link me-1"></i>相关概念：</h6>
+                <div class="d-flex flex-wrap gap-1">
+                    ${explanation.related_concepts.map(concept => 
+                        `<span class="badge bg-primary">${concept}</span>`
+                    ).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    
+    responseContent.innerHTML = html;
+    responseArea.style.display = 'block';
+}
+
+/**
+ * 应用AI说明到思维导图
+ */
+function applyAIExplanation() {
+    if (!currentAIModal || !currentAIModal.aiResponse) return;
+    
+    const sourceNode = currentAIModal.sourceNode;
+    const explanation = currentAIModal.aiResponse.explanation;
+    const style = currentAIModal.aiResponse.style || 'info';
+    
+    console.log('[AI说明] 应用说明气泡:', explanation);
+    
+    // 创建说明气泡
+    createExplanationBubble(sourceNode, explanation, style);
+    
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(currentAIModal);
+    modal.hide();
+    
+    showToast('成功添加AI说明气泡', 'success');
+}
+
+/**
+ * 创建说明气泡
+ */
+function createExplanationBubble(node, explanation, style) {
+    // 移除现有说明气泡
+    const existingBubble = node.querySelector('.explanation-bubble');
+    if (existingBubble) {
+        existingBubble.remove();
+    }
+    
+    // 创建说明气泡元素
+    const bubble = document.createElement('div');
+    bubble.className = `explanation-bubble explanation-${style}`;
+    
+    const styleClass = {
+        'info': 'bg-info text-white',
+        'tip': 'bg-success text-white',
+        'warning': 'bg-warning text-dark',
+        'note': 'bg-secondary text-white'
+    }[style] || 'bg-info text-white';
+    
+    bubble.innerHTML = `
+        <div class="bubble-content ${styleClass} p-2 rounded shadow-sm">
+            <div class="bubble-header d-flex justify-content-between align-items-center mb-1">
+                <small class="fw-bold">${explanation.summary || 'AI说明'}</small>
+                <button class="btn btn-sm p-0 text-white-50" onclick="removeBubble(this)" title="关闭说明">
+                    <i class="fas fa-times" style="font-size: 10px;"></i>
+                </button>
+            </div>
+            <div class="bubble-text small">
+                ${explanation.content || explanation.summary || ''}
+            </div>
+        </div>
+        <div class="bubble-arrow ${styleClass}"></div>
+    `;
+    
+    // 添加气泡样式
+    bubble.style.cssText = `
+        position: absolute;
+        top: -10px;
+        right: -200px;
+        width: 180px;
+        z-index: 1000;
+        pointer-events: auto;
+    `;
+    
+    // 添加到节点
+    node.appendChild(bubble);
+    
+    // 添加交互效果
+    bubble.addEventListener('mouseenter', function() {
+        bubble.style.transform = 'scale(1.05)';
+    });
+    
+    bubble.addEventListener('mouseleave', function() {
+        bubble.style.transform = 'scale(1)';
+    });
+}
+
+/**
+ * 移除说明气泡
+ */
+function removeBubble(button) {
+    const bubble = button.closest('.explanation-bubble');
+    if (bubble) {
+        bubble.remove();
+    }
+}
+
+/**
+ * 获取当前思维导图ID
+ */
+function getCurrentMindmapId() {
+    // 从URL或全局变量获取当前思维导图ID
+    const pathParts = window.location.pathname.split('/');
+    return pathParts[pathParts.length - 1] || null;
+}
+
+// ===========================================
+// AI调试功能
+// ===========================================
+
+/**
+ * 显示AI调试信息
+ */
+function displayDebugInfo(debugInfo) {
+    if (!debugInfo) return;
+    
+    const debugPanel = document.getElementById('aiDebugPanel');
+    const debugPrompt = document.getElementById('debugPrompt');
+    const debugResponse = document.getElementById('debugResponse');
+    const debugModelInfo = document.getElementById('debugModelInfo');
+    const debugUsageInfo = document.getElementById('debugUsageInfo');
+    const debugParseInfo = document.getElementById('debugParseInfo');
+    
+    // 显示调试面板
+    debugPanel.style.display = 'block';
+    
+    // 填充调试信息
+    if (debugPrompt && debugInfo.prompt) {
+        debugPrompt.textContent = debugInfo.prompt;
+    }
+    
+    if (debugResponse && debugInfo.raw_response) {
+        debugResponse.textContent = debugInfo.raw_response;
+    }
+    
+    if (debugModelInfo && debugInfo.model_used) {
+        debugModelInfo.innerHTML = `
+            <div><strong>模型:</strong> ${debugInfo.model_used}</div>
+            <div><strong>时间:</strong> ${new Date().toLocaleString()}</div>
+        `;
+    }
+    
+    if (debugUsageInfo && debugInfo.usage) {
+        const usage = debugInfo.usage;
+        debugUsageInfo.innerHTML = `
+            <div><strong>输入Token:</strong> ${usage.prompt_tokens || '未知'}</div>
+            <div><strong>输出Token:</strong> ${usage.completion_tokens || '未知'}</div>
+            <div><strong>总Token:</strong> ${usage.total_tokens || '未知'}</div>
+        `;
+    }
+    
+    if (debugParseInfo) {
+        const parseSuccess = debugInfo.parse_success;
+        const extractionMethod = debugInfo.extraction_method;
+        
+        let parseText = '';
+        if (parseSuccess) {
+            parseText = '<span class="text-success"><i class="fas fa-check"></i> JSON解析成功</span>';
+            if (extractionMethod) {
+                parseText += `<br><small>提取方式: ${extractionMethod}</small>`;
+            }
+        } else {
+            parseText = '<span class="text-danger"><i class="fas fa-times"></i> JSON解析失败</span>';
+            if (debugInfo.api_error) {
+                parseText += `<br><small class="text-danger">API错误: ${debugInfo.api_error}</small>`;
+            }
+            if (debugInfo.exception) {
+                parseText += `<br><small class="text-danger">异常: ${debugInfo.exception}</small>`;
+            }
+        }
+        
+        debugParseInfo.innerHTML = parseText;
+    }
+    
+    console.log('🐛 [调试] AI交互信息已显示:', debugInfo);
+}
+
+/**
+ * 切换调试面板显示/隐藏
+ */
+function toggleDebugPanel() {
+    const debugContent = document.getElementById('debugContent');
+    const debugToggleIcon = document.getElementById('debugToggleIcon');
+    const toggleText = debugToggleIcon.nextElementSibling;
+    
+    if (debugContent.style.display === 'none') {
+        debugContent.style.display = 'block';
+        debugToggleIcon.className = 'fas fa-eye-slash';
+        if (toggleText) toggleText.textContent = '收起';
     } else {
-        console.log('[连接线] 没有找到要关闭的模态框');
-    }
-    
-    // 移除连接线的选中状态，消除蓝色边缘
-    if (selectedConnection) {
-        selectedConnection.classList.remove('selected-connection');
-        selectedConnection = null;
-        console.log('[连接线] 已取消连接线选中状态');
+        debugContent.style.display = 'none';
+        debugToggleIcon.className = 'fas fa-eye';
+        if (toggleText) toggleText.textContent = '展开';
     }
 }
-
-function closeNodeStyleModal() {
-    if (currentNodeStyleModal) {
-        currentNodeStyleModal.remove();
-        currentNodeStyleModal = null;
-    }
-}
-
-function deleteConnection() {
-    if (selectedConnection) {
-        // 从connections数组中移除
-        connections = connections.filter(conn => conn.line !== selectedConnection);
-        // 从DOM中移除
-        selectedConnection.remove();
-        selectedConnection = null;
-        showToast('连接线已删除');
-        markUserInteraction();
-    }
-    closeConnectionModal();
-}
-
-// 确保连接线编辑函数全局可访问
-window.closeConnectionModal = closeConnectionModal;
-window.deleteConnection = deleteConnection;
-window.closeNodeStyleModal = closeNodeStyleModal;
-window.showNodeStylePanel = showNodeStylePanel;
-window.applyTheme = applyTheme;
-window.applyCustomTheme = applyCustomTheme;
-window.resetTheme = resetTheme;
-window.exportMindmap = exportMindmap;
-window.exportToPNG = exportToPNG;
-
-// 初始化主题选择器事件
-document.addEventListener('DOMContentLoaded', function() {
-    // 绑定主题预设选择事件
-    document.querySelectorAll('.theme-preset').forEach(preset => {
-        preset.addEventListener('click', function() {
-            const theme = this.dataset.theme;
-            
-            // 更新选中状态
-            document.querySelectorAll('.theme-preset').forEach(p => p.classList.remove('active'));
-            this.classList.add('active');
-            
-            // 应用主题
-            applyTheme(theme);
-        });
-    });
-    
-    // 绑定网格显示切换事件
-    const showGridCheckbox = document.getElementById('showGrid');
-    if (showGridCheckbox) {
-        showGridCheckbox.addEventListener('change', function() {
-            // 重新应用当前主题以更新网格显示
-            const activePreset = document.querySelector('.theme-preset.active');
-            if (activePreset) {
-                applyTheme(activePreset.dataset.theme);
-            }
-        });
-    }
-});
-
 </script>
+
+<!-- 确保连接样式选项的CSS存在 -->
+<style>
+.connection-style-option {
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #f8f9fa;
+    text-align: center;
+}
+
+.connection-style-option:hover {
+    border-color: #007bff;
+    background: #f0f7ff;
+}
+
+.connection-style-option.active {
+    border-color: #007bff;
+    background: #e7f3ff;
+}
+</style>
+
 {% endblock %}
